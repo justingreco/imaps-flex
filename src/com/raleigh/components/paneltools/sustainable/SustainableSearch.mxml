@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  width="320" height="100%" label="Sustainable Search"
+						  creationComplete="init()">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.GraphicEvent;
+			import com.esri.ags.events.LayerEvent;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.events.PanEvent;
+			import com.esri.ags.events.ZoomEvent;
+			import com.esri.ags.geometry.Geometry;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.layers.supportClasses.LayerDetails;
+			import com.esri.ags.renderers.UniqueValueRenderer;
+			import com.esri.ags.renderers.supportClasses.UniqueValueInfo;
+			import com.esri.ags.tools.NavigationTool;
+			import com.hillelcoren.utils.StringUtils;
+			import com.raleigh.components.toolbar.selection.PropertySelectTool;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			
+			import spark.events.GridSelectionEvent;
+			[Bindable]
+			private var ac:ArrayCollection;
+			[Bindable]			
+			private var categories:ArrayCollection;
+			
+			private var content:SustainableContent = new SustainableContent();
+			private var pt:MapPoint;		
+
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				model.sustainableSearch = this;
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				Sustainable.url = config.featurelayer.@url;
+				map.addLayer(Sustainable);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}	
+			
+			
+			protected function fLayer_graphicAddHandler(event:GraphicEvent):void
+			{
+				event.graphic.toolTip = event.graphic.attributes.NAME;
+				//event.graphic.filters = [new spark.filters.DropShadowFilter()];
+				event.graphic.addEventListener(MouseEvent.CLICK, graphicClickHandler);
+				event.graphic.addEventListener(MouseEvent.ROLL_OVER, graphicRollOverHandler);
+				event.graphic.addEventListener(MouseEvent.ROLL_OUT, graphicRollOutHandler);
+				event.graphic.useHandCursor = true;
+				event.graphic.buttonMode = true;
+			}
+			
+			private var contentData:ArrayCollection;
+			private function graphicClickHandler(event:MouseEvent):void
+			{
+				var g:Graphic = Graphic(event.currentTarget);
+				displayContentWindow(g.geometry, g.attributes);
+
+			}
+			
+			private function displayContentWindow(geom:Geometry, attributes:Object):void
+			{
+
+				content.addEventListener(CloseEvent.CLOSE, contentCloseHandler,false,0,true);
+				content.visible = true;
+				
+				setContentData(attributes);
+				content.dp = contentData;
+				content.title = attributes.NAME;
+				content.site = attributes.URL;
+				content.photo = attributes.CATEGORY+"/"+attributes.NAME+".jpg";
+				content.icon = attributes.CATEGORY;
+				
+				if(map.contains(content))
+				{
+					map.removeChild(content);
+				}				
+				map.addChild(content);				
+				
+				pt= geom as MapPoint;
+				
+				setContentPosition();
+				
+				map.addEventListener(PanEvent.PAN_UPDATE, repositionContent,false,0,true);
+				map.addEventListener(ZoomEvent.ZOOM_UPDATE, repositionContent,false,0,true);				
+			}
+			
+			private function setContentData(attributes:Object):void{
+				contentData = new ArrayCollection();
+				for (var s:String in attributes)
+				{
+					if(s != "URL" && s != "NAME" && s != "CATEGORY" && s != "X" && s != "Y" && s.toUpperCase() != "OBJECTID")
+					{
+						if (attributes[s] != null)
+						{
+							if (attributes[s].toString().replace(new RegExp(" ", "g"),"") != "")
+							{
+								contentData.addItem({label:StringUtils.capitalizeWords(s.toLowerCase()).replace(new RegExp("_", "g"),""), value:attributes[s], order:setFieldOrder(s)});						
+							}						
+						}
+						
+						
+					}
+				}
+				contentData.sort = new Sort();
+				contentData.sort.fields = [new SortField("order")];
+				contentData.refresh();
+			}		
+			
+			private function setFieldOrder(field:String):int
+			{
+				var order:int = 0;
+				switch (field)
+				{
+					case "LOCATION":
+						order = 1;
+						break;
+					case "OWNER":
+						order = 2;
+						break;
+					case "TYPE":
+						order = 3;
+						break;
+					case "STATUS":
+						order = 4;
+						break;
+					case "SIZE_":
+						order = 5;
+						break;
+					case "OUTPUT":
+						order = 6;
+						break;
+					case "CERTIFICATION":
+						order = 7;
+						break;
+					case "INSTALLER":
+						order = 8;
+						break;
+				}
+				return order;
+			}			
+			
+			
+			
+			private function graphicRollOverHandler(event:MouseEvent):void
+			{
+				map.cursorManager.removeAllCursors();
+				map.openHandCursorVisible = false;
+				if (model.identifyTool)
+				{
+					map.removeEventListener(MapMouseEvent.MAP_CLICK, model.identifyTool.mapIdentifyClick);
+				}
+				if (model.propertySelectTool)
+				{
+					var propertySelectTool:PropertySelectTool = model.propertySelectTool;
+					propertySelectTool.drawTool.deactivate();
+				}
+				
+			}
+			private function graphicRollOutHandler(event:MouseEvent):void
+			{
+				map.openHandCursorVisible = true;
+				if (model.identifyTool)
+				{
+					if (model.identifyTool.selected)
+					{
+						map.addEventListener(MapMouseEvent.MAP_CLICK, model.identifyTool.mapIdentifyClick,false,0,true);						
+					}
+				}	
+				
+				if (model.propertySelectTool)
+				{
+					var propertySelectTool:PropertySelectTool = model.propertySelectTool;
+					if (model.propertySelectTool.selectedIndex > -1)
+					{
+						propertySelectTool.drawTool.activate(propertySelectTool.drawType, true);
+					}
+				}
+			}	
+			
+			private function repositionContent(event:Event):void
+			{
+				setContentPosition()
+			}
+			
+			private function setContentPosition():void
+			{
+				var infoPt:Point = map.toScreen(pt);
+				if (content.x > map.width/2)
+				{
+					content.x = infoPt.x + 20;
+					content.y = infoPt.y - 20;						
+				}
+				else
+				{
+					content.x = infoPt.x - 20 - content.width;
+					content.y = infoPt.y - 20;						
+				}
+				
+			}
+			
+			private function contentCloseHandler(event:CloseEvent):void
+			{
+				map.removeEventListener(PanEvent.PAN_UPDATE, repositionContent);	
+				map.removeEventListener(ZoomEvent.ZOOM_END, repositionContent);				
+				map.removeChild(content);
+			}			
+			
+			
+			
+
+			protected function fLayer_updateCompleteHandler(event:FlexEvent):void
+			{
+  				if (Sustainable.graphicProvider.length > 0)
+				{
+					ac = new ArrayCollection();//fLayer.graphicProvider.list.source);
+					for each (var g:Graphic in Sustainable.graphicProvider)
+					{
+						ac.addItem({NAME:g.attributes.NAME, CATEGORY:g.attributes.CATEGORY, attributes:g.attributes, geometry:g.geometry});
+					}
+					ac.sort = new Sort();
+					ac.sort.fields = [new SortField("CATEGORY"), new SortField("NAME")];
+					ac.refresh();
+				}  
+
+			}
+
+
+			protected function fLayer_loadHandler(event:LayerEvent):void
+			{
+				var layerDetails:LayerDetails = Sustainable.layerDetails;
+				categories = new ArrayCollection();
+				ddl.dataProvider = new ArrayCollection();
+				ddl.dataProvider.addItem("All Categories");
+				for each(var info:UniqueValueInfo in UniqueValueRenderer(Sustainable.layerDetails.drawingInfo.renderer).infos)
+				{
+					categories.addItem(info);
+					ddl.dataProvider.addItem(info);			
+				}
+				ddl.selectedIndex = 0;
+			}
+
+
+			protected function ddl_changeHandler():void
+			{
+				if (ddl.selectedItem == "All Categories")
+				{
+					Sustainable.definitionExpression = "";					
+				}
+				else
+				{
+					Sustainable.definitionExpression = "CATEGORY = '"+ddl.selectedItem.label+"'";					
+				}
+				if (content)
+				{
+					if (map.contains(content))
+					{
+						map.removeChild(content);							
+					}
+				}
+				
+
+			}
+
+			protected function datagrid1_changeHandler(event:GridSelectionEvent):void
+			{
+				map.centerAt(event.currentTarget.selectedItem.geometry);
+				map.level = 9;
+				displayContentWindow(event.currentTarget.selectedItem.geometry,event.currentTarget.selectedItem.attributes);
+			}
+			
+
+		]]>
+	</fx:Script>
+	
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+	
+	<fx:Declarations>
+		<esri:FeatureLayer id="Sustainable" name="Sustainable" graphicAdd="fLayer_graphicAddHandler(event)"
+						   load="fLayer_loadHandler(event)" mode="snapshot"
+						   outFields="{['NAME','CATEGORY','LOCATION','OWNER', 'TYPE', 'STATUS', 'SIZE_', 'OUTPUT', 'CERTIFICATION', 'URL']}"
+						   updateComplete="fLayer_updateCompleteHandler(event)"/>
+	</fx:Declarations>
+	
+	<s:DataGroup width="100%" dataProvider="{categories}"
+				 itemRenderer="com.raleigh.components.paneltools.sustainable.SustainableCategoryItemRenderer">
+		<s:layout>
+			<s:TileLayout requestedColumnCount="2"/>
+		</s:layout>
+	</s:DataGroup>
+	<s:DropDownList id="ddl" width="100%" change="ddl_changeHandler()" labelField="label"
+					valueCommit="ddl_changeHandler()"/>
+	<s:DataGrid id="dg" width="100%" height="100%" 
+				selectionChange="datagrid1_changeHandler(event)"
+				 dataProvider="{ac}" 
+				 variableRowHeight="true"
+				 >
+		<s:columns>
+			<s:ArrayList>
+				<s:GridColumn dataField="NAME" headerText="Name"/>
+				<s:GridColumn dataField="CATEGORY" headerText="Category"/>				
+			</s:ArrayList>
+		</s:columns>
+
+	</s:DataGrid>
+	
+</paneltools:BasePanelTool>

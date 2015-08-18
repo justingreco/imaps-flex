@@ -1,0 +1,4 @@
+<config>
+	<basemap url='http://maps.raleighnc.gov/ArcGIS/rest/services/BaseMap/MapServer' type='tiled'/>
+	<labels url='http://maps.raleighnc.gov/ArcGIS/rest/services/Labels/MapServer' type='tiled'/>
+</config>

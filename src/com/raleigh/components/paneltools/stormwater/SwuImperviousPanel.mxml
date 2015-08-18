@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<stormwater:SwuBasePanel xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:services="services.*"
+						 xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+						 currentState="{(toggleBtn.selected)?'Details':'NoDetails'}"
+						 title="Impervious Surfaces">
+	<stormwater:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</stormwater:layout>
+	<stormwater:states>
+		<s:State name="NoDetails"/>
+		<s:State name="Details"/>
+	</stormwater:states>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.controls.Alert;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+
+			[Bindable]
+			public var detailsWin:SwuImperviousDetailsWindow;	
+			private var imperviousWin:SwuImperviousAdd;
+			
+			protected function dataGrid_changeHandler(event:ListEvent):void
+			{
+				
+				//getImperviousSurface(event.itemRenderer.data.id, model.stormwater.connString, model.stormwater.dbSchema);
+				SwuSearchPanel(model.stormwater.searchPanel).swuService.addEventListener(ResultEvent.RESULT, imperviousSurfaceRecieved);
+				model.controller.showProgress("Retrieving Impervious Surface...");
+				model.stormwater.searchPanel.swuService.send({'function':'getimpervioussurface',
+					impid:event.itemRenderer.data.SWU_IMPERVIOUS_SURFACE_ID,
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+				
+			}
+		
+			protected function imperviousSurfaceRecieved(event:ResultEvent):void{
+				model.controller.removeProgress();
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT,imperviousSurfaceRecieved);
+				if (!detailsWin)
+				{
+					detailsWin = new SwuImperviousDetailsWindow();
+				}
+				var data:Array = [];
+				if (event.result.length > 0){ 
+					data = JSON.decode(event.result as String);
+					if (data.length > 0){
+						detailsWin.details = data[0];
+						if (detailsWin.piechart1)
+						{
+							detailsWin.buildChartProvider(data[0]);
+						}						
+					}
+				}
+				PopUpManager.addPopUp(detailsWin, this.parentApplication as DisplayObject);
+				PopUpManager.centerPopUp(detailsWin);
+			}
+			
+
+
+			protected function addBtn_clickHandler(event:MouseEvent):void
+			{
+				//get current impervious surface record and carry forward those values
+				//GetCurrentSurface(model.stormwater.currentAccount.swu_account_id, model.stormwater.connString, model.stormwater.dbSchema);
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, currentSurfaceReceieved);
+				model.stormwater.searchPanel.swuService.send({'function':'getcurrentsurface',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+
+
+			
+			protected function currentSurfaceReceieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT,currentSurfaceReceieved);
+				if (!imperviousWin)
+				{
+					imperviousWin = new SwuImperviousAdd();
+				}
+				var data:Array = [];
+				if (event.result.length > 0){
+					data = JSON.decode(event.result as String);
+					imperviousWin.currentImpervious = data[0];
+					PopUpManager.addPopUp(imperviousWin, this.parentApplication as DisplayObject, true);
+					PopUpManager.centerPopUp(imperviousWin);
+				}
+			}
+			
+
+			
+			public function formatDate(item:Object, column:DataGridColumn):String
+			{
+				return dateFormatter.format(item.effective);
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+
+	</fx:Declarations>
+	<s:Label fontSize="14" fontWeight="bold"
+			 text="SFEU {model.stormwater.currentAccount.SFEU} ({stormwater.currentAccount.SFEU_TYPE})"/>
+	<s:TileGroup width="100%" requestedColumnCount="3" requestedRowCount="4">
+		<s:Label fontWeight="bold" text="Description" textDecoration="underline"/>
+		<s:Label fontWeight="bold" text="Current Area" textDecoration="underline"/>
+		<s:Label fontWeight="bold" text="Previous Area" textDecoration="underline"/>
+		<s:Label text="Total"/>
+		<s:Label text="{model.stormwater.currentAccount.TOTAL_IMPERVIOUS_SURFACE}"/>
+		<s:Label text="{model.stormwater.currentAccount.TOTAL_PREV_IMPERVIOUS_SURFACE}"/>
+		<s:Label text="Credited"/>
+		<s:Label text="{model.stormwater.currentAccount.CREDITED_IMP_SURFACE}"/>
+		<s:Label text="{model.stormwater.currentAccount.PREV_CREDITED_IMP_SURFACE}"/>
+		<s:Label text="Billable"/>
+		<s:Label text="{model.stormwater.currentAccount.BILLABLE_IMP_SURFACE}"/>
+		<s:Label text="{model.stormwater.currentAccount.PREV_BILLABLE_IMP_SURFACE}"/>
+	</s:TileGroup>
+	<s:HGroup width="100%" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+		<s:ToggleButton id="toggleBtn" enabled="{Boolean(model.stormwater.currentAccount)}"
+						label.Details="Hide Impervious"
+						label.NoDetails="Show Impervious"/>		
+		<s:Label width.Details="201"
+				 width.NoDetails="201"/>				
+		<s:Button id="addBtn"  
+				  label="Add" click="addBtn_clickHandler(event)"
+				  enabled="{Boolean(model.stormwater.ImpInsertPrivs)}"/>
+	</s:HGroup>
+	<mx:DataGrid id="dataGrid" includeIn="Details" width="100%" maxHeight="200"
+				 change="dataGrid_changeHandler(event)"
+				 dataProvider="{model.stormwater.imperviousSurfaces}"
+				 wordWrap="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="SWU_IMPERVIOUS_SURFACE_ID" headerText="ID"/>
+			<mx:DataGridColumn dataField="EFFECTIVE_DATE" headerText="Effective Date" labelFunction="formatDate"/>								
+			<mx:DataGridColumn dataField="PARCEL_IMP_SURFACE_TOTAL" headerText="Total Imp Area"/>
+			<mx:DataGridColumn dataField="METHOD_USED" headerText="Method"/>			
+			<mx:DataGridColumn dataField="IMPERVIOUS_STATUS" headerText="Status"/>
+		</mx:columns>
+	</mx:DataGrid>	
+</stormwater:SwuBasePanel>

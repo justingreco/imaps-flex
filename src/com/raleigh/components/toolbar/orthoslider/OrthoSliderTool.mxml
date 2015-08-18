@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:BaseToolbarTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:components="com.raleigh.components.*"
+						 xmlns:utils="com.raleigh.components.utils.*"
+						 xmlns:toolbar="com.raleigh.components.toolbar.*"
+						 addedToStage="group1_addedToStageHandler(event)" initialize="init()"
+						 removedFromStage="group1_removedFromStageHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.events.ExtentEvent;
+			import com.esri.ags.layers.ArcGISImageServiceLayer;
+			import com.esri.ags.layers.ArcGISTiledMapServiceLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.components.map.MapToggle;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			
+			import spark.events.IndexChangeEvent;
+
+
+			private var val:Number = 0;
+			[Bindable]
+			private var interval:Number;
+			private var current:Number = 0;
+			
+			private var ortho1:Layer;
+			private var ortho2:Layer;
+			
+			private var timer:Timer;
+			
+
+			[Bindable]
+			private var imageList:ArrayCollection;
+			
+			private function init():void
+			{
+				
+			}
+			
+			private function getImageList():void
+			{
+				imageList = new ArrayCollection();
+				serviceCount = 0;
+				var qt:QueryTask;
+				var token:AsyncToken;
+				var q:Query = new Query();
+				q.where = 'CATEGORY = 1';
+				q.geometry = map.extent;
+				for each (var service:Layer in model.imageLayers)
+				{
+					var url:String = "";
+					if (service is ArcGISImageServiceLayer){
+						url = ArcGISImageServiceLayer(service).url;
+					}else if (service is ArcGISTiledMapServiceLayer){
+						url = ArcGISTiledMapServiceLayer(service).url;
+					}
+					qt = new QueryTask(url);
+					qt.useAMF = true;
+					qt.showBusyCursor = false;
+					token = new AsyncToken();
+					token.service = service;
+					qt.executeForCount(q, new AsyncResponder(countExecuteComplete, null, token));
+				}
+
+
+			}
+			
+			private var serviceCount:int = 0;			
+			protected function countExecuteComplete(count:int, token:Object):void
+			{
+				if (count > 0)
+				{
+					imageList.addItem({service:token.service as Layer, label:token.service.name});
+				}
+				
+				serviceCount += 1;
+				if (serviceCount == model.imageLayers.length)
+				{
+					
+					imageList.sort = new Sort();
+					imageList.sort.fields = [new SortField("label")];
+					imageList.refresh();
+					slider.labels = [];
+					for each(var item:Object in imageList)
+					{
+						
+						slider.labels.push(item.label);
+						interval = slider.maximum/(imageList.length-1);
+						slider.tickInterval = interval;
+					}
+					slider_changeHandler();
+				}
+			}
+
+			
+			protected function hslider1_creationCompleteHandler(event:FlexEvent):void
+			{
+				slider.value = 0;
+			}
+			private function formatDataTip(item:Number):String{
+				return Math.round(100-val)+"/"+Math.round(0+val);
+			}
+			
+
+
+			protected function slider_changeHandler():void
+			{
+				if (imageList.length > 0)
+				{
+					val = (slider.value%interval)*(imageList.length-1);
+					var i:int= parseInt(roundDown.format(slider.value/interval));
+					
+					if (i < imageList.length-1)
+					{
+						ortho1 = imageList[i].service;
+						ortho2 = imageList[i+1].service;
+					}
+					else if (i == imageList.length-1)
+					{
+						ortho1 = imageList[i-1].service;
+						ortho2 = imageList[i].service;					
+					}
+					
+					if (slider.value < 100)
+					{
+						ortho1.alpha = (100-val)/100;
+						ortho2.alpha = (0+val)/100;
+					}
+					for each (var item:Object in imageList)
+					{
+						var service:Layer = item.service;
+						if (service == ortho1 || service == ortho2)
+						{
+							service.visible = true;
+						}
+						else
+						{
+							service.visible = false;
+						}
+					}					
+				}	
+			}
+
+
+			protected function back_clickHandler(event:MouseEvent):void
+			{
+				if (timer)
+				{
+					timer.stop();
+					slider.allowTrackClick = true;
+					slider.enabled = true;					
+					stop.enabled = false;
+					play.enabled = true;
+				}				
+				if (slider.value%interval == 0 && slider.value != 0)
+				{
+					slider.value = slider.value - interval;
+				}
+				else
+				{
+					slider.value = slider.value - slider.value %interval;
+				}
+				current = slider.value;
+			}
+
+
+			protected function next_clickHandler(event:MouseEvent):void
+			{
+				if (timer)
+				{
+					timer.stop();
+					slider.allowTrackClick = true;
+					slider.enabled = true;
+					stop.enabled = false;
+					play.enabled = true;
+				}
+				
+				if (Math.round(slider.value)%interval == 0 && slider.value != 100)
+				{
+					slider.value = slider.value + interval;
+				}
+				else
+				{
+					slider.value = slider.value + (interval - slider.value %interval);
+				}
+				current = slider.value;
+			}
+			
+			protected function play_clickHandler():void
+			{
+				timer = new Timer(100*(slider.labels.length-1)*speedDdl.selectedItem.value);
+				timer.addEventListener("timer", timerStart,false,0,true);
+				slider.allowTrackClick = false;
+				slider.enabled = false;
+				timer.start();
+				function timerStart(e:TimerEvent):void
+				{
+					play.enabled = false;
+					stop.enabled = true;
+					slider.value = current + timer.currentCount;
+					if (slider.value > 99.999999)
+					{
+						timer.stop();
+						current = 0;
+						play.enabled = true;
+						stop.enabled = false;
+						slider.allowTrackClick = true;
+					}
+				}
+			}
+
+
+			protected function group1_removedFromStageHandler(event:Event):void
+			{	
+				map.removeEventListener(ExtentEvent.EXTENT_CHANGE, extentChangeHandler);
+				for each (var ortho:Layer in model.imageLayers)
+				{
+					ortho.alpha = 1;
+				}
+				var mapToggle:MapToggle = model.mapToggle;
+				if (mapToggle)
+				{
+					mapToggle.enabled = true;
+				}				
+				for each(var layer:Layer in model.imageLayers)
+				{
+					layer.visible = false;
+				}
+				if (mapToggle)
+				{
+					switch (mapToggle.buttonBar.selectedIndex)
+					{
+						case 0:
+							turnBaseMapOn();
+							break;
+						case 1:
+							mapToggle.orthoLayer.visible = true;
+							break;
+						case 2:
+							turnBaseMapOn();
+							mapToggle.orthoLayer.visible = true;	
+							break;
+					}
+				}
+				else
+				{
+					model.baseMap.visible = true;
+					if (model.baseLayers.length == 1)
+					{
+						model.baseLayers[0].visible = true;
+					}
+					else
+					{
+						if (model.mapToggle.baseMapDDL)
+						{
+							for (var i:int = 0;i<model.baseLayers.length;i++)
+							{
+								if (i == model.mapToggle.baseMapDDL.selectedIndex)
+								{
+									model.baseLayers[i].visible = true;
+								}
+								else
+								{
+									model.baseLayers[i].visible = false;
+								}
+							}
+						}
+					}
+				}
+				
+				play.enabled = true;
+				stop.enabled = false;
+				if (timer)
+				{
+					timer.stop();					
+				}
+
+			}
+
+			protected function turnBaseMapOn():void
+			{
+				if (model.mapToggle.baseMapDDL)
+				{
+					model.baseLayers[model.mapToggle.baseMapDDL.selectedIndex].visible = true;
+				}
+				else
+				{
+					model.baseLayers[0].visible = true;
+				}
+			}
+			
+			protected function group1_addedToStageHandler(event:Event):void
+			{
+				getImageList();
+				map.addEventListener(ExtentEvent.EXTENT_CHANGE, extentChangeHandler,false,0,true);
+				var mapToggle:MapToggle = model.mapToggle;
+				slider.allowTrackClick = true;
+				slider.enabled = true;
+				if (mapToggle)
+				{
+					mapToggle.enabled = false;
+				}
+				
+				for each (var layer:Layer in model.baseLayers)
+				{
+					layer.visible = false;
+				}
+				if (ortho1)
+				{
+					ortho1.visible = true;		
+					ortho2.visible = true;
+				}
+
+			}
+			
+			private function extentChangeHandler(event:ExtentEvent):void
+			{
+				getImageList();
+			}
+
+
+			protected function stop_clickHandler():void
+			{
+				timer.stop();
+				play.enabled = true;
+				stop.enabled = false;
+				slider.allowTrackClick = true;
+				slider.enabled = true;
+				current =slider.value;
+			}
+
+
+			protected function dropdownlist1_changeHandler(event:IndexChangeEvent):void
+			{
+				if (timer)
+				{
+					timer.delay = 100*(slider.labels.length-1)*speedDdl.selectedItem.value;					
+				}
+
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<mx:NumberFormatter id="roundDown" precision="0" rounding="down"/>
+	</fx:Declarations>
+	
+	<toolbar:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</toolbar:layout>
+	
+	<mx:HSlider id="slider" width="500" change="slider_changeHandler()"
+				creationComplete="hslider1_creationCompleteHandler(event)"
+				dataTipFormatFunction="formatDataTip" liveDragging="true" maximum="100" minimum="0"
+				showTrackHighlight="true" valueCommit="slider_changeHandler()"/>
+	<s:HGroup>
+		<utils:ImageButton id="back" width="30" height="30" click="back_clickHandler(event)"
+						   icon="@Embed(source='assets/Previous.png')" toolTip="Back"/>
+		<utils:ImageButton id="play" width="30" height="30" click="play_clickHandler()"
+						   icon="@Embed(source='assets/Play.png')" toolTip="Play"/>
+		<utils:ImageButton id="stop" width="30" height="30" click="stop_clickHandler()"
+						   icon="@Embed(source='assets/Stop.png')" toolTip="Stop"/>
+		<utils:ImageButton id="next" width="30" height="30" click="next_clickHandler(event)"
+						   icon="@Embed(source='assets/Next.png')" toolTip="Next"/>		
+		
+	</s:HGroup>
+	<s:DropDownList id="speedDdl" change="dropdownlist1_changeHandler(event)" selectedIndex="1">
+		<s:ArrayList>
+			<fx:Object label="Slow" value="2"/>
+			<fx:Object label="Medium" value="1"/>
+			<fx:Object label="Fast" value="0.5"/>
+		</s:ArrayList>
+	</s:DropDownList>
+</toolbar:BaseToolbarTool>

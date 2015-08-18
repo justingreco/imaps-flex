@@ -1,0 +1,270 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>New Web Project</title>
+        <!-- Pictometry Navigator Style Sheet -->
+        <link type="text/css" rel="stylesheet" href="http://gisprdpic1/load/?module=ImageNavigator&type=css" />
+        
+        <!-- Pictometry Navigator API -->
+        <script type="text/javascript" src="http://gisprdpic1/load/?module=ImageNavigator&type=api"></script>
+        <script type="text/javascript">
+// Holds the reference to the Pictometry Navigator object.
+      var ImgNav = null;
+	  var overlays = [];
+
+
+      // Called from the 'onload' event in the <body> tag.
+      function Init()
+      {
+		
+		load();
+
+      }
+
+function load()
+{
+		
+		window.parent.pictometry = window;
+        //
+        // Instantiate the constructor parameters object.
+        //
+        // UserId - The required Pictometry User Identification code.
+        // ServerProxy - The fully qualified URL for the required local proxy server.
+        //
+        // For example: http://your.domain.name/<path to proxy server>
+        // 
+        var params = {UserId : "0", ServerProxy : "http://localhost/Pictometry/proxy.ashx", TileServers:["http://gisprdpic1/"]};
+      
+        //
+        // Instantiate the new ImageNavigator passing in the id
+        // of previously defined DIV element and parameters.
+        //
+        ImgNav = new Pol.VI.ImageNavigator("ImageViewer", params);
+      
+        // Call the Init method.
+        ImgNav.Init();
+        // Attach to the navigate fail event.
+        ImgNav.AttachEvent("onnavigatefail", OnNavigateFail);
+        
+        // Attach to the edge detect event.
+        ImgNav.AttachEvent("onedgedetect", OnEdgeDetect);
+        
+        ImgNav.AttachEvent("onviewchange", OnViewChange);
+        
+        ImgNav.AttachEvent("onmouseup", OnMouseUp);
+        
+        // Enable Auto Navigation.
+        ImgNav.SetAutoNavigate(true);
+        
+        
+
+ 		ConfigLayers();    
+        
+        
+        Search(window.parent.pictLat, window.parent.pictLon);
+}
+      
+var parcels = null;
+function ConfigLayers()
+{
+		//
+		// Add a feature named 'parcels' and configure the polygon type.
+		//
+		// The WFS server is at: http://127.0.0.1:8080/geoserver/wfs?version=1.1.0"
+		// The bounding box and output geometries are in Lat/Lng order.
+		//
+		var cfg = { display : Pol.VI.Feature.Display.Auto,
+					polygon : { strokeColor : '#FFFFFF', strokeWeight : 2, strokeOpacity : 1.0, fillColor : '#0000ff', fillOpacity : 0.00 },
+					wfs : {server : "http://maps.raleighnc.gov/arcgis/services/Pictometry/PictometryLayers/MapServer/WFSServer", bbox : Pol.VI.Feature.OrderBy.LatLng, output : Pol.VI.Feature.OrderBy.LatLng}};
+		
+		parcels = new Pol.VI.Feature('Wake_Property', cfg);
+		overlays.push(parcels);
+						
+
+
+		
+		var cfg1 = { display : Pol.VI.Feature.Display.Auto,
+					polyline : { strokeColor : '#fff600', strokeWeight : 8, strokeOpacity :0.5},
+					wfs : {server : "http://maps.raleighnc.gov/arcgis/services/Pictometry/PictometryLayers/MapServer/WFSServer", bbox : Pol.VI.Feature.OrderBy.LatLng, output : Pol.VI.Feature.OrderBy.LatLng},
+					autolabel : true, label : {text : 'CARTONAME'}};
+		
+		var streets = new Pol.VI.Feature('Streets', cfg1);
+		overlays.push(streets);
+
+}
+
+function OnParcelHandler( evt )
+{
+  var target = evt.target;
+  var mesg = '';
+  if (target)
+  {
+    target.Query(evt.image.x, evt.image.y,["OWNER","SITE_ADDR","PIN_NUM"], ParcelQueryCB)
+  }
+}
+function ParcelQueryCB(o)
+{
+
+    window.parent.flexApp.selectParcel(o.results["PIN_NUM"]);
+  
+  //alert(mesg);
+}
+
+function ToggleLayerVisibility(isVisible)
+{
+	var i = 0;
+	for (i = 0; i < overlays.length; i++)
+	{
+		if (isVisible)
+		{
+			ImgNav.AddOverlay(overlays[i]);
+      ImgNav.AttachEvent('onclick', OnParcelHandler, parcels);
+		}
+		else
+		{
+			ImgNav.RemoveOverlay(overlays[i]);
+      ImgNav.DetachEvent('onclick', OnParcelHandler, parcels);
+		}
+	}
+	ImgNav.RenderOverlay();
+}
+      
+function OnViewChange( evt )
+{
+	var month = ImgNav.GetMonth();
+	var day = ImgNav.GetDay();
+	var year = ImgNav.GetYear();
+	window.parent.flexApp.dateChange(day, month, year);
+}   
+
+function OnMouseUp( evt )
+{
+	ImgNav.GetLatLngBounds(GetLatLngBoundsCallback);
+}   
+
+function GetLatLngBoundsCallback( resp )
+{
+	if (resp.status == 0 )
+	{
+		var xmin = resp.ll.longitude;
+		var ymin = resp.ll.latitude;
+		var xmax = resp.ur.longitude;
+		var ymax = resp.ur.latitude;
+		
+		window.parent.flexApp.updateExtent(xmin, ymin, xmax, ymax);
+	}
+}
+      
+// Simple Navigate Fail event handler.
+function OnNavigateFail( evt )
+{
+  alert("Navigation Failed: " + evt.reason);
+  ImgNav.GetCenterLatLng(CenterLatLongCallback);
+}
+
+function CenterLatLongCallback( resp )
+{
+	Search(resp.latitude, resp.longitude);
+}
+
+// Simple Edge Detect event handler.
+function OnEdgeDetect( evt )
+{
+  ImgNav.Navigate();
+}      
+      
+      //
+      // Simple search callback function.
+      //
+      // The callback object has the following fields:
+      //
+      //  resp.status - Status code.
+      //  resp.reason - Text description of the status code.
+      //
+      // If the optional <strong>data</strong> argument was specified in the search then it can be accessed by:
+      //
+      //  resp.data - Optional user specified data object.
+      //
+      function SearchCallback( resp )
+      {
+        // A 0 status indicates the search succeeded.
+        if( resp.status == 0 )
+        {
+          // Find the first available oblique image.
+          var view = ImgNav.FindFirstOblique();
+      
+          // Set the view.
+          ImgNav.SetView(view.level, view.type, view.orientation);
+        }
+        else
+        {
+          alert("Search Failed: " + resp.reason);
+        }
+      }
+      
+      
+
+      function Search(latitude, longitude)
+      {
+      // Location coordinates.
+      //var latitude = 35.8189;
+      //var longitude = -78.6447;
+      
+      // Perform the Search.
+      ImgNav.Search( latitude, longitude, SearchCallback);         
+      }
+      
+      function ChangeOrientation(direction)
+      {
+      var newOrientation = null;
+      	switch(direction)
+      	{
+      		case "N":
+      			newOrientation = Pol.VI.Orientation.North;
+      			break;
+      		case "E":
+      			newOrientation = Pol.VI.Orientation.East;      		
+      			break;
+      		case "S":
+      			newOrientation = Pol.VI.Orientation.South;      		
+      			break;
+      		case "W":
+      			newOrientation = Pol.VI.Orientation.West;      		
+      			break;
+      	}
+      	ImgNav.SetOrientation(newOrientation);
+      }
+      
+      function GetPreviousImage()
+      {
+		ImgNav.GetPrevImage();	
+      }
+      function GetNextImage()
+      {
+		ImgNav.GetNextImage();
+      }
+      function UpdateScale(scale)
+      {
+      	ImgNav.SetScale(scale);
+      }
+      
+      function ResizeDiv(width, height)
+      {
+      	var div = document.getElementById("ImageViewer");
+      	div.style.width = width+"px";
+      	div.style.height = height+"px";
+      	ImgNav.SetViewerSize(width, height);
+      }
+      
+
+	
+        </script>
+
+    </head>
+    <body onload="load()" style="left:0px;top:0px;padding:0;margin:0;width:400px; height:300px;">
+    	
+      <div id="ImageViewer" style="position:absolute; width:400px; height:300px;overflow:hidden"></div>
+    </body>
+</html>

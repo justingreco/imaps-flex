@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<esri:FeatureLayer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   xmlns:esri="http://www.esri.com/2008/ags"
+				   xmlns:supportClasses="com.esri.ags.clusterers.supportClasses.*"
+				   buttonMode="true" click="featurelayer1_clickHandler(event)"
+				   filters="{[new spark.filters.DropShadowFilter()]}" initialize="init()"
+				   mode="selection" rollOut="featurelayer1_rollOutHandler(event)"
+				   rollOver="featurelayer1_rollOverHandler(event)"
+				   selectionComplete="featurelayer1_selectionCompleteHandler(event)"
+				   fault="controller.removeProgress()" useAMF="false"
+				   useHandCursor="true">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.clusterers.supportClasses.FlareSymbol;
+			import com.esri.ags.events.FeatureLayerEvent;
+			import com.esri.ags.events.FlareMouseEvent;
+			import com.esri.ags.geometry.Geometry;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			
+			import mx.controls.Alert;
+			import mx.controls.ToolTip;
+			import mx.core.IToolTip;
+			import mx.managers.ToolTipManager;
+			
+			import spark.filters.DropShadowFilter;
+			
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			private var controller:Controller = Controller.getInstance();
+			
+			private var now:Date = new Date();
+			public var dateClause:String;
+			public var categoryClause:String = '';
+			public var geometry:Geometry;
+			
+			private function init():void{
+				//Model.instance.crimeFeatureLayer = this;
+				//model.map.addEventListener(FlareMouseEvent.FLARE_CLICK, flareClickHandler,false,0,true);
+				model.map.addEventListener(FlareMouseEvent.FLARE_OVER, flareOverHandler, false, 0 , true);
+				model.map.addEventListener(FlareMouseEvent.FLARE_OUT, flareOutHandler, false, 0 , true);
+				model.map.addEventListener(MouseEvent.MOUSE_WHEEL, mouseWheelHandler);
+				dateClause = "DATETMRPTD  >= date '"+dateFormat.format(new Date(now.fullYear, now.month, now.date-31))+"' AND " +
+					"DATETMRPTD  <= date '"+dateFormat.format(now)+"'";
+
+			}
+			
+			
+			protected function flareOverHandler(event:FlareMouseEvent):void
+			{
+				
+				removeEventListener(FlareMouseEvent.FLARE_OVER, flareOverHandler);
+				showCustomToolTip(event.graphic, event.stageX, event.stageY);
+			}
+			protected function flareOutHandler(event:FlareMouseEvent):void
+			{
+				//ToolTipManager.destroyToolTip(customToolTip); 
+				for (var i:int = 0;i<systemManager.toolTipChildren.numChildren;i++)
+				{
+					ToolTipManager.destroyToolTip(systemManager.toolTipChildren.getChildAt(i) as IToolTip);
+				}
+			}			
+			
+			protected function mouseWheelHandler(event:MouseEvent):void
+			{
+				for (var i:int = 0;i<systemManager.toolTipChildren.numChildren;i++)
+				{
+					ToolTipManager.destroyToolTip(systemManager.toolTipChildren.getChildAt(i) as IToolTip);
+				}		
+
+			}
+			
+			private var customToolTip:ToolTip;
+			private function showCustomToolTip(g:Graphic, stageX:Number, stageY:Number):void
+			{
+
+		
+				customToolTip = ToolTipManager.createToolTip(dtf.format(g.attributes.DATETMRPTD)+"\n"+g.attributes.CRIMECLASS+"\n"+g.attributes.PREMISETYPE, stageX, stageY) as ToolTip;
+			}
+
+
+			protected function featurelayer1_clickHandler(event:MouseEvent):void
+			{
+/* 				var query:Query = new Query();
+				if (event.target.toString() == "[object CustomSprite]"){
+					var point:MapPoint = event.target.mapPoint;
+					query.geometry = new Extent(
+						point.x-5, point.y-5, point.x+5, point.y+5, model.map.spatialReference);
+					query.where = Model.instance.controller.buildWhereClause();					
+					query.where = Model.instance.controller.buildWhereClause();
+					Model.instance.crimeSelectionLayer.selectFeatures(query);
+					//map.infoWindow.show(event.target.mapPoint);
+				} */
+			}
+			
+			protected function buildWhereClause():String
+			{
+				var where:String = "";
+				if (dateClause != "")
+				{
+					where += dateClause+" ";
+				}
+				if (categoryClause != "")
+				{
+					if (where.length > 0)
+					{
+						where += " AND "+categoryClause+ " ";						
+					}
+					else
+					{
+						where += categoryClause+ " ";
+					}
+
+				} 
+				//where += " ORDER BY INCIDENT_DATE";
+				return where;
+			}
+			
+			public function search():void
+			{
+				
+				if (geometry)
+				{
+					this.clearSelection();
+					controller.removeProgress();
+					controller.showProgress("Searching for crimes...");
+					var query:Query = new Query();
+					query.geometry = geometry;
+
+					query.where = buildWhereClause();
+					this.selectFeatures(query);
+					
+				}
+
+			}
+			
+			protected function flareClickHandler(event:FlareMouseEvent):void{
+/* 				var query:Query = new Query();
+				var point:MapPoint = event.graphic.geometry as MapPoint;
+				query.geometry = new Extent(
+					point.x-5, point.y-5, point.x+5, point.y+5, Model.instance.map.spatialReference);
+				query.where = Model.instance.controller.buildWhereClause();
+				Model.instance.crimeSelectionLayer.selectFeatures(query); */
+				//map.infoWindow.show(event.graphic.geometry as MapPoint);
+			}
+
+
+			protected function featurelayer1_rollOverHandler(event:MouseEvent):void
+			{
+ /* 				Model.instance.mapPanel.navTool.deactivate();  */
+			}
+
+
+			protected function featurelayer1_rollOutHandler(event:MouseEvent):void
+			{
+/* 				Model.instance.mapPanel.navTool.activate(Model.instance.navAction);
+				Model.instance.map.rubberbandZoomEnabled = true; */
+			}
+
+
+			protected function featurelayer1_selectionCompleteHandler(event:FeatureLayerEvent):void
+			{
+				if (selectedFeatures.length > 0)
+				{
+					setClustering(model.crimeSearch.clusterCb.selected);
+					if (selectedFeatures.length == 1000)
+					{
+						Alert.show("Maximum of 1000 crimes returned, not all crimes will be shown, please limit search parameters");
+					}					
+				}
+				else
+				{
+					Alert.show("No crimes found");
+				}
+				model.controller.removeProgress();
+			}
+
+			
+			public function setClustering(isClustered:Boolean):void
+			{
+				if (isClustered)
+				{
+					clusterer = clusterSymbol;
+				}
+				else
+				{
+					clusterer = null;
+				}
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormat" formatString="YYYY-MM-DD"/>
+		<s:DateTimeFormatter id="dtf" dateStyle="medium" timeStyle="medium" useUTC="true"/>
+		<esri:FlareSymbol id="flareSymbol"/>
+		<esri:WeightedClusterer id="clusterSymbol" symbol="{flareSymbol}"/>
+	</fx:Declarations>
+</esri:FeatureLayer>

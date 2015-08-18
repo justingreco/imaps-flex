@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:mx="library://ns.adobe.com/flex/mx"
+				autoDrawBackground="true"
+				creationComplete="itemrenderer1_creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.scripts.RaleighFields;
+			
+			import mx.controls.HRule;
+			import mx.controls.Label;
+			import mx.events.FlexEvent;
+			import mx.formatters.CurrencyFormatter;
+			import mx.formatters.DateFormatter;
+
+			protected function itemrenderer1_creationCompleteHandler(event:FlexEvent):void
+			{
+				for each (var item:Object in parentDocument.listFields){
+					var label:Label = new Label();
+					label.width = parent.width;
+				
+					label.text = getValue(data[item], item as String);
+					this.addElement(label);
+				}
+				var hRule:HRule = new HRule();
+				hRule.percentWidth = 100;
+				this.addElement(hRule);
+
+			}
+			
+			protected function getValue(value:String, name:String):String{
+				var currencyFormatter:CurrencyFormatter = new CurrencyFormatter();
+				currencyFormatter.useThousandsSeparator = true;
+				currencyFormatter.precision = 0;				
+				currencyFormatter.currencySymbol = "$";
+				var dateFormatter:DateFormatter = new DateFormatter();
+				for each(var field:Object in new RaleighFields()){
+					if (field.name == name){
+						if (field.type == "Currency"){
+							value = currencyFormatter.format(value);
+						}else if (field.type == "Date"){
+							value = dateFormatter.format(new Date(value).toUTCString());
+						}		
+						break;
+					}
+				}
+				return value;
+			}
+
+		]]>
+	</fx:Script>
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	
+</s:ItemRenderer>

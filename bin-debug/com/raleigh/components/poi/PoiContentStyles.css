@@ -1,0 +1,114 @@
+/* CSS file */
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+.defaultTitleWindow
+{
+	background-color: #75B7FA;
+	chrome-color:#75B7FA;		
+	color:#000000;
+}
+.publicSafetyTitleWindow
+{
+	background-color: #0089d0;
+	chrome-color:#0089d0;
+	color:#FFFFFF;				
+}
+.transporationTitleWindow
+{
+	background-color: #283891;
+	chrome-color:#283891;	
+	color:#FFFFFF;				
+}	
+.parksTitleWindow
+{
+	background-color: #056839;
+	chrome-color:#056839;	
+	color:#FFFFFF;				
+}	
+.communityTitleWindow
+{
+	background-color: #f3ec19;
+	chrome-color:#f3ec19;
+	color:#000000;			
+}		
+.entertainmentTitleWindow
+{
+	background-color: #8c3092;
+	chrome-color:#8c3092;
+	color:#FFFFFF;				
+}	
+.fireTitleWindow
+{
+	background-color: #b41f24;
+	chrome-color:#b41f24;	
+	color:#FFFFFF;				
+}		
+.govTitleWindow
+{
+	background-color: #3a3a3c;
+	chrome-color:#3a3a3c;	
+	color:#FFFFFF;			
+}	
+.swTitleWindow
+{
+	background-color: #764c28;
+	chrome-color:#764c28;
+	color:#FFFFFF;				
+}	
+.educationTitleWindow
+{
+	background-color: #681b1f;
+	chrome-color:#681b1f;
+	color:#FFFFFF;				
+}	
+.defaultContainer
+{
+	background-color: #B4EAFE;		
+	color:#000000;
+}
+.publicSafetyContainer
+{
+	background-color: #cceeff;
+	color:#FFFFFF;				
+}
+.transporationContainer
+{
+	background-color: #b2beff;
+	color:#FFFFFF;				
+}	
+.parksContainer
+{
+	background-color: #ccffe7;
+	color:#FFFFFF;				
+}	
+.communityContainer
+{
+	background-color: #f2ef91;
+	color:#000000;			
+}		
+.entertainmentContainer
+{
+	background-color: #fab2ff;
+	color:#FFFFFF;				
+}	
+.fireContainer
+{
+	background-color: #ffb2b5;	
+	color:#FFFFFF;				
+}		
+.govContainer
+{
+	background-color: #c6c6cc;
+	color:#FFFFFF;			
+}	
+.swContainer
+{
+	background-color: #ffd6b2;
+	color:#FFFFFF;				
+}	
+.educationContainer
+{
+	background-color: #cca3a5;
+	color:#FFFFFF;				
+}	
+

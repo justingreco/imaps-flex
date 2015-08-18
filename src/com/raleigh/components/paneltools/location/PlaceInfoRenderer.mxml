@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="100%">
+
+	<fx:Script>
+		<![CDATA[
+			import flash.net.navigateToURL;
+
+			[Embed(source='assets/photoNA.png')]private var photoNA:Class;		
+			
+			[Bindable]
+			public var url:String = "";
+			protected function link_clickHandler(event:MouseEvent):void
+			{
+				navigateToURL(new URLRequest(url),"_blank");
+			}
+
+			protected function image_ioErrorHandler(event:IOErrorEvent):void
+			{
+				image.source = photoNA;
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<fx:String id="title"/>
+		<fx:String id="address"/>
+		<fx:String id="address2"/>
+		<fx:String id="phone"/>
+		<fx:String id="photo"/>
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center"/>
+	</s:layout>
+	<s:Label fontWeight="bold" text="{title}"/>
+	<mx:Image id="image" width="200" height="150" ioError="image_ioErrorHandler(event)"
+			  scaleContent="true" source="{photo}"/>
+	<s:Label text="{address}"/>	
+	<s:Label text="{address2}"/>		
+	<s:Label text="{phone}"/>	
+	<s:Label id="link" visible="{url != ''}" buttonMode="true" click="link_clickHandler(event)"
+			 color="blue" mouseChildren="false" text="Website" textDecoration="underline"
+			 useHandCursor="true"/>			
+</s:Group>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					xmlns:s="library://ns.adobe.com/flex/spark" 
+					xmlns:mx="library://ns.adobe.com/flex/mx" 
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					width="416" height="298"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					title="Impervious Surface Details">
+	<toolbar:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</toolbar:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+					
+		
+			[Bindable]
+			public var details:Object;
+
+			public function buildChartProvider(impervious:Object):void{
+				var ac:ArrayCollection = new ArrayCollection();
+				ac.addItem({label:"Buildings", value:impervious.BUILDING_IMP_SURFACE});
+				ac.addItem({label:"Parking", value:impervious.PARKING_IMP_SURFACE});	
+				ac.addItem({label:"Roads and Trails", value:impervious.RD_TRAIL_IMP_SURFACE});
+				ac.addItem({label:"Recreation", value:impervious.REC_IMP_SURFACE});	
+				ac.addItem({label:"Miscellaneous", value:impervious.MISC_IMP_SURFACE});
+				ac.addItem({label:"Other", value:impervious.OTHER_IMP_SURFACE});	
+				ac.addItem({label:"Permitted", value:impervious.PERMITTED_IMP_SURFACE});
+				piechart1.dataProvider = ac;				
+			}
+			
+ 	 		protected function piechart1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (details)
+				{
+					buildChartProvider(details);
+					if (model.stormwater.ImpPermitAmtChgPrivs){
+						if(details.GROUP_NUM.valueOf()>0){
+							if(details.IMPERVIOUS_STATUS=="P"||details.IMPERVIOUS_STATUS=="C"){
+								model.stormwater.hasValue=true;
+							}
+							else{
+								model.stormwater.hasValue=false;
+							} 
+						}
+						else{
+							model.stormwater.hasValue=false;
+						}
+					}
+					else{
+						model.stormwater.hasValue=false;
+					}
+				}
+			}
+ 			
+			private function updatePermitted():void{
+				var UpdatePermitPanel:SwuPermittedSurfUpdate = new SwuPermittedSurfUpdate();
+				PopUpManager.addPopUp(UpdatePermitPanel, this.parentApplication as DisplayObject, false);
+				PopUpManager.centerPopUp(UpdatePermitPanel);	
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true"/>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+	</fx:Declarations>
+
+	<s:HGroup>
+		<s:Label text="ID:" fontWeight="bold"/>
+		<s:Label text="{details.SWU_IMPERVIOUS_SURFACE_ID}"/>
+		<s:Label text="Method:" fontWeight="bold"/>
+		<s:Label text="{details.METHOD_USED} ({dateFormatter.format(details.DATE_OF_METHOD)})" maxWidth="100"/>
+		<s:Label text="Effective:" fontWeight="bold"/>
+		<s:Label text="{dateFormatter.format(details.EFFECTIVE_DATE)}" maxWidth="100"/>		
+	</s:HGroup>
+	<s:HGroup width="413" height="222" verticalAlign="middle">
+		<s:TileGroup requestedRowCount="8" requestedColumnCount="2">
+			<s:Label text="Buildings"/>
+			<s:Label width="22" text="{numFormatter.format(details.BUILDING_IMP_SURFACE)}" verticalAlign="middle"/>
+			<s:Label text="Parking"/>
+			<s:Label text="{numFormatter.format(details.PARKING_IMP_SURFACE)}"/>
+			<s:Label text="Roads and Trails"/>
+			<s:Label text="{numFormatter.format(details.RD_TRAIL_IMP_SURFACE)}"/>
+			<s:Label text="Recreation"/>
+			<s:Label text="{numFormatter.format(details.REC_IMP_SURFACE)}"/>
+			<s:Label text="Miscellaneous"/>
+			<s:Label text="{numFormatter.format(details.MISC_IMP_SURFACE)}"/>
+			<s:Label text="Other"/>
+			<s:Label text="{numFormatter.format(details.OTHER_IMP_SURFACE)}"/>
+			<s:Label text="Permitted"/>
+			<s:Button label="{numFormatter.format(details.PERMITTED_IMP_SURFACE)}" buttonMode="true"
+					  click="updatePermitted()" enabled="{Boolean(model.stormwater.hasValue)}" mouseEnabled="{Boolean(model.stormwater.hasValue)}"
+					  skinClass="com.raleigh.components.paneltools.stormwater.LinkButtonSkin"/>
+			<s:Label text="Total" fontWeight="bold"/>
+			<s:Label text="{numFormatter.format(details.PARCEL_IMP_SURFACE_TOTAL)}" fontWeight="bold"/>
+		</s:TileGroup>
+		<mx:PieChart id="piechart1" y="10" width="204" height="190"
+					 creationComplete="piechart1_creationCompleteHandler(event)" showDataTips="true">
+			<mx:series>
+				<mx:PieSeries displayName="Series 1" field="value" nameField="label"/>
+			</mx:series>
+		</mx:PieChart>		
+	</s:HGroup>
+</toolbar:ToolWindow>

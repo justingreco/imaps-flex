@@ -1,0 +1,5 @@
+<config>
+	<featurelayer url="http://maps.raleighnc.gov/ArcGIS/rest/services/Crime/Crime/MapServer/0"/>
+	<crimelocation url="http://maps.raleighnc.gov/ArcGIS/rest/services/CrimeSearchLocations/MapServer/0"/>
+	<subdivisions url="http://maps.raleighnc.gov/ArcGIS/rest/services/Planning/Subdivisions/MapServer/0"/>
+</config>

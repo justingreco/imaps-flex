@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolbarToggleButtonBase xmlns:fx="http://ns.adobe.com/mxml/2009"
+								 xmlns:s="library://ns.adobe.com/flex/spark"
+								 xmlns:mx="library://ns.adobe.com/flex/mx"
+								 xmlns:toolbar="com.raleigh.components.toolbar.*"
+								 change="togglebutton1_changeHandler(event)"
+								 icon="@Embed(source='../assets/select_point.png')"
+								 valueCommit="togglebutton1_valueCommitHandler(event)">
+
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.components.paneltools.property.PropertySearch;
+			
+			import mx.events.FlexEvent;
+			
+			import spark.components.Group;
+			
+			public var propertySelect:PropertySelectTool;
+			protected function togglebutton1_changeHandler(event:Event):void
+			{
+				if(!model.propertySearch.searchPanel)
+				{
+					for (var i:int = 0;i < model.rightPanel.accordion.numElements;i++)
+					{
+						if (model.rightPanel.accordion.getElementAt(i) is PropertySearch)
+						{
+							model.rightPanel.accordion.selectedIndex = i;
+							break;
+						}
+					}
+				}
+			}
+
+			protected function togglebutton1_valueCommitHandler(event:FlexEvent):void
+			{
+				if (selected)
+				{
+					if (!propertySelect)
+					{
+						propertySelect = new PropertySelectTool();
+					}
+					propertySelect.x = this.x + this.parent.x;
+					propertySelect.y = this.y+this.height+5;
+					//propertySelect.width = this.width;
+					model.currentTool = "Select";
+					controller.setCursors();
+					Group(this.parentDocument).addElement(propertySelect);					
+				}
+				else
+				{
+					if(Group(this.parentDocument).contains(propertySelect))
+					{
+						Group(this.parentDocument).removeElement(propertySelect);						
+					}
+
+ 					if(!this.mouseCaptured)
+					{
+						propertySelect.selectedIndex = -1;
+						propertySelect.deactivateDrawToolbar();						
+					} 
+				}
+			}
+
+		]]>
+	</fx:Script>
+</toolbar:ToolbarToggleButtonBase>

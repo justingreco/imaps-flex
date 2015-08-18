@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolbarToggleButtonBase xmlns:fx="http://ns.adobe.com/mxml/2009"
+								 xmlns:s="library://ns.adobe.com/flex/spark"
+								 xmlns:mx="library://ns.adobe.com/flex/mx"
+								 xmlns:toolbar="com.raleigh.components.toolbar.*"
+								 xmlns:util="com.esri.util.*"
+								 change="changeHandler()"
+								 creationComplete="toolbartogglebuttonbase1_creationCompleteHandler(event)"
+								 icon="@Embed(source='../assets/pictometry.png')"
+								 valueCommit="changeHandler()">
+
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.SpatialReference;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.formatters.DateFormatter;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			
+
+			
+			
+			private var m_pictometryWindow:PictometryPanel;
+			//private var pictGl:GraphicsLayer;
+			
+			protected function toolbartogglebuttonbase1_creationCompleteHandler(event:FlexEvent):void
+			{
+				model.pictometryButton = this;
+				//pictGl = new GraphicsLayer();
+				//pictGl.id = "pictGl";
+				//pictGl.name = "Pictometry Graphics Layer";
+				//map.addLayer(pictGl);
+				if (ExternalInterface.available)
+				{
+					ExternalInterface.addCallback("dateChange", dateChangeHandler);
+					ExternalInterface.addCallback("updateExtent", updateExtent);
+					ExternalInterface.addCallback("selectParcel", selectParcel);
+					const result:Boolean = ExternalInterface.call("document.setFlexApp", ExternalInterface.objectID);
+					if (result === false)
+					{
+						Alert.show("Could not call 'setFlexApp' using ExternalInterface");
+					}
+				}
+			}			
+			
+			private function dateChangeHandler(day:int, month:int, year:int):void
+			{
+				var dateFormatter:DateFormatter = new DateFormatter();
+				dateFormatter.formatString = "MM/DD/YYYY";
+				if (m_pictometryWindow != null)
+				{
+					m_pictometryWindow.title = "Pictometry ("+
+						dateFormatter.format(new Date(year, month, day))+")";
+				}
+			}
+			
+			private function updateExtent(xmin:Number, ymin:Number, xmax:Number, ymax:Number):void
+			{
+				var extent:Extent = new Extent(xmin, ymin, xmax, ymax,
+					new SpatialReference(4326));
+				model.geomSrv.project([extent], new SpatialReference(2264),
+				new AsyncResponder(extentProjectHandler, null));
+			}
+			
+			private function extentProjectHandler(results:Array, token:Object = null):void
+			{
+				var g:Graphic = new Graphic(results[0]);
+				map.centerAt(g.geometry.extent.center);
+				//pictGl.clear();
+				//pictGl.add(g);
+			}
+			
+			protected function changeHandler():void
+			{
+				if (selected)
+				{
+					map.addEventListener(MapMouseEvent.MAP_CLICK, mapClickHandler,false,0,true);
+					model.currentTool = "Pictometry";
+					controller.setCursors();
+				}
+				else
+				{
+					map.removeEventListener(MapMouseEvent.MAP_CLICK, mapClickHandler);
+					PopUpManager.removePopUp(m_pictometryWindow);
+					m_pictometryWindow = null;
+				}
+			}
+			
+			protected function mapClickHandler(event:MapMouseEvent):void
+			{
+				model.geomSrv.project([event.mapPoint], new SpatialReference(4326), new AsyncResponder(projectResultHandler, null));
+			}
+			
+			protected function projectResultHandler(results:Array, token:Object = null):void
+			{
+				if (m_pictometryWindow === null)
+				{
+					m_pictometryWindow = new PictometryPanel();
+					PopUpManager.addPopUp(m_pictometryWindow, map);
+					PopUpManager.bringToFront(m_pictometryWindow);
+					m_pictometryWindow.addEventListener(CloseEvent.CLOSE, closeHandler,false,0,true);
+				}
+				else
+				{
+
+				}
+				ExternalInterface.call("document.setLatLon", results[0].y, results[0].x);
+			}
+			
+			protected function closeHandler(event:CloseEvent):void
+			{
+				m_pictometryWindow.removeEventListener(CloseEvent.CLOSE, closeHandler);
+				PopUpManager.removePopUp(m_pictometryWindow);
+				m_pictometryWindow = null;
+			}
+			
+			public function changeOrientation(direction:String):void
+			{
+				ExternalInterface.call("document.setOrientation", direction);
+			}
+			
+			public function getPreviousImage():void
+			{
+				ExternalInterface.call("document.getPreviousImage",null);				
+			}			
+			public function getNextImage():void
+			{
+				ExternalInterface.call("document.getNextImage",null);				
+			}
+			
+			public function changeScale(scale:Number):void
+			{
+				ExternalInterface.call("document.changeScale", scale);
+			}
+			
+			public function resizeDiv(width:int, height:int):void
+			{
+				ExternalInterface.call("document.resizeDiv", width, height);
+			}
+			
+			public function toggleLayerVisibility(isVisible:Boolean):void
+			{
+				ExternalInterface.call("document.toggleLayerVisibility", isVisible);
+			}
+			
+			protected function selectParcel(pin:String):void
+			{
+
+				if (model.propertySearch)
+				{
+					var query:Query = new Query();
+					query.returnGeometry = true;
+					query.where = "PIN_NUM = '"+pin+"'";
+					model.propertySearch.searchPanel.selectCount = 0;					
+					//for each (var fLayer:FeatureLayer in model.propertyFLayers){
+						//fLayer.clearSelection();
+						//fLayer.selectFeatures(query, "add", new AsyncResponder(searchPanel.queryResultHandler, null, "click"));
+					//}		
+					model.propertySearch.resultsPanel.sendSingleQuery(pin, null, "click", "Wake");
+				}		
+			}
+
+
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<util:JavaScript>
+			<![CDATA[
+			document.flexApp = null;
+			document.pictometry = null;
+			document.pictLat = 0.0;
+			document.pictLon = 0.0;
+			document.setLatLon = function(lat, lon)
+			{
+				pictLat = lat;
+				pictLon = lon;
+				pictometry.Search(lat, lon);
+			};
+			document.setOrientation = function(direction)
+			{
+				pictometry.ChangeOrientation(direction);
+			};
+			document.getPreviousImage = function()
+			{
+				pictometry.GetPreviousImage();
+			};			
+			document.getNextImage = function()
+			{
+				pictometry.GetNextImage();
+			};
+			document.changeScale = function (scale)
+			{
+				pictometry.UpdateScale(scale);
+			};
+			document.resizeDiv = function (width, height)
+			{
+				pictometry.ResizeDiv(width, height);
+			};
+			document.toggleLayerVisibility = function (isVisible)
+			{
+				pictometry.ToggleLayerVisibility(isVisible);
+			};
+			document.setFlexApp = function(objectID)
+			{
+			var rc = false;
+			try
+			{
+			if (navigator.appName.indexOf("Microsoft") == -1)
+			{
+			flexApp = window[objectID];
+			if (flexApp == null)
+			{
+			flexApp = document.getElementById(objectID);
+			}
+			}
+			else
+			{
+			flexApp = document[objectID];
+			}
+			rc = true;
+			}
+			catch(e)
+			{
+			alert(e.message);
+			}
+			return rc;
+			};			
+			]]>	
+		</util:JavaScript>
+	</fx:Declarations>
+</toolbar:ToolbarToggleButtonBase>

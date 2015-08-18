@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<stormwater:SwuBasePanel xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+						 creationComplete="panel1_creationCompleteHandler(event)"
+						 currentState="{(toggleBtn.selected)?'Property':'NoProperty'}"
+						 title="Account Information"
+						 width.NoProperty="100%">
+	
+	<stormwater:states> 
+		<s:State name="NoProperty"/>
+		<s:State name="Property"/>
+	</stormwater:states>
+	<stormwater:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5"/>
+	</stormwater:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			import mx.events.FlexEvent;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			[Bindable]
+			public var updateData:String="";
+			[Bindable]
+			public var insertData:String="";
+			
+			protected function panel1_creationCompleteHandler(event:FlexEvent):void
+			{
+				stormwater = model.stormwater;
+			}
+			
+			private function updateAcctStatus():void{
+				var UpdateStatPanel:SwuStatusUpdate = new SwuStatusUpdate();
+				PopUpManager.addPopUp(UpdateStatPanel, this.parentApplication as DisplayObject, true);
+				PopUpManager.centerPopUp(UpdateStatPanel);	
+			}
+			
+			private function updatePremID():void{
+				var UpdatePremIDPanel:SwuPremIDUpdate = new SwuPremIDUpdate();
+				PopUpManager.addPopUp(UpdatePremIDPanel, this.parentApplication as DisplayObject, true);
+				PopUpManager.centerPopUp(UpdatePremIDPanel);	
+			}
+			
+			private function changeSiteAddress():void{
+				var ChangeSiteAddressPanel:SwuChangeSiteAddress = new SwuChangeSiteAddress();
+				PopUpManager.addPopUp(ChangeSiteAddressPanel, this.parentApplication as DisplayObject, true);
+				PopUpManager.centerPopUp(ChangeSiteAddressPanel);	
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+	</fx:Declarations>
+	<mx:Form width="100%"
+			 paddingBottom="0" paddingLeft="0" paddingRight="0"
+			 paddingTop="10">
+		<mx:FormItem label="SWU Account:" fontWeight="bold" paddingBottom="1">
+			<s:Label fontWeight="normal" text="{stormwater.currentAccount.SWU_ACCOUNT_ID}"/>				
+		</mx:FormItem>
+		<mx:FormItem label="CCB Premise:" fontWeight="bold" paddingBottom="1">
+			<s:Button label="{stormwater.currentAccount.PREM_ID}" 
+					  enabled="{Boolean(model.stormwater.chgPremIDPrivs)}" 
+					  click="updatePremID()"
+					  skinClass="com.raleigh.components.paneltools.stormwater.LinkButtonSkin"
+					  buttonMode="true"/>
+		</mx:FormItem>
+		<mx:FormItem label="RPIDs:" fontWeight="bold" paddingBottom="1">
+			<s:Label fontWeight="normal"
+					 text="{stormwater.currentAccount.RPID_MAP} {stormwater.currentAccount.RPID_LOT}"/>				
+		</mx:FormItem>			
+		<mx:FormItem label="Account Status:" fontWeight="bold" paddingBottom="1">
+			<s:Button label="{stormwater.currentAccount.ACCOUNT_STATUS_DESC}" 
+					  click="updateAcctStatus()"
+					  enabled="{Boolean(model.stormwater.chgAcctStatusPrivs)}"
+					  skinClass="com.raleigh.components.paneltools.stormwater.LinkButtonSkin"
+					  buttonMode="true"/>
+		</mx:FormItem>
+		
+		<mx:FormItem label="Site Address:" fontWeight="bold" paddingBottom="1">
+			<s:Button label="{stormwater.currentAccount.SITE_ADD}"  
+					  enabled="{Boolean(model.stormwater.chgSiteAddressPrivs)}" 
+					  click="changeSiteAddress()"
+					  skinClass="com.raleigh.components.paneltools.stormwater.LinkButtonSkin"
+					  buttonMode="true"/>			
+		</mx:FormItem>
+		<mx:FormItem label="Orig Address:" fontWeight="bold" paddingBottom="1">
+			<s:Label fontWeight="normal" text="{stormwater.currentAccount.ORIG_ADD}"/>				
+		</mx:FormItem>
+		<mx:FormItem label="CCB Address:" fontWeight="bold" paddingBottom="1">
+			<s:Label fontWeight="normal" text="{stormwater.ccbCIPrem.ADDRESS1}"/>
+		</mx:FormItem>
+	</mx:Form>
+	<s:Label fontStyle="italic" text="Created on {dateFormatter.format(stormwater.currentAccount.INSERTION_DATE)} by {stormwater.currentAccount.INSERTION_USER_ID}"/>
+	<s:Label fontStyle="italic"
+			 text="Last Updated on {dateFormatter.format(stormwater.currentAccount.UPDATE_DATE)} by {stormwater.currentAccount.INSERTION_USER_ID}"/>
+	<s:HGroup  width="100%">
+	</s:HGroup>			
+			<s:ToggleButton id="toggleBtn" enabled="{Boolean(stormwater.currentAccount)}"
+							label.NoProperty="Show Property Info"
+							label.Property="Hide Property Info"
+							/>	
+			<mx:Form includeIn="Property">
+				<mx:FormItem label="PIN #:" fontWeight="bold" paddingBottom="5" paddingLeft="5"
+							 paddingRight="5" paddingTop="5">
+					<s:Label fontWeight="normal" text="{stormwater.currentAccount.NCPIN}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="County Acct:" fontWeight="bold" paddingBottom="5" paddingLeft="5"
+							 paddingRight="5" paddingTop="5">
+					<s:Label fontWeight="normal" text="{stormwater.currentAccount.CNTY_ACCT_NUM}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Owner:" fontWeight="bold" paddingBottom="5" paddingLeft="5"
+							 paddingRight="5" paddingTop="5">
+					<s:Label fontWeight="normal" text="{model.stormwater.propertyOwner}"/>				
+				</mx:FormItem>			
+				<mx:FormItem label="Acreage:" fontWeight="bold" paddingBottom="5" paddingLeft="5"
+							 paddingRight="5" paddingTop="5">
+					<s:Label fontWeight="normal" text="{stormwater.currentAccount.PARC_ACRES}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Land Use:" fontWeight="bold" paddingBottom="5" paddingLeft="5"
+							 paddingRight="5" paddingTop="5">
+					<s:Label fontWeight="normal" text="{stormwater.currentAccount.LANDUSECODE_DESCR}"/>				
+				</mx:FormItem>				
+			</mx:Form>	
+</stormwater:SwuBasePanel>

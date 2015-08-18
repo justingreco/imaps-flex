@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				autoDrawBackground="false"
+				creationComplete="creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.model.Model;
+			
+			import flashx.textLayout.conversion.TextConverter;
+			import flashx.textLayout.elements.TextFlow;
+			import flashx.textLayout.formats.TextDecoration;
+			import flashx.textLayout.formats.TextLayoutFormat;
+			
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			[Bindable]
+			private var tf:TextFlow;
+			
+			override protected function get hovered():Boolean
+			{
+				return false;
+			}
+			
+			protected function creationCompleteHandler(event:FlexEvent):void
+			{
+				if (data.label.toLowerCase().indexOf('zoom to') > -1)
+				{
+					ret.addEventListener(MouseEvent.CLICK, zoomToClickHandler);
+					var start:int = data.label.indexOf('(')+1;
+					var end:int = data.label.indexOf(')');
+					zoomWhere = data.label.substring(start,end);
+					data.label = "<a href='' onclick='return false'>Zoom To</a>";
+				}
+				var tlf:TextLayoutFormat = new TextLayoutFormat();
+				/* 					if (controller.configuration.style.theme.enabled == "true")
+				{
+				tlf.color = uint(controller.configuration.style.theme.linkColor);						
+				}
+				else
+				{ */
+				tlf.color = 0x0000FF;
+				/* 					} */
+				
+				tlf.textDecoration = TextDecoration.UNDERLINE;
+				if (data.label is TextFlow)
+				{
+					tf = data.label;					
+				}
+				else if (data.label is String)
+				{
+					tf = TextConverter.importToFlow(data.label, TextConverter.TEXT_FIELD_HTML_FORMAT);
+				}
+				tf.linkActiveFormat = tlf;
+				tf.linkHoverFormat = tlf;
+				tf.linkNormalFormat = tlf;
+
+			}		
+			
+			private var zoomWhere:String = '';
+			
+			private function zoomToClickHandler(event:MouseEvent):void
+			{
+				if (zoomWhere != '')
+				{
+					var query:Query = new Query();
+					query.where = zoomWhere;
+					query.returnGeometry = true;
+					FeatureLayer(Model.getInstance().propertyFLayers[0]).queryFeatures(query, new AsyncResponder(queryResult, null));
+				}
+			}
+			
+			private function queryResult(fs:FeatureSet, token:Object = null):void
+			{
+				if (fs.features.length > 0)
+				{
+					Model.getInstance().map.centerAt(fs.features[0].geometry.extent.center);
+					Model.getInstance().map.level = 7;
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<s:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</s:layout>
+	<s:RichEditableText id="ret" maxWidth="300" editable="false" multiline="true" selectable="false"
+						textFlow="{tf}"/>
+	
+</s:ItemRenderer>

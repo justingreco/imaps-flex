@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolbarToggleButtonBase xmlns:fx="http://ns.adobe.com/mxml/2009"
+								 xmlns:s="library://ns.adobe.com/flex/spark"
+								 xmlns:mx="library://ns.adobe.com/flex/mx"
+								 xmlns:toolbar="com.raleigh.components.toolbar.*"
+								 xmlns:esri="http://www.esri.com/2008/ags"
+								 xmlns:view="com.esri.view.*"
+								 xmlns:util="com.esri.util.*"
+								 change="changeHandler()"
+								 creationComplete="toolbartogglebuttonbase1_creationCompleteHandler(event)"
+								 icon="@Embed(source='../assets/pegman.png')"
+								 valueCommit="changeHandler()">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.SpatialReference;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.symbols.PictureMarkerSymbol;
+			
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			private var m_streetViewWindow:StreetViewPanel;
+			//set pegman images
+			[Embed(source='assets/pegman1.png')]
+			private var pegman1:Class;
+			[Embed(source='assets/pegman2.png')]
+			private var pegman2:Class;
+			[Embed(source='assets/pegman3.png')]
+			private var pegman3:Class;
+			[Embed(source='assets/pegman4.png')]
+			private var pegman4:Class;
+			[Embed(source='assets/pegman5.png')]
+			private var pegman5:Class;
+			[Embed(source='assets/pegman6.png')]
+			private var pegman6:Class;
+			[Embed(source='assets/pegman7.png')]
+			private var pegman7:Class;
+			[Embed(source='assets/pegman8.png')]
+			private var pegman8:Class;
+			[Embed(source='assets/pegman9.png')]
+			private var pegman9:Class;
+			[Embed(source='assets/pegman10.png')]
+			private var pegman10:Class;
+			[Embed(source='assets/pegman11.png')]
+			private var pegman11:Class;
+			[Embed(source='assets/pegman12.png')]
+			private var pegman12:Class;
+			[Embed(source='assets/pegman13.png')]
+			private var pegman13:Class;
+			[Embed(source='assets/pegman14.png')]
+			private var pegman14:Class;
+			[Embed(source='assets/pegman15.png')]
+			private var pegman15:Class;
+			[Embed(source='assets/pegman16.png')]
+			private var pegman16:Class;		
+			private var pegman:PictureMarkerSymbol = new PictureMarkerSymbol(pegman1);			
+			protected function toolbartogglebuttonbase1_creationCompleteHandler(event:FlexEvent):void
+			{
+				map.addLayer(streetViewGL);
+				if (ExternalInterface.available)
+				{
+					ExternalInterface.addCallback("setLatLonYaw", setLatLonYawHandler);
+					const result:Boolean = ExternalInterface.call("document.setFlexApp", ExternalInterface.objectID);
+					if (result === false)
+					{
+						Alert.show("Could not call 'setFlexApp' using ExternalInterface");
+					}
+				}
+			}
+			private function setLatLonYawHandler(lat:Number, lon:Number, rotation:Number):void
+			{
+				model.geomSrv.project([new MapPoint(lon, lat, new SpatialReference(4326))],new SpatialReference(2264), new AsyncResponder(projectResultHandler2, null, rotation));
+			}
+			private function projectResultHandler2(results:Array, rotation:Number):void
+			{
+				streetViewGL.clear();
+				streetViewGL.add(svGraphic);
+				var mapPoint:MapPoint = new MapPoint();
+				mapPoint.y = results[0].y;
+				mapPoint.x = results[0].x;	
+				svGraphic.geometry = mapPoint;
+				if (mapPoint.x < map.extent.xmin ||
+					mapPoint.x > map.extent.xmax ||
+					mapPoint.y < map.extent.ymin ||
+					mapPoint.y > map.extent.ymax)
+				{
+					map.centerAt(mapPoint);
+				}
+				pegman.source = setPegmanSymbol(rotation);
+				svGraphic.symbol = pegman;
+				
+			}			
+			
+			private function setPegmanSymbol(rotation:Number):Class
+			{
+				var symbol:Class = pegman1;
+				if (rotation >=0 && rotation <= 11.25){
+					symbol = pegman1;
+				}
+				else if (rotation > 11.25 && rotation <= 33.75){
+					symbol =  pegman16;						
+				}
+				else if (rotation > 33.75 && rotation <= 56.25){
+					symbol =  pegman15;						
+				}
+				else if (rotation > 56.25 && rotation <= 78.75){
+					symbol =  pegman14;						
+				}
+				else if (rotation > 78.75 && rotation <= 101.25){
+					symbol =  pegman13;						
+				}
+				else if (rotation > 101.25 && rotation <= 123.75){
+					symbol =  pegman12;						
+				}
+				else if (rotation > 123.75 && rotation <= 146.25){
+					symbol =  pegman11;						
+				}
+				else if (rotation > 146.25 && rotation <= 168.75){
+					symbol =  pegman10;						
+				}
+				else if (rotation > 168.75 && rotation <= 191.25){
+					symbol =  pegman9;						
+				}	
+				else if (rotation > 191.25 && rotation <= 213.75){
+					symbol =  pegman8;						
+				}
+				else if (rotation > 213.75 && rotation <= 236.25){
+					symbol =  pegman7;						
+				}
+				else if (rotation > 236.25 && rotation <= 258.75){
+					symbol =  pegman6;						
+				}
+				else if (rotation > 258.75 && rotation <= 281.25){
+					symbol =  pegman5;						
+				}
+				else if (rotation > 281.5 && rotation <= 303.75){
+					symbol =  pegman4;						
+				}
+				else if (rotation > 303.75 && rotation <= 326.75){
+					symbol =  pegman3;						
+				}
+				else if (rotation > 326.75 && rotation <= 348.75){
+					symbol =  pegman2;						
+				}	
+				else if (rotation > 348.75 && rotation <= 360){
+					symbol =  pegman1;						
+				}		
+				return symbol;
+			}
+
+
+			protected function changeHandler():void
+			{
+				if (selected)
+				{
+					map.addEventListener(MapMouseEvent.MAP_CLICK, mapClickHandler,false,0,true);
+					model.currentTool = "Streetview";
+					controller.setCursors();
+				}
+				else
+				{
+					map.removeEventListener(MapMouseEvent.MAP_CLICK, mapClickHandler);	
+					PopUpManager.removePopUp(m_streetViewWindow);
+					m_streetViewWindow = null;
+					streetViewGL.clear();
+				}
+			}
+			
+			private function mapClickHandler(event:MapMouseEvent):void
+			{
+				model.geomSrv.project([event.mapPoint], new SpatialReference(4326), new AsyncResponder(projectResultHandler, null));		
+			}
+			private function projectResultHandler(results:Array, token:Object = null):void
+			{
+				
+				if (m_streetViewWindow === null)
+				{
+					ExternalInterface.call("document.setStreetViewLatLon", results[0].y, results[0].x);
+					m_streetViewWindow = new StreetViewPanel();
+					PopUpManager.addPopUp(m_streetViewWindow, map);
+					m_streetViewWindow.addEventListener(CloseEvent.CLOSE, closeHandler,false,0,true);
+				}
+				else
+				{
+					ExternalInterface.call("document.getNearestPanorama", results[0].y, results[0].x);
+				}				
+			}
+			
+			private function closeHandler(event:CloseEvent):void
+			{
+				m_streetViewWindow.removeEventListener(CloseEvent.CLOSE, closeHandler);
+				PopUpManager.removePopUp(m_streetViewWindow);
+				m_streetViewWindow = null;
+			}
+						
+		]]>
+	</fx:Script>
+
+
+	<fx:Declarations>
+		<util:JavaScript>
+			<![CDATA[
+			document.flexApp = null;
+			document.streetView = null;
+			document.streetViewLat = 0.0;
+			document.streetViewLon = 0.0;
+			document.getNearestPanorama = function(lat,lon)
+			{
+			streetView.getNearestPanorama(lat,lon);
+			};
+			document.setStreetViewLatLon = function(lat,lon)
+			{
+			streetViewLat = lat;
+			streetViewLon = lon;
+			};
+			document.setFlexApp = function(objectID)
+			{
+			var rc = false;
+			try
+			{
+			if (navigator.appName.indexOf("Microsoft") == -1)
+			{
+			flexApp = window[objectID];
+			if (flexApp == null)
+			{
+			flexApp = document.getElementById(objectID);
+			}
+			}
+			else
+			{
+			flexApp = document[objectID];
+			}
+			rc = true;
+			}
+			catch(e)
+			{
+			alert(e.message);
+			}
+			return rc;
+			};
+			]]>			
+		</util:JavaScript>
+		<esri:GraphicsLayer id="streetViewGL"> 
+			<esri:Graphic id="svGraphic">
+				<esri:geometry>
+					<esri:MapPoint/>
+				</esri:geometry>
+			</esri:Graphic>
+		</esri:GraphicsLayer>			
+	</fx:Declarations>
+</toolbar:ToolbarToggleButtonBase>

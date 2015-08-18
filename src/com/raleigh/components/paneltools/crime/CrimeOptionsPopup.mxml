@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		  xmlns:s="library://ns.adobe.com/flex/spark" 
+		  xmlns:mx="library://ns.adobe.com/flex/mx" width="280">
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			protected function container_creationCompleteHandler(event:FlexEvent):void
+			{
+				container.addElement(content);
+			}
+
+
+			protected function popUpToggle_changeHandler(event:Event):void
+			{
+				if(popUpToggle.selected)
+				{
+					for (var i:int = 0;i < this.parentDocument.numElements;i++)
+					{
+						var element:Object = this.parentDocument.getElementAt(i);
+						if (element is CrimeOptionsPopup && element.text != this.text)
+						{
+							element.popUpToggle.selected = false;
+						}
+					}
+				}
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<fx:String id="text"/>
+		<s:Group id="content"/>
+	</fx:Declarations>
+	<s:HGroup>
+		<s:ToggleButton id="popUpToggle" width="20" height="10" selected="false"
+						useHandCursor="true" buttonMode="true"
+						change="popUpToggle_changeHandler(event)"/>
+		<s:Label text="{this.text}"/>
+	</s:HGroup>
+	<s:PopUpAnchor id="popUp" displayPopUp="{popUpToggle.selected}" maxWidth="300">
+		<s:SkinnableContainer backgroundColor="0x888888" backgroundAlpha="0.85"
+							  id="container" creationComplete="container_creationCompleteHandler(event)">
+			<s:layout>
+				<s:VerticalLayout paddingBottom="3" paddingLeft="3" paddingRight="3" paddingTop="3"/>
+			</s:layout>	
+		</s:SkinnableContainer>
+
+
+	</s:PopUpAnchor>
+</s:VGroup>

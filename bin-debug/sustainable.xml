@@ -1,0 +1,155 @@
+<configuration title="Sustainable Raleigh Project Locator"
+		login="false" icon="com/raleigh/components/assets/sustainable.png">
+	<map showPOI="true" initExtent="1994600,637200,2228500,854500">
+		<geometry url="http://maps.raleighnc.gov/ArcGIS/rest/services/Utilities/Geometry/GeometryServer"/>			
+		<poilayer id="poi" name="Places of Interest"
+			url="http://maps.raleighnc.gov/ArcGIS/rest/services/POI1/MapServer/0"
+			visible="false"
+			photos="http://maps.raleighnc.gov/poi_images/"/>
+		<baselayers>
+			<!--Base Map Service -->
+			<baselayer id="BaseMap" name="Detailed"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/BaseMap/MapServer"
+				visible="true" type="tiled" minscale="0" alpha="1" visibleLayers="all"
+				identifiable="false" identifiableLayers="41" />
+		</baselayers>
+		<imagelayers wakeDefault="2010" raleighDefault="2011">
+			<!--Image Services -->
+			<imagelayer id="Orthos1981" name="1981"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos1981/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos1988" name="1988"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos1988/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos1999" name="1999"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos1999/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2002" name="2002"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2002/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2004" name="2004"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2004/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2005" name="2005"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2005/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2006" name="2006"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2006/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2007" name="2007"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2007/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2008" name="2008"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2008/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2009" name="2009"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2009/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2010" name="2010"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2010/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+			<imagelayer id="Orthos2011" name="2011"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Orthos10/Orthos2011/ImageServer"
+				visible="false" type="tiled" minscale="0" alpha="1" />
+		</imagelayers>
+		<maplayers categories="false" excludedLayers="Labels">
+			<maplayer id="Labels" name="Labels"
+				url="http://maps.raleighnc.gov/ArcGIS/rest/services/Labels/MapServer"
+				visible="true" type="tiled" minscale="0" alpha="1" visibleLayers="all"
+				identifiable="false" identifiableLayers="all" />
+		</maplayers>
+	</map>
+	<rightpanel>
+		<paneltools>
+			<paneltool name="SustainableSearch"
+				file="com.raleigh.components.paneltools.sustainable.SustainableSearch" />
+			<paneltool name="LocationSearch"
+				file="com.raleigh.components.paneltools.location.LocationSearch" />
+		</paneltools>
+	</rightpanel>
+	<toolbar>
+		<toolbartools>
+			<toolbartool
+				file="com.raleigh.components.toolbar.streetview.StreetViewButton"
+				name="StreetView" tooltip="View Google StreetView" />
+			<toolbartool name="Pictometry"
+				file="com.raleigh.components.toolbar.pictometry.PictometryButton"
+				tooltip="View Pictometry (Bird's Eye) Images" />
+			<toolbartool name="Measure"
+				file="com.raleigh.components.toolbar.measure.MeasureButton" tooltip="Measure" />
+			<toolbartool name="Historic Orthos"
+				file="com.raleigh.components.toolbar.orthoslider.OrthoSliderButton"
+				tooltip="Historic Orthos" />
+			<toolbartool name="Bookmarks"
+				file="com.raleigh.components.toolbar.bookmarks.SpatialBookmarksButton"
+				tooltip="Spatial Bookmarks" />
+			<toolbartool name="Print"
+				file="com.raleigh.components.toolbar.print.PrintButton" tooltip="Print" />
+			<toolbartool name="Clear"
+				file="com.raleigh.components.toolbar.clear.ClearGraphicsButton"
+				tooltip="Clear Graphics" />
+		</toolbartools>
+	</toolbar>
+	<paths>
+		<path name="Building Photos"
+			url="http://services.wakegov.com/realestate/photos/mvideo/" />
+		<path name="BooksDoc"
+			url="http://services.wakegov.com/booksweb/docview.aspx?docid=" />
+		<path name="BooksPdf"
+			url="http://services.wakegov.com/booksweb/pdfview.aspx?docid=" />
+		<path name="Real Estate"
+			url="http://services.wakegov.com/realestate/Account.asp?id=" />
+		<path name="Raleigh Holiday Schedule"
+			url="http://www.raleighnc.gov/portal/server.pt/gateway/PTARGS_0_2_306_202_0_43/http%3B/pt03/DIG_Web_Content/category/Resident/Garbage_and_Recycling/Cat-1C-2005113-114829-Holiday_Collection_Sched.html" />
+		<path name="Cary Holiday Schedule"
+			url="http://www.townofcary.org/Departments/Public_Works_and_Utilities/Garbage_and_Recycling/Garbage_Collection/Holiday_Schedule.htm" />
+	</paths>
+	<menu>
+		<menuitems label="Feedback">
+			<menuitem label="Comments" url="" />
+		</menuitems>
+		<menuitems label="Links">
+			<menuitem label="Sustainable Raleigh" url="http://www.raleighnc.gov/search/content/AdminServSustain/Articles/WhatRaleighIsDoing.html" />
+			<menuitem label="Wake County Environmental Services" url="http://www.wakegov.com/environment/Pages/default.aspx" />
+			<menuitem label="USGBC Triangle Chapter"
+				url="http://www.triangleusgbc.org/" />
+			<menuitem label="NC Solar Center" url="http://ncsc.ncsu.edu/" />
+			<menuitem label="City of Raleigh GIS"
+				url="http://www.raleighnc.gov/search/content/ITechGIS/Articles/GeographicInformationServices.html" />
+		</menuitems>
+		<menuitems label="Data Download">
+			<menuitem label="City of Raleigh Geoportal" url="http://maps.raleighnc.gov/geoportal" />
+			<menuitem label="Wake County Downloads"
+				url="http://www.wakegov.com/gis/services/Pages/data.aspx" />
+		</menuitems>
+		<menuitems label="Help">
+			<menuitem label="PDF"
+				url="http://maps.raleighnc.gov/iMAPS/documents/iMapsHelp.pdf" />
+			<menuitem label="Quick Start Guide"
+				url="http://maps.raleighnc.gov/iMAPS/documents/iMaps_Quickstart.pdf" />
+		</menuitems>
+	</menu>
+	<feedback sendto="gis@raleighnc.gov" subject="iMaps Upgrade Feedback" />
+	<bookmarks>
+		<bookmark name="Downtown Raleigh" extent="2104769 736771 2109252 739663" />
+		<bookmark name="Five Points" extent="2103840 746959 2106084 748405" />
+		<bookmark name="NC State" extent="2094300 738100 2100830 742700" />
+		<bookmark name="Downtown Apex" extent="2042392 719456 2045709 721742" />
+		<bookmark name="Downtown Cary" extent="2061317 738842 2067975 743413" />
+		<bookmark name="Downtown Wake Forest" extent="2143338 808426 2149896 812997" />
+	</bookmarks>
+	<scripts>
+		<script name="GeocodeStreets"
+			url="http://maps.raleighnc.gov/json/streetsGeocode.json" />
+		<script name="ExportGrid" url="http://maps.raleighnc.gov/php/exportexcel.php" />
+	</scripts>
+	<style>
+		<theme enabled="false" textColor="0x000000" backgroundColor="0x333333"
+			rolloverColor="0x101010" selectionColor="0x000000" titleColor="0xFFD700"
+			linkColor="0xFFD700" applicationBackgroundColor="0xFFFFFF"
+			styleAlpha="0.8" />
+		<panelcolors enabled="true" downColor="0xf6bb17" upColor="0x82ab31"
+			textColor="0x000000" />
+		<titlecolors background="0x1478be" text="0xFFFFFF" />
+	</style>
+</configuration>

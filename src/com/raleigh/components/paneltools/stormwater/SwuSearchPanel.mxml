@@ -1,0 +1,668 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:utils="com.raleigh.components.utils.*"
+		 xmlns:components="com.raleigh.components.*"
+		 xmlns:services="services.*"
+		 width="100%">
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.fiber.core.model_public;
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.tasks.FindTask;
+			import com.esri.ags.tasks.supportClasses.FindParameters;
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.header.About;
+			import com.raleigh.components.paneltools.stormwater.SwuAccountPanel;
+			import com.raleigh.components.paneltools.stormwater.SwuCreditsPanel;
+			import com.raleigh.components.utils.AutoComplete;
+			import com.raleigh.components.utils.AutoCompleteChangeEvent;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.events.Request;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.http.HTTPService;
+			import mx.validators.Validator;
+			
+			import org.flexunit.runner.Result;
+			
+			import spark.events.IndexChangeEvent;
+			
+
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			[Bindable]
+			private var multiAddr:Boolean = false;
+			
+			//jdbc:oracle:oci:ieproc/ieproc@irisprd
+
+	
+			//get account status//
+			protected function statusDdl_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+			}
+
+
+
+			
+			private function search():void
+			{   
+				if (validateInputs())
+				{
+					var acctStatus:String;
+					var type:String = "";
+					var emptyString:String = "";
+					//var values:Array = [];
+					var params:Object = new Object();
+					acctStatus="A";
+					
+					switch(this.currentState)
+					{    
+						case "SWU":
+							//type = "ACCOUNT";
+							//values = [swuInput.text];
+							params.acctid = swuInput.text;
+							acctStatus= statusDdl.selectedItem.ACCOUNT_STATUS;
+							break;
+						case "Address":
+							//type = "ADDRESS";
+							if (stNumInput.text.length>0){
+								//values = [stNumInput.text,emptyString,
+									//stNameInput.text.toUpperCase(),emptyString,emptyString]
+									params.address = stNumInput.text+" "+stNameInput.text.toUpperCase();
+							}
+							else {
+								//values = [emptyString,emptyString,stNameInput.text.toUpperCase(),emptyString,emptyString]
+								params.address = stNameInput.text.toUpperCase();
+							}
+							
+							break; 
+						case "RPID":
+							//type = "RPID";
+							//values = [mapInput.text, lotInput.text];
+							params.rpidmap = mapInput.text;
+							params.rpidlot = lotInput.text;
+							break;								
+						case "PIN":
+							//type = "PIN";
+							//values = [pinInput.text];
+							params.pin = pinInput.text;
+							break;
+						case "CCB":
+							//type = "PREMISE";
+							//values = [premiseInput.text];
+							params.premid = premiseInput.text;
+							break;
+					}	
+
+					initializeSearch();
+
+					model.controller.showProgress("Searching for Account information...");
+					swuService.addEventListener(ResultEvent.RESULT, accountReceived);
+					params['function']='getstormwateraccount';
+					params.dbschema=model.stormwater.dbSchema;
+					params.status = acctStatus;
+					params.connstr = JSON.encode(model.stormwater.connstr);
+					swuService.send(params);					
+				}
+			}
+			
+			public function initializeSearch():void{
+				//intitialize the class to null...
+				model.stormwater.currentAccount=null;
+				model.stormwater.apptAccount=null;
+				model.stormwater.impervious=null;
+				model.stormwater.credits=null;
+				model.stormwater.journal=null;
+				model.stormwater.ccbCIPrem=null;
+				model.stormwater.ccbServices=null;
+				model.stormwater.ccbBillData=null;
+				
+				// initialize all forms to be "closed"
+				model.stormwater.accountPanel.currentState=("NoProperty");
+				model.stormwater.accountPanel.toggleBtn.selected = false;
+				
+				model.stormwater.imperviousPanel.currentState=("NoDetails");
+				model.stormwater.imperviousPanel.toggleBtn.selected = false;
+				
+				model.stormwater.journalPanel.currentState=("NoJournal");
+				model.stormwater.journalPanel.toggleBtn.selected = false;
+				
+				model.stormwater.apportionPanel.currentState=("NoDetails");
+				
+				model.stormwater.creditsPanel.currentState=("NoCredits");
+				model.stormwater.creditsPanel.toggleBtn.selected = false;
+				
+				model.stormwater.ccbPanel.currentState=("NoServices");	
+				model.stormwater.ccbPanel.toggleBtn.selected = false;
+			}
+			
+
+			
+			
+			
+			private function validateInputs():Boolean
+			{
+				var ret:Boolean = true;
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length > 0)
+				{
+					ret = false;
+				}
+				return ret;			
+			}
+			
+			protected function stNameInput_creationCompleteHandler(event:FlexEvent):void
+			{
+				/*swuService.addEventListener(ResultEvent.RESULT, streetsRetrieved);
+				swuService.send({'function':'getdistinctstreets', dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)});*/
+				
+				stNameInput.input.prompt = "W HARGETT ST";
+				function stNameChangeHandler(event:IndexChangeEvent):void
+				{
+					if (Validator.validateAll(validators).length == 0)
+					{
+						search();						
+					}					
+				}
+			}
+			
+			protected function searchDdl_changeHandler(event:IndexChangeEvent):void
+			{
+				this.currentState = searchDdl.selectedItem.state;
+			}
+			
+			protected function streetsRetrieved(event:ResultEvent):void{
+				swuService.removeEventListener(ResultEvent.RESULT, streetsRetrieved);
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.street = data[0];
+						model.stormwater.streets = new ArrayCollection(data);
+						stNameInput.dataProvider = model.stormwater.streets;
+						stNameInput.input.prompt = "W HARGETT ST";
+						function stNameChangeHandler(event:IndexChangeEvent):void
+						{
+							if (Validator.validateAll(validators).length == 0)
+							{
+								search();						
+							}					
+						}
+					}
+				}
+			}
+			
+			/*protected function GetDistinctStreetsResult_resultHandler(event:ResultEvent):void
+			{
+				if (event.result.length > 0){
+					model.stormwater.street = event.result[0] as Streets;	
+					stNameInput.input.prompt = "W HARGETT ST";
+					stNameInput.list.addEventListener(IndexChangeEvent.CHANGE, stNameChangeHandler,false,0,true);
+					function stNameChangeHandler(event:IndexChangeEvent):void
+					{
+						if (Validator.validateAll(validators).length == 0)
+						{
+							search();						
+						}					
+					}
+				}			
+			}*/
+			
+			private var token:AsyncToken;
+			private var responder:AsyncResponder;
+			
+			public function accountReceived(event:ResultEvent):void{
+				swuService.removeEventListener(ResultEvent.RESULT, accountReceived);
+				var data:Array =  JSON.decode(event.result.toString());
+				if (data.length == 0){
+					model.stormwater.journalPanel.currentState="NoJournal";
+					model.stormwater.accountPanel.currentState="NoProperty";
+					model.stormwater.imperviousPanel.currentState="NoDetails";
+					model.stormwater.apportionPanel.currentState="NoDetails";
+					model.stormwater.creditsPanel.currentState="NoCredits";
+					model.stormwater.ccbPanel.currentState="NoServices";
+					model.controller.removeProgress();
+					Alert.show("Account not found");					
+				}else if (data.length == 1){
+					multiAddr=false; 
+					model.stormwater.currentAccount = data[0];
+					
+					zoomToParcel();
+					
+					
+					securityService.addEventListener(ResultEvent.RESULT, securityGroupRetrieved);
+					securityService.send({userid:model.stormwater.user.toUpperCase(),dbschema:model.stormwater.dbSchema, 'function':'determinesecuritygroup'});
+					
+
+					
+					
+					token = swuService.send({'function':'getimpervioussurfaces',acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID, dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)});
+					responder =  new AsyncResponder(imperviousSurfacesReceived, null);
+					token.addResponder(responder);
+					
+					getJournalEntries(0);
+					
+					getCredits(model.stormwater.currentAccount.SWU_ACCOUNT_ID.toString(), model.stormwater.connString, model.stormwater.dbSchema);
+					
+					getApportionments(0);			
+					
+					token = swuService.send({'function':'getapptcnt',acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)});
+					responder =  new AsyncResponder(apptCountReceived, null);
+					token.addResponder(responder);							
+			
+					
+					if (model.stormwater.currentAccount.PREM_ID!=null){
+						if (model.stormwater.currentAccount.PREM_ID.length>0){
+							model.controller.removeProgress();
+							model.controller.showProgress("Searching for CCB Premise Information...");
+							
+							ccbService.addEventListener(ResultEvent.RESULT, premInfoReceived);
+							ccbService.send({'function':'getpreminfo',premid:model.stormwater.currentAccount.PREM_ID, dbschema:model.stormwater.dbschemaCCB});
+							
+						}
+					}					
+				}else{
+					model.controller.removeProgress();
+					this.dataGrid.dataProvider = new ArrayCollection(data);
+					multiAddr=true; 					
+					
+				}
+				
+
+				
+				
+			}
+			
+			private function zoomToParcel():void{
+				if (model.stormwater.currentAccount.NCPIN){
+					var find:FindTask = new FindTask(model.stormwater.config.parcels.@url);
+					var params:FindParameters = new FindParameters();
+					params.searchFields = ['PIN_NUM'];
+					params.searchText = model.stormwater.currentAccount.NCPIN;
+					params.returnGeometry = true;
+					params.layerIds = [0,1];
+					find.execute(params, new AsyncResponder(parcelFound, null));
+				}
+			}
+			
+			private function parcelFound(features:Array, token:Object = null):void{
+				if (features.length > 0){
+					model.map.extent = features[0].feature.geometry.extent;
+					model.stormwater.propertyOwner = features[0].feature.attributes.Owner;
+				}
+			}
+			
+			
+			public function getJournalEntries(journalId:int):void{
+				token = swuService.send({'function':'getjournalentries',acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID, journalid:journalId, dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)});
+				
+				responder =  new AsyncResponder(journalEntriesReceived, null, journalId);
+				token.addResponder(responder);				
+			}
+			
+			protected function journalEntriesReceived(event:ResultEvent, journalId:int):void
+			{
+				swuService.removeEventListener(ResultEvent.RESULT,journalEntriesReceived);
+				var data:Array = [];
+				if (event.result.length > 0){ 
+					data = JSON.decode(event.result as String);
+					if (data.length > 0){
+						model.stormwater.journal = data[0];
+					}
+				}
+				if (journalId == 0){
+					model.stormwater.journalEntries = new ArrayCollection(data);
+				}
+			}
+			
+			
+			public function getApportionments(apptid:int):void{
+				token = swuService.send({'function':'getapportionments',acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,apptid:apptid,dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)});
+				responder =  new AsyncResponder(apportionmentsReceived, null, apptid);
+				token.addResponder(responder);						
+			}
+			
+			protected function imperviousSurfacesReceived(event:ResultEvent, token:AsyncToken):void
+			{
+				swuService.removeEventListener(ResultEvent.RESULT,imperviousSurfacesReceived);
+				var data:Array = [];
+				if (event.result.length > 0){ 
+					data = JSON.decode(event.result as String);
+				}
+				model.stormwater.imperviousSurfaces = new ArrayCollection(data);
+			}
+			
+
+			protected function apportionmentsReceived(event:ResultEvent, apptid:int):void
+			{
+				swuService.removeEventListener(ResultEvent.RESULT,apportionmentsReceived);
+				var data:Array = [];
+				if (event.result.length > 0){ 
+					data = JSON.decode(event.result as String);
+					if (data.length > 0){
+						model.stormwater.apptAccount = data[0];	
+						
+					}
+				}
+				if (apptid == 0){
+					model.stormwater.apportionments = new ArrayCollection(data);
+				}
+			}
+			
+			protected function apptCountReceived(event:ResultEvent, token:Object):void{
+				swuService.removeEventListener(ResultEvent.RESULT,apptCountReceived);
+				if (event.result > 0){
+					model.stormwater.apptCount = int(event.result);	
+				}
+			}
+
+
+			
+			protected function premInfoReceived(event:ResultEvent):void{
+				ccbService.removeEventListener(ResultEvent.RESULT, premInfoReceived);
+				if (event.result.length == 0){
+					Alert.show("CCB Account not found..."+model.stormwater.currentAccount.PREM_ID) 
+					model.stormwater.CCBNotAvailable=true;
+					model.controller.removeProgress();}
+				else {
+					model.stormwater.CCBNotAvailable=false;
+					var data:Object =  JSON.decode(event.result.toString());
+					model.stormwater.ccbCIPrem = data[0];
+					ccbService.addEventListener(ResultEvent.RESULT, ccbServicesReceived);
+					model.controller.showProgress("Searching for CCB Service Information...");
+					ccbService.send({
+						'function':'getservices',
+						premid:model.stormwater.currentAccount.PREM_ID, 
+						dbschema:model.stormwater.dbschemaCCB});
+				}			
+			}
+			
+			protected function ccbServicesReceived(event:ResultEvent):void{
+				ccbService.removeEventListener(ResultEvent.RESULT, ccbServicesReceived);
+				model.controller.removeProgress();
+				if (event.result.length > 0){
+					var data:Object =  JSON.decode(event.result.toString());
+					model.stormwater.ccbServices = data;	
+				}	
+			}			
+			
+			protected function ccbBillReceived(event:ResultEvent):void{
+				ccbService.removeEventListener(ResultEvent.RESULT, ccbBillReceived);
+				model.controller.removeProgress();
+				if (event.result.length > 0){
+					var data:Object =  JSON.decode(event.result.toString());
+					model.stormwater.ccbBillData = data[0];			
+				}			
+			}
+			
+			
+
+			
+			protected function getCredits(acct:String, conn:String, dbschema:String):void
+			{
+				creditService.addEventListener(ResultEvent.RESULT, creditsRetrieved);
+				creditService.send({
+					'function':'getcredits',
+					acctid:acct,
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});
+			}
+			
+			protected function creditsRetrieved(event:ResultEvent):void{
+				model.stormwater.foundNoCredit=true;
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.credits = data[0];
+						if (model.stormwater.creditInsertPrivs){
+							model.stormwater.foundNoCredit = false;
+						}
+					}else{
+						model.stormwater.credits = null;
+					}
+				}
+				creditService.removeEventListener(ResultEvent.RESULT, creditsRetrieved);
+			}
+			
+
+			
+
+
+			
+			protected function securityGroupRetrieved(event:ResultEvent):void{
+				//initilaize all privileges to false - Public group
+				model.stormwater.journalInsertPrivs=false;
+				model.stormwater.acctUpdatePrivs=false;
+				model.stormwater.chgAcctStatusPrivs=false;
+				model.stormwater.chgPremIDPrivs=false; //swu_ccb_info gives access to change
+				model.stormwater.chgSiteAddressPrivs=false;
+				model.stormwater.chgApptUnitsPrivs=false;
+				model.stormwater.chgApptCodePrivs=false;
+				model.stormwater.apptUpdatePrivs=false;
+				model.stormwater.apptAddPrivs=false;
+				model.stormwater.apptDeletePrivs=false;
+				model.stormwater.ImpPermitAmtChgPrivs=false;
+				model.stormwater.ImpInsertPrivs=false;
+				model.stormwater.AcctStatusTextVisible=false;
+				model.stormwater.AcctStatusDDLVisible=false;
+				//two entries below
+				model.stormwater.creditUpdatePrivs=false;
+				model.stormwater.creditInsertPrivs=false;	
+				if (event.result.length > 0){
+					switch(event.result)
+					{
+						case "GROUP1":
+							model.stormwater.journalInsertPrivs=true;
+							model.stormwater.chgAcctStatusPrivs=true;
+							break;
+						case "GROUP2":
+							model.stormwater.journalInsertPrivs=true;
+							model.stormwater.acctUpdatePrivs=true;
+							model.stormwater.AcctStatusDDLVisible=true;
+							model.stormwater.chgAcctStatusPrivs=true;
+							model.stormwater.chgPremIDPrivs=true; //swu_ccb_info gives access to change
+							model.stormwater.chgSiteAddressPrivs=true;
+							break;
+						case "GROUP3":
+							model.stormwater.journalInsertPrivs=true;
+							model.stormwater.acctUpdatePrivs=true;
+							model.stormwater.chgAcctStatusPrivs=true;
+							model.stormwater.AcctStatusDDLVisible=true;
+							model.stormwater.chgPremIDPrivs=true; //swu_ccb_info gives access to change
+							model.stormwater.chgSiteAddressPrivs=true;
+							model.stormwater.chgApptUnitsPrivs=true;
+							model.stormwater.chgApptCodePrivs=true;
+							model.stormwater.apptUpdatePrivs=true;
+							model.stormwater.apptAddPrivs=true;
+							model.stormwater.apptDeletePrivs=true;
+							model.stormwater.ImpPermitAmtChgPrivs=true;
+							model.stormwater.ImpInsertPrivs=true;
+							break;
+						case "ADMIN":  
+							model.stormwater.journalInsertPrivs=true;
+							model.stormwater.acctUpdatePrivs=true;
+							model.stormwater.AcctStatusDDLVisible=true;
+							model.stormwater.chgAcctStatusPrivs=true;
+							model.stormwater.chgPremIDPrivs=true; 
+							model.stormwater.chgSiteAddressPrivs=true;
+							model.stormwater.chgApptUnitsPrivs=true;
+							model.stormwater.chgApptCodePrivs=true;
+							model.stormwater.apptUpdatePrivs=true;
+							model.stormwater.apptAddPrivs=true;
+							model.stormwater.apptDeletePrivs=true;
+							model.stormwater.ImpPermitAmtChgPrivs=true;
+							model.stormwater.ImpInsertPrivs=true;
+							model.stormwater.creditUpdatePrivs=true;
+							model.stormwater.creditInsertPrivs=true;
+							break;
+					}						
+				}
+			}
+			
+	
+			
+			protected function clearBtn_clickHandler(event:MouseEvent):void
+			{
+				if (this.currentState == "SWU")
+				{
+					swuInput.text = "";
+				}
+				else if (this.currentState == "Address")
+				{
+					stNumInput.text = "";
+					stNameInput.text = "";				
+				}
+				else if	(this.currentState == "RPID")
+				{    
+					mapInput.text="";
+					lotInput.text="";
+				}
+				else if (this.currentState == "PIN")
+				{
+					pinInput.text = "";					
+				}
+				else if (this.currentState == "CCB")
+				{
+					premiseInput.text = "";					
+				}
+				
+			}
+	
+			protected function dataGrid_changeHandler(event:ListEvent):void
+			{	
+				
+				var acctStatus:String;
+				var params:Object = new Object();
+				multiAddr=false;
+				this.currentState="SWU"
+				this.searchDdl.selectedIndex=0;
+			    this.swuInput.text=event.itemRenderer.data.SWU_ACCOUNT_ID;
+				acctStatus= event.itemRenderer.data.ACCOUNT_STATUS;
+				
+				model.controller.showProgress("Searching for Account information...");
+				swuService.addEventListener(ResultEvent.RESULT, accountReceived);
+				params['function']='getstormwateraccount';
+				params.dbschema=model.stormwater.dbSchema;
+				params.status = acctStatus;
+				params.acctid = event.itemRenderer.data.SWU_ACCOUNT_ID;
+				params.connstr = JSON.encode(model.stormwater.connstr);
+				swuService.send(params);			
+			}	
+			
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="SWU"/>
+		<s:State name="Address"/>
+		<s:State name="RPID"/>
+		<s:State name="PIN"/>
+		<s:State name="CCB"/>
+	</s:states>
+	<fx:Declarations>
+		<fx:Array id="validators">
+			<mx:StringValidator id="swuValidate" includeIn="SWU" minLength="6" property="text"
+								required="true" source="{swuInput}"/>
+			<mx:StringValidator id="rpidMapValidate" includeIn="RPID" minLength="8" property="text"
+								required="true" source="{mapInput}"/>	
+			<mx:StringValidator id="rpidLotValidate" includeIn="RPID" minLength="3" property="text"
+								required="true" source="{lotInput}"/>	
+			<mx:StringValidator id="pinValidate" includeIn="PIN" minLength="10" property="text"
+								required="true" source="{pinInput}"/>	
+			<mx:StringValidator id="premiseValidate" includeIn="CCB" minLength="9" property="text"
+								required="true" source="{premiseInput}"/>				
+			<mx:Validator id="stNameValidate" includeIn="Address" property="text" required="true"
+						  source="{stNameInput.input}"/>			
+		</fx:Array>
+
+
+		<s:HTTPService id="ccbService" url="{model.stormwater.config.ccbservice.@url}" showBusyCursor="false" fault="model.controller.removeProgress()" method="GET"/>
+		<s:HTTPService id="securityService" url="{model.stormwater.config.securityservice.@url}" showBusyCursor="false" fault="model.controller.removeProgress()" method="GET"/>		
+		<s:HTTPService id="swuService" url="{model.stormwater.config.swuservice.@url}" showBusyCursor="false" fault="model.controller.removeProgress()" method="GET"/>
+		<s:HTTPService id="creditService" url="{model.stormwater.config.creditservice.@url}" showBusyCursor="false" fault="model.controller.removeProgress()" method="GET"/>
+
+	</fx:Declarations>
+	<s:layout>
+		<s:HorizontalLayout/>
+	</s:layout>
+	<mx:Form defaultButton="{searchBtn}">	      
+		<mx:FormItem direction="horizontal">
+			<s:DropDownList id="searchDdl" change="searchDdl_changeHandler(event)" selectedIndex="0">
+				<s:ArrayList>
+					<fx:Object label="SWU Account" state="SWU"/>
+					<fx:Object label="Site Address" state="Address"/>
+					<fx:Object label="RPID Map &amp; Lot" state="RPID"/>
+					<fx:Object label="PIN" state="PIN"/>
+					<fx:Object label="CIS Premise Code" state="CCB"/>
+				</s:ArrayList>
+			</s:DropDownList>
+			<s:HGroup includeIn="SWU" width="100%" horizontalAlign="center">
+				<s:TextInput id="swuInput" width="100%" enter="search()" maxChars="7"
+							 prompt="SWU Account #" restrict="0-9"/>
+				<s:DropDownList id="statusDdl" width="100%"
+								creationComplete="statusDdl_creationCompleteHandler(event)"
+								labelField="ACCOUNT_STATUS_DESC">	
+				</s:DropDownList>		
+			</s:HGroup>
+			<s:HGroup id="hGroup" includeIn="Address" width="100%" horizontalAlign="center"
+					  verticalAlign="middle">
+				<s:Label text="Address"/>
+				<s:TextInput id="stNumInput" width="50" prompt="222"/>
+				<utils:AutoComplete id="stNameInput" width="100%"
+									creationComplete="stNameInput_creationCompleteHandler(event)"
+									displayField="N" filterFields="{['N','A1','A2']}"
+									minChars="3" dataProvider="{model.stormwater.streets}"/>	
+			</s:HGroup>	
+			<s:HGroup includeIn="RPID" width="100%" horizontalAlign="center">
+				<s:TextInput id="mapInput" width="100%" enter="search()" prompt="RPID Map"
+							 restrict="0-9RA"/>
+				<s:TextInput id="lotInput" width="100%" enter="search()" prompt="RPID Lot"
+							 restrict="0-9"/>
+			</s:HGroup>	
+			<s:HGroup includeIn="PIN" width="100%" horizontalAlign="center">
+				<s:TextInput id="pinInput" width="100%" enter="search()" maxChars="10" prompt="PIN #"
+							 restrict="0-9"/>
+			</s:HGroup>	
+			<s:HGroup includeIn="CCB" width="100%" horizontalAlign="center">
+				<s:TextInput id="premiseInput" width="100%" enter="search()" maxChars="10"
+							 prompt="CIS Premise Code" restrict="0-9"/>
+			</s:HGroup>	
+			<s:HGroup>	
+				<utils:ImageButton id="searchBtn" width="24" height="24" label="Search"
+								   click="search()" icon="@Embed(source='assets/searchIcon.png')"/>
+				<utils:ImageButton id="clearBtn" width="24" height="24" label="Clear"
+								   click="clearBtn_clickHandler(event)"
+								   icon="@Embed(source='assets/clear.png')"/>
+			</s:HGroup>	
+		</mx:FormItem>
+		<mx:DataGrid id="dataGrid" includeIn="Address" width="0%" width.Address="100%" maxHeight.Address="{(Boolean(this.multiAddr)?200:0)}" maxHeight="0"
+					 visible="{Boolean(this.multiAddr)}"
+					 change="dataGrid_changeHandler(event)"
+					 doubleClickEnabled="true" 
+					 enabled="{Boolean(this.multiAddr)}"
+					 wordWrap="true">
+			<mx:columns>
+				<mx:DataGridColumn dataField="SWU_ACCOUNT_ID" headerText="Account"/>
+				<mx:DataGridColumn dataField="SITE_ADD" headerText="Address"/>			
+				<mx:DataGridColumn dataField="ACCOUNT_STATUS" headerText="Status"/>
+				<mx:DataGridColumn dataField="PREM_ID" headerText="Premise"/>
+			</mx:columns>
+		</mx:DataGrid>	
+	</mx:Form>
+</s:Group >		
+

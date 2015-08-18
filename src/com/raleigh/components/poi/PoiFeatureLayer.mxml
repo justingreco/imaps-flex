@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<esri:FeatureLayer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   xmlns:esri="http://www.esri.com/2008/ags"
+				   buttonMode="true"
+				   definitionExpression="{'(MINSCALE &gt;= '+model.map.scale+' OR MINSCALE = 0) AND ICON IN ('+model.visIcons+')'}"
+				   initialize="featurelayer1_initializeHandler(event)" mode="onDemand"
+				   useHandCursor="true"
+				   creationComplete="featurelayer1_creationCompleteHandler(event)"
+				   graphicAdd="featurelayer1_graphicAddHandler(event)">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.GraphicEvent;
+			import com.esri.ags.events.LayerEvent;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.events.PanEvent;
+			import com.esri.ags.events.ZoomEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			
+			import spark.filters.DropShadowFilter;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			private var controller:Controller;
+			private var content:PoiContent = new PoiContent();
+			private var pt:MapPoint;			
+			public var visIcons:Array = [];
+			protected function featurelayer1_initializeHandler(event:FlexEvent):void
+			{
+				var poiAC:ArrayCollection = new ArrayCollection();
+				model.poiSO = SharedObject.getLocal(model.POIS+"_"+model.config);
+				if (model.poiSO.size > 0){
+					poiAC = model.poiSO.data[model.POIS+"_"+model.config];
+				}
+				else
+				{
+					poiAC = model.poiIcons;
+				}
+				for each (var item:Object in poiAC)
+				{
+					if (item.visible)
+					{
+						model.visIcons.push("'"+item.name+"'");						
+					}
+
+				}
+			}			
+			protected function featurelayer1_creationCompleteHandler(event:FlexEvent):void
+			{
+				controller = model.controller;
+				model.poiLayer = this;
+				this.url = model.configuration.poiLayer.url;
+				this.id = model.configuration.poiLayer.id;
+				this.outFields = ['*'];
+
+			}
+
+
+
+			protected function featurelayer1_graphicAddHandler(event:GraphicEvent):void
+			{
+				event.graphic.toolTip = event.graphic.attributes.NAME;
+				event.graphic.filters = [new spark.filters.DropShadowFilter()];
+				event.graphic.addEventListener(MouseEvent.CLICK, graphicClickHandler,false,0,true);
+				event.graphic.addEventListener(MouseEvent.ROLL_OVER, graphicRollOverHandler,false,0,true);
+				event.graphic.addEventListener(MouseEvent.ROLL_OUT, graphicRollOutHandler,false,0,true);
+				event.graphic.useHandCursor = true;
+				event.graphic.buttonMode = true;
+			}
+			
+			private function graphicClickHandler(event:MouseEvent):void
+			{
+				var g:Graphic = Graphic(event.currentTarget);
+				content.addEventListener(CloseEvent.CLOSE, contentCloseHandler,false,0,true);
+				content.visible = true;
+				content.title = g.attributes.NAME;
+				content.address = g.attributes.ADDRESS;
+				content.address2 = g.attributes.CITY+", NC "+g.attributes.ZIP;
+				content.phone = g.attributes.TELEPHONE;
+				content.site = g.attributes.URL;
+				content.photo = g.attributes.PHOTO;
+				content.icon = g.attributes.ICON;
+				pt= g.geometry as MapPoint;
+				setContentPosition();
+				if(map.contains(content))
+				{
+					map.removeChild(content);
+				}
+				map.addEventListener(PanEvent.PAN_UPDATE, repositionContent,false,0,true);
+				map.addEventListener(ZoomEvent.ZOOM_UPDATE, repositionContent,false,0,true);
+				map.addChild(content);
+			}
+			
+			private function graphicRollOverHandler(event:MouseEvent):void
+			{
+				map.cursorManager.removeAllCursors();
+				map.openHandCursorVisible = false;
+				if (model.identifyTool)
+				{
+					map.removeEventListener(MapMouseEvent.MAP_CLICK, model.identifyTool.mapIdentifyClick);
+				}
+				if (model.propertySelectTool)
+				{
+					model.propertySelectTool.drawTool.deactivate();
+				}
+
+			}
+			private function graphicRollOutHandler(event:MouseEvent):void
+			{
+				map.openHandCursorVisible = true;
+				if (model.identifyTool)
+				{
+					if (model.identifyTool.selected)
+					{
+						map.addEventListener(MapMouseEvent.MAP_CLICK, model.identifyTool.mapIdentifyClick,false,0,true);						
+					}
+				}	
+				
+				if (model.propertySelectTool)
+				{
+					if (model.propertySelectTool.selectedIndex > -1)
+					{
+						model.propertySelectTool.drawTool.activate(model.propertySelectTool.drawType, true);
+					}
+				}
+			}			
+
+			private function repositionContent(event:Event):void
+			{
+				setContentPosition()
+			}
+			
+			private function setContentPosition():void
+			{
+				var infoPt:Point = map.toScreen(pt);
+				if (content.x > map.width/2)
+				{
+					content.x = infoPt.x + 20;
+					content.y = infoPt.y - 20;						
+				}
+				else
+				{
+					content.x = infoPt.x - 20 - content.width;
+					content.y = infoPt.y - 20;						
+				}
+			
+			}
+			
+			private function contentCloseHandler(event:CloseEvent):void
+			{
+				map.removeEventListener(PanEvent.PAN_UPDATE, repositionContent);	
+				map.removeEventListener(ZoomEvent.ZOOM_END, repositionContent);				
+				map.removeChild(content);
+			}
+			
+
+			
+		]]>
+	</fx:Script>
+</esri:FeatureLayer>

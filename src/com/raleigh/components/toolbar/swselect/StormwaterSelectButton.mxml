@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolbarToggleButtonBase xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					xmlns:s="library://ns.adobe.com/flex/spark" 
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					change="changeHandler(event)"
+					icon="@Embed(source='../assets/select_point.png')"
+					valueCommit="changeHandler(event)">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.esri.ags.utils.JSON;
+			
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;
+			protected function changeHandler(event:Event):void
+			{
+				if(this.selected){
+					map.addEventListener(MapMouseEvent.MAP_CLICK, mapClickHandler);
+				}else{
+					map.removeEventListener(MapMouseEvent.MAP_CLICK, mapClickHandler);
+				}
+			}
+			
+			private function mapClickHandler(event:MapMouseEvent):void{
+				var query:Query = new Query();
+				query.returnGeometry = true;
+				query.geometry = event.mapPoint;				
+				for each (var fLayer:FeatureLayer in model.propertyFLayers){
+					fLayer.clearSelection();
+					fLayer.selectFeatures(query, "add", new AsyncResponder(queryResultHandler, null, "click"));
+				}		
+			}
+			
+			private function queryResultHandler(features:Array, token:Object = null):void{
+				if (features.length > 0){
+					var pin:String = features[0].attributes.PIN_NUM;
+					
+					model.stormwater.searchPanel.initializeSearch();
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, model.stormwater.searchPanel.accountReceived);
+					model.controller.showProgress("Searching for Account information...");
+					model.stormwater.searchPanel.swuService.send({
+						'function':'getstormwateraccount',
+						dbschema:model.stormwater.dbSchema,
+						status:'A',
+						connstr:JSON.encode(model.stormwater.connstr),
+						pin:pin
+						
+					});
+					
+	
+		
+				}
+			}
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</toolbar:ToolbarToggleButtonBase>

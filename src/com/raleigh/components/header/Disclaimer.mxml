@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 creationComplete="init()">
+	<fx:Script>
+		<![CDATA[
+			import flashx.textLayout.conversion.TextConverter;
+						
+			[Bindable]
+			private var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}
+			
+		]]>
+	</fx:Script>
+
+	<s:layout>
+		<s:VerticalLayout paddingBottom="5" paddingRight="5" paddingLeft="5" paddingTop="5"
+						  horizontalAlign="center"/>
+	</s:layout>
+<!--	<s:Label maxWidth="300"
+			 text="{config.disclaimer.@text}"/>-->
+	
+	<s:RichEditableText maxWidth="300" editable="false" textFlow="{TextConverter.importToFlow(config.disclaimer[0].toString(),TextConverter.TEXT_FIELD_HTML_FORMAT)}"/>
+	<s:HGroup>
+		<s:Image source="@Embed('assets/raleigh.png')"/>
+		<s:Image source="@Embed('assets/wake.png')"/>
+	</s:HGroup> 
+</s:Group>

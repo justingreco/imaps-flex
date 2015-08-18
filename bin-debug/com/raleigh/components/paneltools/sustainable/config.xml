@@ -1,0 +1,4 @@
+<config>
+	<featurelayer url="http://maps.raleighnc.gov/ArcGIS/rest/services/Sustainable/MapServer/0"/>
+	<photos url="http://maps.raleighnc.gov/sustainableraleigh/photos/"/>
+</config>

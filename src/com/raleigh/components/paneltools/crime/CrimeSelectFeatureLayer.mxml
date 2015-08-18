@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<esri:FeatureLayer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				   xmlns:s="library://ns.adobe.com/flex/spark"
+				   xmlns:mx="library://ns.adobe.com/flex/mx"
+				   xmlns:esri="http://www.esri.com/2008/ags"
+				   initialize="featurelayer1_initializeHandler(event)" mode="selection"
+				   selectionColor="0xFF0000"
+				   selectionComplete="featurelayer1_selectionCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.events.FeatureLayerEvent;
+			import com.raleigh.model.Model;
+			
+			import mx.events.FlexEvent;
+			
+			private var model:Model = Model.getInstance();
+
+			protected function featurelayer1_initializeHandler(event:FlexEvent):void
+			{
+				//model.crimeSelectionLayer = this;
+				//var attInsp:AttributeInspector = new AttributeInspector([this]);
+				//var attInsp:CrimeInspector = new CrimeInspector();
+				//attInsp.featureLayers = [this];
+				//model.map.infoWindow.addElement(attInsp);
+				model.map.infoWindow.addEventListener(Event.CLOSE, infoWindowCloseHandler,false,0,true);
+			}
+			
+			protected function infoWindowCloseHandler(event:Event):void{
+				this.clearSelection();
+			}
+
+
+			protected function featurelayer1_selectionCompleteHandler(event:FeatureLayerEvent):void
+			{
+				model.map.infoWindow.label = event.features[0].attributes.INCIDENT_ADDRESS;
+				model.map.infoWindow.show(event.features[0].geometry);
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</esri:FeatureLayer>

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:property="com.raleigh.components.paneltools.property.*"
+		 xmlns:esri="http://www.esri.com/2008/ags"
+		 width="{model.configuration.panelTools.width}" height="100%"
+		 creationComplete="group1_creationCompleteHandler(event)" enabled="true">
+	<s:layout>
+		<s:HorizontalLayout gap="0" verticalAlign="middle"/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.classes.Config;
+			import com.raleigh.classes.Paneltool;
+			import com.raleigh.components.map.MapPanel;
+			import com.raleigh.components.paneltools.layerlist.LayerList;
+			import com.raleigh.components.paneltools.location.LocationSearch;
+			import com.raleigh.components.paneltools.property.PropertySearch;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			
+			import flash.net.registerClassAlias;
+			import flash.utils.getDefinitionByName;
+			
+			import mx.controls.Alert;
+			import mx.core.Container;
+			import mx.core.INavigatorContent;
+			import mx.core.IVisualElement;
+			import mx.core.UIComponent;
+			import mx.events.FlexEvent;
+			import mx.events.IndexChangedEvent;
+			
+			import spark.components.NavigatorContent;
+			import spark.effects.Fade;
+			
+
+			
+			[Bindable]
+			private var model:Model = Model.getInstance();		
+			[Bindable]
+			private var controller:Controller = Controller.getInstance();
+			[Bindable]			
+			private var mapPanel:MapPanel;
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+
+				removeEventListener(FlexEvent.CREATION_COMPLETE, group1_creationCompleteHandler);
+				mapPanel = model.mapPanel;
+				if (model.configuration)
+				{
+					if (model.configuration.panelColors.enabled)
+					{
+						accordion.setStyle("headerStyleName","customAccordionHeadStyles");
+					}					
+				}
+
+				
+				addPanelTools();
+				
+				
+				for (var i:int=0; i < accordion.numChildren; i++){
+					accordion.getHeaderAt(i).useHandCursor = true;
+					accordion.getHeaderAt(i).buttonMode = true;
+				}
+				if (model.settingsSO && !model.panel)
+				{
+					if (model.settingsSO.size > 0)
+					{
+						if (model.settingsSO.data[model.SETTINGS+"_"+model.config].paneltool)
+						{
+							callLater(switchAccordionPanel,[model.settingsSO.data[model.SETTINGS+"_"+model.config].paneltool]);							
+						}
+					}
+
+				}
+			}
+			
+			
+			private function addPanelTools():void
+			{
+				if (model.configuration != null)
+				{
+					
+					for each (var tool:Paneltool in model.configuration.panelTools){
+						var ClassReference:Class = getDefinitionByName(tool.file) as Class;
+						var factory:ClassFactory = new ClassFactory(ClassReference);
+						var comp:* = factory.newInstance();
+						comp.name = tool.name;
+						accordion.addElement(comp as IVisualElement);
+					}						
+				}
+				else
+				{
+					Alert.show("Error loading config file, please reload page");
+				}
+			}
+
+
+			protected function toggleClick(expand:Boolean):void
+			{
+				if (expand){
+					//this.width = 340;
+					//mapPanel.right = 320;
+					panelResize.valueTo = model.configuration.panelTools.width;
+					mapResize.valueTo =model.configuration.panelTools.width-toggleBtn.width;
+					toggleBtn.toolTip = "Collapse Panel";
+				}else{
+					//this.width = 20;
+					//mapPanel.right=0;
+					panelResize.valueTo = toggleBtn.width;
+					mapResize.valueTo = 0;
+					toggleBtn.toolTip = "Expand Panel";
+				}
+				toggleBtn.selected = expand;
+				parallel.play();
+			}
+
+
+			protected function toggleBtn_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (toggleBtn.selected){
+					toggleBtn.toolTip = "Collapse Panel";
+				}else{
+					toggleBtn.toolTip = "Expand Panel";
+				}
+				if (model.settingsSO)
+				{
+					if (model.settingsSO.size > 0)
+					{
+						callLater(toggleClick,[model.settingsSO.data[model.SETTINGS+"_"+model.config].panel]);
+					}					
+				}
+
+			}
+			
+			protected function accordion_changeHandler(event:IndexChangedEvent):void
+			{
+				ExternalInterface.call("_gaq.push(['_trackEvent', 'Right Panel', '"+event.currentTarget.selectedChild.label+"'])");
+			}
+			
+			public function switchAccordionPanel(panelLabel:String):void
+			{
+			
+				for (var i:int = 0;i<accordion.numElements;i++)
+				{
+					var item:Object = accordion.getElementAt(i);
+					if (String(item.label).toLowerCase() == panelLabel.toLowerCase())
+					{
+						accordion.selectedIndex = i;
+					}
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Style>
+		.customAccordionHeadStyles {
+			skin: ClassReference("com.raleigh.skins.RightPanelAccordionSkin");
+			color: white;
+		}
+	</fx:Style>	
+	<fx:Declarations>
+		<s:Fade id="fadeIn" alphaFrom="0.5" alphaTo="1" target="{toggleBtn}"/>
+		<s:Fade id="fadeOut" alphaFrom="1" alphaTo="0.5" target="{toggleBtn}"/>		
+		<s:Parallel id="parallel">
+			<s:Animate target="{this}">
+				<s:SimpleMotionPath id="panelResize" property="width"/>
+			</s:Animate>
+			<s:Animate target="{mapPanel}">
+				<s:SimpleMotionPath id="mapResize" property="right"/>
+			</s:Animate>
+		</s:Parallel>
+	</fx:Declarations>
+	<s:ToggleButton id="toggleBtn" width="20" height="40" alpha="0.5" buttonMode="true"
+					change="toggleClick(toggleBtn.selected)"
+					creationComplete="toggleBtn_creationCompleteHandler(event)"
+					rollOut="fadeOut.play()" rollOver="fadeIn.play()" selected="true"
+					skinClass="com.raleigh.skins.RightPanelButtonSkin" useHandCursor="true"/>
+	<mx:Accordion id="accordion" width="100%" height="100%" change="accordion_changeHandler(event)"/>
+</s:Group>

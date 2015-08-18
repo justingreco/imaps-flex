@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					width="285" height="144"
+					showCloseButton="false" title="Update Account Status">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.IndexChangeEvent;
+			
+
+			protected function statusDdl_creationCompleteHandler(event:FlexEvent):void
+			{
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, accountStatusRetrieved);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'getaccountstatus',
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+			
+			protected function accountStatusRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, accountStatusRetrieved);
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					this.statusDdl.dataProvider = new ArrayCollection(data);
+					if (data.length > 0){
+						model.stormwater.acctStatus = data[0];
+						this.statusDdl.selectedIndex = this.statusDdl.dataProvider.getItemIndex(model.stormwater.acctStatus);	
+					}
+					model.stormwater.journalEntries = new ArrayCollection(data);
+				}
+			}
+
+			protected function btnUpdate_clickHandler(event:MouseEvent):void
+			{
+				if (statusDdl.selectedItem.ACCOUNT_STATUS==model.stormwater.currentAccount.ACCOUNT_STATUS.toString())
+				{  
+					Alert.show("Account Status has not been changed, update was not performed...");					
+				}
+				else
+				{
+					UpdateAcctStatus();
+				}
+			}
+			
+			protected function UpdateAcctStatus():void{	
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, accountStatusUpdated);
+				var updates:Object = {
+					account_status:statusDdl.selectedItem.ACCOUNT_STATUS,
+					prev_account_status:model.stormwater.currentAccount.ACCOUNT_STATUS
+				};
+				model.stormwater.searchPanel.swuService.send({
+					'function':'updateacctstatus',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					updates:JSON.encode(updates),
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+			
+			protected function accountStatusUpdated(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, accountStatusUpdated);
+				if (event.result == 1){
+					var token:AsyncToken;
+					var responder:AsyncResponder;
+
+					token = model.stormwater.searchPanel.swuService.send({'function':'getstormwateraccount',
+						acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID, 
+						status:statusDdl.selectedItem.ACCOUNT_STATUS,
+						dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)});
+					responder =  new AsyncResponder(stormwaterAccountRetrieved, null);
+					token.addResponder(responder);
+
+					
+				}
+			}
+			
+			protected function stormwaterAccountRetrieved(event:ResultEvent, token:AsyncToken):void{
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length == 0){
+						Alert.show("Stormwater Account not found");
+					}else if (data.length > 0){
+						model.stormwater.currentAccount = data[0];
+					}
+				}
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT,journalEntriesRetrieved);
+				model.stormwater.searchPanel.getJournalEntries(0);
+			}
+			
+			protected function journalEntriesRetrieved(event:ResultEvent, token:AsyncToken):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT,journalEntriesRetrieved);
+				PopUpManager.removePopUp(this);	
+			}
+
+			
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				PopUpManager.removePopUp(this);					
+			}
+			
+		]]>
+	</fx:Script>
+
+	<s:Form>
+		
+		<s:FormItem width="100%" label="Account Status">
+			<s:DropDownList id="statusDdl" width="100%"
+							creationComplete="statusDdl_creationCompleteHandler(event)"
+							labelField="ACCOUNT_STATUS_DESC" prompt="loading..." selectedIndex="0">	
+			</s:DropDownList>		
+			
+		</s:FormItem>
+		<s:HGroup>
+			<s:Button id="btnCancel" label="Cancel" click="btnCancel_clickHandler(event)"/>
+			<mx:Spacer width="103" height="20"/>
+			<s:Button id="btnUpdate" label="Update" click="btnUpdate_clickHandler(event)"/>
+		</s:HGroup>
+		
+	</s:Form>
+</toolbar:ToolWindow>

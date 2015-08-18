@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool 
+		 xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" 
+		 xmlns:utils="com.raleigh.components.utils.*" 
+		 xmlns:paneltools="com.raleigh.components.paneltools.*" 
+		 xmlns:esri="http://www.esri.com/2008/ags" 
+		 xmlns:config="services.config.*" 	
+		 xmlns:components="com.raleigh.components.*"
+		 width="100%" height="100%">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.events.LocatorEvent;
+			import com.esri.ags.tasks.supportClasses.AddressCandidate;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			
+			import spark.events.IndexChangeEvent;
+			protected function search():void
+			{
+
+					var address:Object = {"Single Line Input":stNumInput.text+' '+stNameInput.text.toUpperCase()};
+					locator.addressToLocations(address);					
+				
+
+			}
+
+			protected function locator_addressToLocationsCompleteHandler(event:LocatorEvent):void
+			{
+				if (event.addressCandidates.length > 0)
+				{
+					var candidate:AddressCandidate = event.addressCandidates[0];
+					controller.addPointToMap(candidate.location, 9600);
+				}
+				else
+				{
+					Alert.show("No results found.");
+				}
+			}
+
+
+			protected function dataGrid_changeHandler(event:ListEvent):void
+			{
+				controller.addPointToMap(event.itemRenderer.data.location, 9600);
+			}
+
+
+			protected function stNameInput_creationCompleteHandler(event:FlexEvent):void
+			{
+				stNameInput.input.prompt = "W HARGETT ST";
+				stNameInput.list.addEventListener(IndexChangeEvent.CHANGE, stNameChangeHandler,false,0,true);
+				function stNameChangeHandler(event:IndexChangeEvent):void
+				{
+					if (Validator.validateAll(validators).length == 0)
+					{
+						search();						
+					}					
+				}
+			}
+
+
+			protected function searchBtn_clickHandler(event:MouseEvent):void
+			{
+				if (Validator.validateAll(validators).length == 0)
+				{
+					search();						
+				}	
+			}
+
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<fx:XML id="config" source="config.xml"/>
+		<esri:Locator id="locator" 
+					  url="{config.locator.@url}"
+					  addressToLocationsComplete="locator_addressToLocationsCompleteHandler(event)"/>
+		<fx:Array id="validators">
+			<mx:Validator required="true" source="{stNumInput}" property="text"/>
+			<mx:Validator required="true" source="{stNameInput.input}" property="text"/>			
+		</fx:Array>
+	</fx:Declarations>
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+	<s:HGroup width="100%">
+		<s:TextInput id="stNumInput" width="100%" prompt="222"/>		
+		<utils:AutoComplete id="stNameInput" filterFields="{['N', 'A1', 'A2']}" 
+							displayField="N"
+							minChars="3" width="200" dataProvider="{model.geocodeStreets}"
+							creationComplete="stNameInput_creationCompleteHandler(event)"/>	
+		<utils:ImageButton id="searchBtn" label="Search" click="searchBtn_clickHandler(event)"
+								icon="@Embed(source='../../assets/searchIcon.png')"
+								height="24" width="24"/>
+		<utils:ImageButton id="clearBtn" label="Clear" click="{stNumInput.text = '';stNameInput.text=''}"
+								icon="@Embed(source='../../assets/clear.png')"
+								height="24" width="24"/>			
+	</s:HGroup>
+	<mx:DataGrid id="dataGrid" width="100%" height="100%" 
+				 dataProvider="{locator.addressToLocationsLastResult}"
+				 change="dataGrid_changeHandler(event)"
+				 variableRowHeight="true"
+				 wordWrap="true">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Address" dataField="address"/>
+			<mx:DataGridColumn headerText="Score" dataField="score"/>
+		</mx:columns>
+	</mx:DataGrid>	
+
+	
+</paneltools:BasePanelTool>

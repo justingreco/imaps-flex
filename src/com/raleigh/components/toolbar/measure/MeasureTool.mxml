@@ -1,0 +1,506 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:BaseToolbarTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:esri="http://www.esri.com/2008/ags"
+						 xmlns:utils="com.raleigh.components.utils.*"
+						 xmlns:toolbar="com.raleigh.components.toolbar.*"
+						 width="400" creationComplete="group1_creationCompleteHandler(event)"
+						 currentState="{(measureBar.selectedIndex == -1)?'Start':measureBar.selectedItem.state}"
+						 removedFromStage="group1_removedFromStageHandler(event)">
+
+	<toolbar:layout>
+		<s:VerticalLayout horizontalAlign="center" paddingBottom="5" paddingLeft="5" paddingRight="5"
+						  paddingTop="5"/>
+	</toolbar:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.SpatialReference;
+			import com.esri.ags.events.DrawEvent;
+			import com.esri.ags.events.GeometryServiceEvent;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.geometry.Polygon;
+			import com.esri.ags.geometry.Polyline;
+			import com.esri.ags.symbols.MarkerSymbol;
+			import com.esri.ags.symbols.SimpleFillSymbol;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.esri.ags.symbols.SimpleMarkerSymbol;
+			import com.esri.ags.tasks.supportClasses.AreasAndLengthsParameters;
+			import com.esri.ags.tasks.supportClasses.LengthsParameters;
+			import com.raleigh.scripts.DDtoUSNG;
+			
+			import mx.events.FlexEvent;
+			
+			import spark.events.IndexChangeEvent;
+			
+			
+			private var cmi:ContextMenuItem;
+			
+			private var drawIsActive:Boolean;
+			
+			private var areaFeet:Number = 0;
+			private var perimFeet:Number = 0;
+			private var lengthFeet:Number = 0;
+			
+			private var clickPoint:MapPoint;
+			[Bindable]
+			private var totalLength:Number = 0.00;
+			[Bindable]
+			private var currentSegment:Number = 0.00;
+			private var lastSegment:Number = 0.00;
+			[Bindable]
+			private var area:String = "0.00";
+			[Bindable]
+			private var perimeter:String = "0.00";
+			[Bindable]
+			private var dd:String;
+			[Bindable]
+			private var dms:String;
+			[Bindable]
+			private var usng:String;
+			[Bindable]
+			private var xText:String;
+			[Bindable]
+			private var yText:String;
+			
+			private var currentGraphic:Graphic;
+			
+			protected function resetMeasurements():void{
+				area = "0.00";
+				perimeter = "0.00";
+				lengthFeet = 0.00;
+				totalLength = 0.00;
+				currentSegment = 0.00;
+				lastSegment = 0.00;
+				dd = "";
+				dms = "";
+				usng = "";
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				//add graphics layer to map for measure tool
+				gl = new GraphicsLayer();
+				gl.id = "measureGraphicsLayer";
+				gl.name = "Measure Graphics Layer";
+				map.addLayer(gl);
+				model.measureBar = this.measureBar;
+				model.toolbars.push(this.measureBar);
+
+			}
+
+
+
+			protected function draw_drawStartHandler(event:DrawEvent):void
+			{
+				gl.clear();
+				resetMeasurements();
+				startSegmentMeasuring();
+				currentGraphic = event.graphic;
+				cmi = new ContextMenuItem("Remove Last Point");
+				cmi.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, cmi_menuItemSelectHandler,false,0,true);
+				map.contextMenu.customItems.push(cmi);
+			}
+			
+			private function cmi_menuItemSelectHandler(event:ContextMenuEvent):void
+			{
+				if(ContextMenuItem(event.currentTarget).caption == "Remove Last Point")
+				{
+					removeLastPoint();
+				}
+			}	
+			
+			private function removeLastPoint():void
+			{
+				var part:Array = [];
+				if (currentGraphic.geometry is Polyline)
+				{
+					part = Polyline(currentGraphic.geometry).paths[0];
+					var line1:Number = getDistance(part[part.length-1],part[part.length-2]);
+					var line2:Number = getDistance(part[part.length-2],part[part.length-3]);
+					totalLength = totalLength -  line1 - line2;
+				}
+				else if (currentGraphic.geometry is Polygon)
+				{
+					part = Polygon(currentGraphic.geometry).rings[0];
+				}
+				
+				part.pop();
+				if (currentGraphic.geometry is Polyline)
+				{
+					currentGraphic.geometry = new Polyline([part]);
+					clickPoint = part[part.length-2];
+					lastSegment = totalLength;
+					updateLength(clickPoint);
+					
+				}
+				else if (currentGraphic.geometry is Polygon)
+				{
+					currentGraphic.geometry = new Polygon([part]);
+				}					
+			}		
+			
+			
+			private function getDistance(pt1:MapPoint, pt2:MapPoint):Number
+			{
+				var a:Number = pt2.x - pt1.x;
+				var b:Number = pt2.y - pt1.y;
+				var distance:Number = Math.sqrt(Math.pow(a,2)+Math.pow(b,2));
+				return distance;
+			}
+			
+			private function startSegmentMeasuring():void{
+				
+				
+				if (this.currentState == "Polyline" && !freehandCheck.selected)
+				{
+					map.addEventListener(MapMouseEvent.MAP_CLICK, lineDrawMapClickHandler,false,0,true);	
+					map.addEventListener(MouseEvent.MOUSE_MOVE, lineDrawMouseMoveHandler,false,0,true);			
+				}
+				else
+				{
+					stopSegmentMeasuring();
+				}
+			}
+			
+			private function stopSegmentMeasuring():void{
+				map.removeEventListener(MapMouseEvent.MAP_CLICK, lineDrawMapClickHandler);
+				map.removeEventListener(MouseEvent.MOUSE_MOVE, lineDrawMouseMoveHandler);				
+				clickPoint = null;
+			}
+			
+			protected function lineDrawMapClickHandler(event:MapMouseEvent):void
+			{
+				clickPoint = event.mapPoint;
+				lastSegment = lastSegment + currentSegment;
+				currentSegment = 0;
+			}
+			
+			protected function lineDrawMouseMoveHandler(event:MouseEvent):void
+			{
+				var mousePoint:MapPoint = new MapPoint();
+				mousePoint = map.toMapFromStage(event.stageX, event.stageY);				
+				updateLength(mousePoint);
+					
+			}
+			
+			private function updateLength(mousePoint:MapPoint):void
+			{
+				if (!clickPoint)
+				{
+					clickPoint = mousePoint;
+				}
+
+				currentSegment = getDistance(mousePoint, clickPoint);					
+				totalLength = lastSegment + currentSegment;
+				currentSegment =currentSegment;
+				totalLengthLabel.text = numFormatter.format(convertLength(totalLength, lengthDDL.selectedItem));
+				segmentLabel.text = numFormatter.format(convertLength(currentSegment, lengthDDL.selectedItem)); 
+				
+			
+			}
+
+			private var point:MapPoint;
+			protected function draw_drawEndHandler(event:DrawEvent):void
+			{
+				if (event.graphic.geometry is MapPoint){
+					point = event.graphic.geometry as MapPoint;
+					geomSrv.project([event.graphic.geometry],new SpatialReference(4326));
+					geomSrv.project([event.graphic.geometry],new SpatialReference(csDdl.selectedItem.value));
+				}else if (event.graphic.geometry is Polyline){
+					var lparams:LengthsParameters = new LengthsParameters();
+					segmentLabel.text = "0.00";
+					lparams.lengthUnit = 9002;
+					lparams.polylines = [event.graphic.geometry];
+					geomSrv.lengths(lparams);
+				}else if (event.graphic.geometry is Polygon){
+					var alparams:AreasAndLengthsParameters = new AreasAndLengthsParameters();
+					alparams.areaUnit = "9002";
+					alparams.lengthUnit = 9002;
+					event.graphic.geometry.spatialReference = map.spatialReference;
+					alparams.polygons = [event.graphic.geometry];
+
+					geomSrv.areasAndLengths(alparams);					
+				}
+
+				removeContextMenuItem();
+	
+				stopSegmentMeasuring();
+			}
+
+			protected function removeContextMenuItem():void
+			{
+				map.contextMenu.customItems.pop();
+			}
+
+			protected function geomSrv_lengthsCompleteHandler(event:GeometryServiceEvent):void
+			{
+				lengthFeet = event.result[0];
+				totalLength = convertLength(lengthFeet, lengthDDL.selectedItem);
+				totalLengthLabel.text = numFormatter.format(totalLength);
+			}
+
+
+			protected function geomSrv_areasAndLengthsCompleteHandler(event:GeometryServiceEvent):void
+			{
+				areaFeet = event.result.areas[0];
+				area = numFormatter.format(convertArea(areaFeet, areaDDL.selectedItem));
+				perimFeet = event.result.lengths[0];
+				perimeter = numFormatter.format(convertLength(perimFeet, perimDDL.selectedItem));
+
+			}
+
+
+			protected function geomSrv_projectCompleteHandler(event:GeometryServiceEvent):void
+			{
+				var projPt:MapPoint = event.result[0];
+				switch (projPt.spatialReference.wkid){
+					case 4326:
+						dd = "Latitude: "+projPt.y.toFixed(4)+" Longitude: "+projPt.x.toFixed(4);
+						dms = ddToDms(projPt);
+						var ddToUSNG:DDtoUSNG = new DDtoUSNG();
+						usng = ddToUSNG.getDDtoUSNG(projPt.y,projPt.x,5);
+						break;
+					default:
+						xText = projPt.x.toFixed(1)+csDdl.selectedItem.unit;
+						yText = projPt.y.toFixed(1)+csDdl.selectedItem.unit;
+						break;
+				}
+			}
+			
+			protected function ddToDms(point:MapPoint):String{
+				var formatter:NumberFormatter = new NumberFormatter();
+				formatter.rounding = "down";
+				formatter.precision = 0;
+				var x:Number =  Math.abs(point.x);
+				var y:Number = Math.abs(point.y);
+				var dx:Number = parseInt(formatter.format(x));
+				var dy:Number  = parseInt(formatter.format(y));
+				var mx1:Number = 60*(x - dx);
+				var mx:Number  = parseInt(formatter.format(mx1));
+				var my1:Number = 60*(y - dy);
+				var my:Number = parseInt(formatter.format(my1));				
+				var sx:Number  = 60*(mx1-mx);
+				var sy:Number  = 60*(my1-my);				
+
+				return "Latitude: "+dy+"°"+my+"'"+sy.toFixed(2)+"'' N Longitude: "+dx+"°"+mx+"'"+sx.toFixed(2)+"'' W";
+			}
+			
+			protected function convertArea(feet:Number, unit:String):Number{
+				var ret:Number = 0;
+				switch (unit){
+					case "Feet²":
+						ret = feet;
+						break;
+					case "Yards²":
+						ret = feet/9;
+						break;
+					case "Acres":
+						ret = feet/43560;
+						break;
+					case "Miles²":
+						ret = feet/27878400;
+						break;
+					case "Meters²":
+						ret = feet/10.76391041670972;
+						break;
+					case "Kilometers²":
+						ret = feet/10763910.41670972
+						break;
+				}
+				return ret;
+		
+			}
+			
+			protected function convertLength(feet:Number, unit:String):Number{
+				var ret:Number = 0;
+				switch (unit){
+					case "Feet":
+						ret = feet;
+						break;
+					case "Yards":
+						ret = feet/3;
+						break;
+					case "Miles":
+						ret = feet/5280;
+						break;
+					case "Meters":
+						ret = feet/3.280839895013123;
+						break;
+					case "Kilometers":
+						ret = feet/3280.839895013123;
+						break;
+				}
+				return ret;
+			}
+			
+			
+			protected function areaDDL_changeHandler(event:IndexChangeEvent):void
+			{
+				area = numFormatter.format(convertArea(areaFeet, areaDDL.selectedItem));
+			}
+
+
+
+			protected function perimDDL_changeHandler(event:IndexChangeEvent):void
+			{
+				perimeter = numFormatter.format(convertLength(perimFeet, perimDDL.selectedItem));
+			}
+
+
+			protected function lengthDDL_changeHandler(event:IndexChangeEvent):void
+			{
+				totalLengthLabel.text = numFormatter.format(convertLength(totalLength, lengthDDL.selectedItem));
+				segmentLabel.text = numFormatter.format(convertLength(currentSegment, lengthDDL.selectedItem));				
+			}
+
+			protected function csDdl_changeHandler(event:IndexChangeEvent):void
+			{
+				if (point)
+				{
+					geomSrv.project([point], new SpatialReference(csDdl.selectedItem.value));
+				}
+			}
+			
+			protected function group1_removedFromStageHandler(event:Event):void
+			{
+				draw.deactivate();
+				measureBar.selectedIndex = -1;
+			}
+
+			
+		]]>
+	</fx:Script>
+	<toolbar:states>
+		<s:State name="Start"/>
+		<s:State name="MapPoint"/>
+		<s:State name="Polyline"/>
+		<s:State name="Polygon"/>
+	</toolbar:states>
+	<fx:Declarations>
+		<esri:DrawTool id="draw" drawEnd="draw_drawEndHandler(event)"
+					   drawStart="draw_drawStartHandler(event)" 
+					   graphicsLayer="{gl}" 
+					   map="{map}"
+					   lineSymbol="{new SimpleLineSymbol('SOLID',0x00FF00,1, 5)}"
+					   fillSymbol="{new SimpleFillSymbol('SOLID', 0x00FF00,0.5, new SimpleLineSymbol())}"
+					   markerSymbol="{new SimpleMarkerSymbol(SimpleMarkerSymbol.STYLE_CIRCLE,15,0x00FF00, 0.80,0,0,0,
+					   new SimpleLineSymbol())}"/>
+		<esri:GraphicsLayer id="gl" spatialReference="{map.spatialReference}"/>
+		<esri:GeometryService id="geomSrv"
+							  areasAndLengthsComplete="geomSrv_areasAndLengthsCompleteHandler(event)"
+							  lengthsComplete="geomSrv_lengthsCompleteHandler(event)"
+							  projectComplete="geomSrv_projectCompleteHandler(event)"
+							  url="{model.configuration.geometryUrl}"/>
+		<mx:NumberFormatter id="numFormatter" precision="2" useThousandsSeparator="true"/>
+		
+	</fx:Declarations>
+	<s:HGroup>
+		<utils:DrawButtonBar id="measureBar" width="100%" buttonMode="true" drawtool="{draw}"
+							 name="Measure Toolbar" toolTip="Select Draw Type" useHandCursor="true">
+			<s:ArrayList>
+				<fx:Object label="Point" state="MapPoint" tool="{DrawTool.MAPPOINT}"/>
+				<fx:Object label="Line" state="Polyline"
+						   tool="{(freehandCheck.selected)?DrawTool.FREEHAND_POLYLINE:DrawTool.POLYLINE}"/>
+				<fx:Object label="Polygon" state="Polygon"
+						   tool="{(freehandCheck.selected)?DrawTool.FREEHAND_POLYGON:DrawTool.POLYGON}"/>
+			</s:ArrayList>
+		</utils:DrawButtonBar>		
+		<s:CheckBox id="freehandCheck" label="Freehand" change="measureBar.activateDrawTool()"
+					selected="true"
+					enabled.MapPoint="false"
+					enabled.Polygon="true"
+					enabled.Polyline="true"/>
+	</s:HGroup>
+
+	
+	<s:VGroup includeIn="MapPoint" width="100%" horizontalAlign="center">
+		<s:Label fontWeight="bold" text="Decimal Degrees"/>
+		<s:TextArea width="100%" height="20" borderVisible="false" editable="false" text="{dd}"
+					textAlign="center"/>
+		<s:Label fontWeight="bold" text="Degrees Minutes Seconds"/>
+		<s:TextArea width="100%" height="20" borderVisible="false" editable="false" text="{dms}"
+					textAlign="center"/>
+		<s:Label fontWeight="bold" text="National Grid"/>
+		<s:TextArea width="100%" height="20" borderVisible="false" editable="false" text="{usng}"
+					textAlign="center"/>
+		<s:Label fontWeight="bold" text="Coordinate System"/>
+		<s:DropDownList id="csDdl" width="200" change="csDdl_changeHandler(event)" selectedIndex="0">
+			<s:dataProvider>
+				<s:ArrayList>
+					<fx:Object label="NAD 1983 Stateplane (Feet)" unit="ft" value="2264"/>
+					<fx:Object label="NAD 1983 Stateplane (Meters)" unit="m" value="32119"/>
+					<fx:Object label="NAD 1927 Stateplane (Feet)" unit="ft" value="32019"/>
+					<fx:Object label="NAD 1983 UTM Zone 17N" unit="m" value="26917"/>
+					<fx:Object label="NAD 1927 UTM Zone 17N" unit="m" value="26717"/>					
+				</s:ArrayList>
+			</s:dataProvider>
+		</s:DropDownList>
+		<s:HGroup verticalAlign="middle">
+			<s:Label fontWeight="bold" text="X"/>
+			<s:TextArea width="113" height="20" borderVisible="false" editable="false" paddingTop="3"
+						text="{xText}"/>			
+		</s:HGroup>
+		<s:HGroup verticalAlign="middle">
+			<s:Label fontWeight="bold" text="Y"/>
+			<s:TextArea width="112" height="20" borderVisible="false" editable="false" paddingTop="3"
+						text="{yText}"/>		
+		</s:HGroup>
+	</s:VGroup>
+	<s:VGroup includeIn="Polyline" width="100%" horizontalAlign="center">
+		<s:Label fontWeight="bold" text="Total Length"/>
+		<s:HGroup>
+			<s:TextArea id="totalLengthLabel" width="120" height="23" borderVisible="false"
+						editable="false" textAlign="right"/>
+			<s:DropDownList id="lengthDDL" change="lengthDDL_changeHandler(event)" selectedIndex="0">
+				<s:ArrayList>
+					<fx:String>Feet</fx:String>
+					<fx:String>Yards</fx:String>
+					<fx:String>Miles</fx:String>
+					<fx:String>Meters</fx:String>
+					<fx:String>Kilometers</fx:String>
+				</s:ArrayList>
+			</s:DropDownList>
+		</s:HGroup>		
+		<s:Label fontWeight="bold" text="Segment Length"/>
+		<s:TextArea id="segmentLabel" width="120" height="23" borderVisible="false" editable="false"
+					textAlign="center"/>
+	</s:VGroup>
+	<s:VGroup includeIn="Polygon" width="100%" horizontalAlign="center">
+		<s:Label fontWeight="bold" text="Area"/>
+		<s:HGroup>
+			<s:TextArea width="120" height="23" borderVisible="false" editable="false" text="{area}"
+						textAlign="right"/>
+			<s:DropDownList id="areaDDL" change="areaDDL_changeHandler(event)" selectedIndex="0">
+				<s:ArrayList>
+					<fx:String>Feet²</fx:String>
+					<fx:String>Yards²</fx:String>
+					<fx:String>Acres</fx:String>
+					<fx:String>Miles²</fx:String>
+					<fx:String>Meters²</fx:String>
+					<fx:String>Kilometers²</fx:String>
+				</s:ArrayList>
+			</s:DropDownList>
+		</s:HGroup>
+	</s:VGroup>
+	<s:VGroup includeIn="Polygon" width="100%" horizontalAlign="center">
+		<s:Label fontWeight="bold" text="Perimeter"/>
+		<s:HGroup>
+			<s:TextArea width="120" height="23" borderVisible="false" editable="false"
+						text="{perimeter}" textAlign="right"/>
+			<s:DropDownList id="perimDDL" change="perimDDL_changeHandler(event)" selectedIndex="0">
+				<s:ArrayList>
+					<fx:String>Feet</fx:String>
+					<fx:String>Yards</fx:String>
+					<fx:String>Miles</fx:String>
+					<fx:String>Meters</fx:String>
+					<fx:String>Kilometers</fx:String>
+				</s:ArrayList>
+			</s:DropDownList>
+		</s:HGroup>
+	</s:VGroup>
+
+</toolbar:BaseToolbarTool>

@@ -1,0 +1,29 @@
+<config>
+	<service url="http://maps.raleighnc.gov/ArcGIS/rest/services/Geoprocessing/SaveToPDF/GPServer/SaveToPDF"/>
+	<sizes>
+		<size label="8.5x11">
+			<mapframe>
+				<landscape width="10" height="6.7" widtha="7.5" heighta="7.5"/>
+				<portrait width="7.5" height="7.5" widtha="7.5" heighta="7.5"/>
+			</mapframe>
+		</size>
+		<size label="11x17">
+			<mapframe>
+				<landscape width="16" height="9" widtha="13" heighta="10"/>
+				<portrait width="10" height="13" widtha="10" heighta="13"/>
+			</mapframe>
+		</size>
+		<size label="24x36">
+			<mapframe>
+				<landscape width="35" height="21" widtha="28" heighta="23"/>
+				<portrait width="23" height="29" widtha="23" heighta="29"/>
+			</mapframe>
+		</size>
+		<size label="36x48">
+			<mapframe>
+				<landscape width="47" height="32.5" widtha="38" heighta="35"/>
+				<portrait width="35" height="39" widtha="35" heighta="39"/>
+			</mapframe>
+		</size>		
+	</sizes>
+</config>

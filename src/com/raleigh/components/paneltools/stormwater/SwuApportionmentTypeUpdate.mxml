@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					creationComplete="apptTypesDDL_creationCompleteHandler(event)"
+					title="Update Apportionment Type" showCloseButton="false"
+					width="416">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.IndexChangeEvent;
+			
+
+
+			protected function apptTypesDDL_creationCompleteHandler(ResultEvent:FlexEvent):void
+			{
+				this.apptTypeDDL.selectedIndex=this.apptTypeDDL.dataProvider.getItemIndex(model.stormwater.currentAccount.apportionment_code);
+				this.apptCount.text="0";
+			}
+		
+			protected function btnUpdate_clickHandler(event:MouseEvent):void
+			{
+	 			if (this.apptTypeDDL.selectedItem=="EQUAL"||this.apptTypeDDL.selectedItem=="WEIGHTED"){
+					if (parseInt(this.apptCount.text)==0){
+						Alert.show("Please enter a value greater than 0 for Apportionment Types of EQUAL or WEIGHTED");
+					}
+					else {
+						UpdateApptType();						
+					}
+				}
+				else if (this.apptTypeDDL.selectedItem=="NA"){
+					if (parseInt(this.apptCount.text)>0){
+						Alert.show("Please enter a value of 0 for Apportionment Type  of NA");
+					}
+					else {
+						UpdateApptType();						
+					}
+				}
+			}
+		
+			protected function UpdateApptType():void{
+				var updates:Object = {apportionment_code: this.apptTypeDDL.selectedItem,
+					prev_appt_type:model.stormwater.currentAccount.APPORTIONMENT_CODE,
+					nbr_apportionment_units:parseInt(this.apptCount.text),
+					prev_nbr_units:model.stormwater.currentAccount.NBR_APPORTIONMENT_UNITS};
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, apptTypeUpdated);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'updateacctapptdata',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					updates:JSON.encode(updates),
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+			
+			protected function apptTypeUpdated(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, apptTypeUpdated);
+				if (event.result == 1){
+					this.close();
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, stormwaterAccountRetrieved);
+					model.stormwater.searchPanel.swuService.send({
+						'function':'getstormwateraccount',
+						acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+						status:model.stormwater.currentAccount.ACCOUNT_STATUS,
+						dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)
+					});					
+				}
+			}
+
+			protected function stormwaterAccountRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, stormwaterAccountRetrieved);
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length == 0){
+						Alert.show("Stormwater Account not found");
+					}else if (data.length == 1){
+						model.stormwater.currentAccount = data[0];
+						model.stormwater.searchPanel.getJournalEntries(0);					
+					}
+				}
+			}
+
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+			protected function apptTypeDDL_changeHandler(event:Event):void
+			{
+				if(this.apptTypeDDL.selectedItem=="NA"){
+					apptCount.text="0"
+				}
+				else {
+					if (parseInt(apptCount.text)==0){
+						Alert.show("Please enter the number of Apportionment Units...");
+					}
+				}
+					
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:Validator id="apptCountValidate" property="text" required="true"
+					  source="{apptCount}"/>
+	</fx:Declarations>
+	<s:Form>
+		<s:Form>
+			<s:FormItem width="100%" label="Appotionment Type">
+				<s:DropDownList id="apptTypeDDL" width="100%"
+								labelField="typelabel" prompt="loading..."
+								change="apptTypeDDL_changeHandler(event)">	
+					<mx:ArrayCollection>
+						<fx:String>NA</fx:String>
+						<fx:String>EQUAL</fx:String>
+						<fx:String>WEIGHTED</fx:String>
+					</mx:ArrayCollection>
+				</s:DropDownList>					
+			</s:FormItem>
+			<s:FormItem width="100%" label="Apportionment Units">
+				<s:TextInput id="apptCount" width="100%" prompt="Units" restrict="0-9"/>
+			</s:FormItem>
+			<s:HGroup>
+				<s:Button id="btnCancel" label="Cancel" click="btnCancel_clickHandler(event)"/>
+				<mx:Spacer width="136" height="20"/>
+				<s:Button id="btnUpdate" label="Update" click="btnUpdate_clickHandler(event)"/>
+			</s:HGroup>
+			
+		</s:Form>		
+	</s:Form>
+</toolbar:ToolWindow>

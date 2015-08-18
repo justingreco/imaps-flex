@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:services="services.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:soeservice="services.soeservice.*"
+						  width="100%" height="100%"
+						  addedToStage="basepaneltool1_addedToStageHandler(event)">
+	
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+	<paneltools:states>
+		<s:State name="Raleigh"/>
+		<s:State name="Wake"/>
+	</paneltools:states>
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			
+			public var lastPIN:String;
+			protected function addExportContextMenuItem():void
+			{
+				dataGrid.contextMenu = new ContextMenu();
+				dataGrid.contextMenu.hideBuiltInItems();	
+				var cmi:ContextMenuItem = new ContextMenuItem("Export Table");
+				cmi.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, exportTableSelect,false,0,true);
+				dataGrid.contextMenu.customItems.push(cmi);				
+			}
+			
+			private var fileReference:FileReference;
+			protected function exportTableSelect(event:ContextMenuEvent):void
+			{
+				fileReference = new FileReference();
+				fileReference.addEventListener(IOErrorEvent.IO_ERROR, fileReferenceIOError,false,0,true);
+				var headers:Array = [];
+				var fields:Array = [];
+				for each (var column:DataGridColumn in dataGrid.columns)
+				{
+					headers.push(column.headerText);
+					fields.push(column.dataField);
+				}
+				
+				var exportString:String = headers.toString().replace(new RegExp(",","g"),"\t")+"\r\n";
+				
+				for each (var item:Object in dataGrid.dataProvider)
+				{
+					var values:Array = [];
+					for each (var field:String in fields)
+					{
+						values.push(String(item[field]).replace(new RegExp(",","g"),"~~~"));
+					}
+					exportString += values.toString().replace(new RegExp(",","g"),"\t").replace(new RegExp("~~~","g"),",")+"\r\n";
+				}
+				fileReference.save(exportString, "iMaps_Address_Export.txt");	
+			}		
+			
+			protected function fileReferenceIOError(event:IOErrorEvent):void
+			{
+				Alert.show("File could not be saved.  If overwriting a file, make sure it is not open or read only");
+			}				
+			
+			protected function dataGrid_creationCompleteHandler(event:FlexEvent):void
+			{
+				addExportContextMenuItem();
+			}
+			
+			protected function basepaneltool1_addedToStageHandler(event:Event):void
+			{
+				addresses(model.selectedProperty.attributes.PIN_NUM, model.selectedProperty.attributes.REID, "json");
+			}
+			
+			
+
+			
+			
+			protected function addresses(pin:String, reid:String, f:String):void
+			{
+				AddressesResult.token = soeService.Addresses(pin,reid,f);
+			}
+			
+			protected function AddressesResult_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				var addresses:ArrayCollection = event.result.Addresses;
+				if (addresses.length > 0) {
+					if (addresses[0].rpidMap) {
+						this.currentState = "Raleigh";
+					} else {
+						this.currentState = "Wake";
+					}
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<s:CallResponder id="AddressesResult" result="AddressesResult_resultHandler(event)"/>
+		<soeservice:SoeService id="soeService"
+							   fault="Alert.show(event.fault.faultString + '\n' + event.fault.faultDetail)"
+							   showBusyCursor="true"/>
+	</fx:Declarations>
+	<s:HGroup includeIn="Raleigh">
+		<s:Label fontWeight="bold" text="RPID Map: "/>
+		<s:Label text="{AddressesResult.lastResult.Addresses.getItemAt(0).rpidMap}"/>
+		<s:Label fontWeight="bold" text="RPID Lot: "/>
+		<s:Label text="{AddressesResult.lastResult.Addresses.getItemAt(0).rpidLot}"/>		
+	</s:HGroup>
+	<mx:DataGrid id="dataGrid" width="100%" height="100%"
+				 creationComplete="dataGrid_creationCompleteHandler(event)" variableRowHeight="true"
+				 wordWrap="true"
+				 dataProvider="{AddressesResult.lastResult.Addresses}"
+				 toolTip="Right Click to Copy/Export">
+		<mx:columns>
+			<mx:DataGridColumn dataField="address" headerText="Address"/>
+			<mx:DataGridColumn includeIn="Raleigh" dataField="suite" headerText="Suite"/>			
+			<mx:DataGridColumn includeIn="Raleigh" dataField="type" headerText="Type"/>
+			<mx:DataGridColumn includeIn="Raleigh" dataField="status" headerText="Description"/>
+		</mx:columns>
+	</mx:DataGrid>
+</paneltools:BasePanelTool>

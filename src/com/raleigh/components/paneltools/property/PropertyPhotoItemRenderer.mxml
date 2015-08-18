@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:mx="library://ns.adobe.com/flex/mx"
+				autoDrawBackground="true">
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			
+			import mx.core.FlexGlobals;
+			import mx.managers.PopUpManager;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			[Bindable]
+			private var controller:Controller = Controller.getInstance();
+			protected function EnlargePhoto():void
+			{
+				var window:PhotoWindow = new PhotoWindow();
+				window.selectedIndex = model.propertySearch.PhotosResult.lastResult.Photos.getItemIndex(data);
+				window.selectedItem = data;
+
+				window.verticalCenter = 0;
+				window.horizontalCenter = 0;
+				if (FlexGlobals.topLevelApplication.height < 600)
+				{
+					FlexGlobals.topLevelApplication.height - 10;
+				}
+				PopUpManager.addPopUp(window,model.mainView as DisplayObject,true);
+				PopUpManager.centerPopUp(window);
+				window.x = FlexGlobals.topLevelApplication.width/2 - window.width/2;
+				window.y = FlexGlobals.topLevelApplication.height/2 - window.height/2; 
+
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<mx:Image width="300" height="225" buttonMode="true" click="EnlargePhoto()"
+			  source="{model.propertySearch.config.paths.path.(@name=='Building Photos').@url}{data.imageDir}/{data.imageName}" toolTip="Click to Enlarge"
+			  useHandCursor="true"/>
+	
+</s:ItemRenderer>

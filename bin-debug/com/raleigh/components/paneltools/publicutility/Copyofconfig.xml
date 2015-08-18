@@ -1,0 +1,18 @@
+<config>
+	<search>
+		<query id="hydrant" url="http://gis.raleighnc.gov/ArcGIS/rest/services/PublicUtility/Water/MapServer/0" fields="ASSET_ID,FACILITYID"
+		outfields="METER_NBR,CCB_PREM_ID,PIN_NUM,IRIRRIGATI, METER_SIZE, UTRZCRT_RJ"/>
+		<query id="meter" url="http://gis.raleighnc.gov/ArcGIS/rest/services/PublicUtility/Water/MapServer/1" fields="METER_NBR,CCB_PREM_ID"
+		outfields="INSTALLDATE, LIFECYCLESTATUS,SUBTYPE,ELEVATION,NOZZLESIZE1,NOZZLESIZE2,NOZZLESIZE3,NOZZLESIZE4,
+		MANUFACTURER,UNITID,ASSET_ID,SOURCE,PROJECT_NAME,OWNERSHIP,JURISDICTION"/>
+	</search>
+	<asbuilt>
+		<query id="sewer" url="http://gis.raleighnc.gov/ArcGIS/rest/services/PublicUtility/Drawings/MapServer/0" fields="PROJECT"
+		outfields="SHEETNAME,PROJECT,PERMITNUM,HYPERLINK,SHEETNUM,SHEETTOT"/>
+		<query id="water" url="http://gis.raleighnc.gov/ArcGIS/rest/services/PublicUtility/Drawings/MapServer/1" fields="PROJECT"
+		outfields="SHEETNAME,PROJECT,PERMITNUM,HYPERLINK,SHEETNUM,SHEETTOT"/>
+		<layer id="asbuilts" url="http://gis.raleighnc.gov/ArcGIS/rest/services/PublicUtility/Drawings/MapServer"/>		
+		<path url="http://gis.raleighnc.gov/AsBuilts"/>
+		<projects url="http://gis.raleighnc.gov/json/asbuilts.xml"/>
+	</asbuilt>
+</config>

@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:esri="http://www.esri.com/2008/ags"
+		 xmlns:classes="com.hillelcoren.components.autoComplete.classes.*"
+		 xmlns:utils="com.raleigh.components.utils.*"
+		 maxWidth="280" creationComplete="group1_creationCompleteHandler(event)"
+		 currentState="State1">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.DrawEvent;
+			import com.esri.ags.events.GeometryServiceEvent;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.geometry.Polygon;
+			import com.esri.ags.symbols.SimpleFillSymbol;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.esri.ags.symbols.SimpleMarkerSymbol;
+			import com.esri.ags.tasks.GeometryService;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.BufferParameters;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			
+			import spark.events.IndexChangeEvent;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				//model.map.addLayer(crimeGl);
+			}
+
+
+
+
+
+			protected function crimeDrawTool_drawEndHandler(event:DrawEvent):void
+			{
+
+				bufferFeature([event.graphic.geometry]);
+				crimeDrawTool.deactivate();
+				drawBar.selectedIndex = -1;
+			}
+			
+			[Bindable]
+			private var lastBufferGeoms:Array = [];
+			protected function bufferFeature(geoms:Array):void
+			{
+				model.controller.removeProgress();
+				model.controller.showProgress("Buffering location...");
+				var bp:BufferParameters = new BufferParameters();
+				bp.unit = unitsDdl.selectedItem.units;
+				bp.outSpatialReference = model.map.spatialReference;
+				bp.geometries = geoms;
+				lastBufferGeoms = geoms;
+				refreshButton.enabled = true;
+				
+				bp.distances = [distance.text];
+				bp.unionResults = true;
+				model.geomSrv.addEventListener(GeometryServiceEvent.BUFFER_COMPLETE, bufferComplete,false,0,true);
+				model.geomSrv.buffer(bp);				
+			}
+			
+			protected function bufferComplete(event:GeometryServiceEvent):void
+			{
+				model.geomSrv.addEventListener(GeometryServiceEvent.SIMPLIFY_COMPLETE, simplifyComplete, false, 0, true);
+				model.geomSrv.simplify([event.result[0]]);
+/* 				model.crimeSearch.featureLayer.geometry = event.result[0];
+				model.crimeSearch.featureLayer.search();
+
+				gl.add(new Graphic(Polygon(event.result[0]), new SimpleFillSymbol("null", 0, 0.5, new SimpleLineSymbol(SimpleLineSymbol.STYLE_DASH,0xff6600,1,3))));
+				model.geomSrv.removeEventListener(GeometryServiceEvent.BUFFER_COMPLETE, bufferComplete);
+				var extent:Extent = event.result[0].extent;
+				model.map.extent = event.result[0].extent;
+				if (model.map.extent.height < extent.height ||
+					model.map.extent.width < extent.height)
+				{
+					model.map.level -= 1;
+				} */
+			}
+			
+			protected function simplifyComplete(event:GeometryServiceEvent):void
+			{
+				model.controller.removeProgress();
+				model.geomSrv.removeEventListener(GeometryServiceEvent.SIMPLIFY_COMPLETE, simplifyComplete);
+				model.crimeSearch.featureLayer.geometry = event.result[0];
+				model.crimeSearch.featureLayer.search();
+				
+				gl.add(new Graphic(Polygon(event.result[0]), new SimpleFillSymbol("null", 0, 0.5, new SimpleLineSymbol(SimpleLineSymbol.STYLE_DASH,0xff6600,1,3))));
+				model.geomSrv.removeEventListener(GeometryServiceEvent.BUFFER_COMPLETE, bufferComplete);
+				var extent:Extent = event.result[0].extent;
+				model.map.extent = event.result[0].extent;
+				if (model.map.extent.height < extent.height ||
+					model.map.extent.width < extent.height)
+				{
+					model.map.level -= 1;
+				}
+				
+			}
+			
+			
+
+			protected function placeDdl_changeHandler(event:IndexChangeEvent):void
+			{
+				queryTask = new QueryTask();
+				query = new Query();
+				queryTask.useAMF = true;
+				queryTask.showBusyCursor = false;
+				placeNameDdl.prompt = 'Select '+event.currentTarget.selectedItem.label+'...';
+				placeNameDdl.dataProvider = null;
+				switch (event.currentTarget.selectedItem.label)
+				{
+					case "School":
+
+						if (!schools)
+						{
+							queryTask.url = model.crimeSearch.config.crimelocation.@url;
+							query.outFields = ['NAMELONG'];	
+							query.where = "NAMELONG IS NOT NULL";
+							query.returnGeometry = false;
+							queryTask.execute(query, new AsyncResponder(queryComplete, null));
+						}
+							placeNameDdl.dataProvider = schools;
+							placeNameDdl.labelField = "NAMELONG";							
+						
+
+						break;
+					case "Subdivision":
+
+ 						if (!subdivisions)
+						{
+							getRaleighSubdivisions();								
+						} 
+						else
+						{
+							placeNameDdl.dataProvider = subdivisions;
+							placeNameDdl.labelField = "name";							
+						}
+
+						break;
+				}
+				
+			}
+			
+			private function getRaleighSubdivisions():void
+			{
+				var url:URLRequest = new URLRequest("http://maps.raleighnc.gov/JSON/ralSubdivs.json");
+				var loader:URLLoader = new URLLoader();
+				loader.dataFormat = URLLoaderDataFormat.TEXT;
+				loader.addEventListener(Event.COMPLETE, onJSONLoad,false,0,true);
+				loader.addEventListener(IOErrorEvent.IO_ERROR, onJSONError,false,0,true);
+				loader.load(url);
+				function onJSONLoad(event:Event):void
+				{
+					var array:Array = com.esri.ags.utils.JSON.decode(loader.data.toString()) as  Array;
+					var filteredArr:Array = array.filter(removedDuplicates);
+					subdivisions = new ArrayCollection(filteredArr);
+					placeNameDdl.dataProvider = subdivisions;
+					placeNameDdl.labelField = "name";
+					loader = null;
+				}				
+				function onJSONError(event:IOErrorEvent):void
+				{
+					Alert.show(event.text);
+					loader = null;
+				}
+			}
+			private var keys:Object = {};
+			private function removedDuplicates(item:Object, idx:uint, arr:Array):Boolean {
+				if (keys.hasOwnProperty(item.name)) {
+					return false;
+				} else {
+					keys[item.name] = item;
+					return true;
+				}
+			}
+			
+			private function queryComplete(fs:FeatureSet, token:Object = null):void
+			{
+				switch (placeDdl.selectedItem.label)
+				{
+				case "School":
+						schools = new ArrayCollection(fs.attributes.sortOn("NAMELONG"));
+						placeNameDdl.dataProvider = schools;
+						placeNameDdl.labelField = "NAMELONG";
+						break;
+				}
+			}
+			
+			[Bindable]
+			private var schools:ArrayCollection;
+			private var subdivisions:ArrayCollection;
+			private var queryTask:QueryTask;
+			private var query:Query;
+
+
+			protected function placeNameDdl_changeHandler(event:IndexChangeEvent):void
+			{
+				
+				switch (placeDdl.selectedItem.label)
+				{
+					case "School":
+						queryTask.url = model.crimeSearch.config.crimelocation.@url;
+						query.outFields = ['NAMELONG'];	
+						query.where = "NAMELONG ='"+placeNameDdl.selectedItem.NAMELONG+"'";
+						break;
+					case "Subdivision":
+						queryTask.url = model.crimeSearch.config.subdivisions.@url;
+						query.outFields = ['NAME'];							
+						query.where = "NAME ='"+placeNameDdl.selectedItem.name+"'";
+						break;					
+				}
+				query.returnGeometry = true;
+				queryTask.execute(query, new AsyncResponder(queryComplete2, null));
+			}
+			private function queryComplete2(fs:FeatureSet, token:Object = null):void
+			{
+				gl.clear();
+				var g:Graphic = fs.features[0];
+				if (g.geometry is MapPoint)
+				{
+					g.symbol = sms;
+				}
+				else if (g.geometry is Polygon)
+				{
+					g.symbol = sfs;;					
+				}
+				gl.add(g);
+				bufferFeature([fs.features[0].geometry]);
+			}
+
+			protected function ddl_changeHandler():void
+			{
+				currentState = ddl.selectedItem.state;
+				if (ddl.selectedItem.label == "Map Center")
+				{
+					bufferFeature([model.map.extent.center]);
+				}
+			}
+			
+			protected function refreshButtonClick():void
+			{
+				if (ddl.selectedItem.label == "Map Center")
+				{
+					bufferFeature([model.map.extent.center]);
+				}
+				else if (lastBufferGeoms.length > 0)
+				{
+					gl.clear();
+					bufferFeature(lastBufferGeoms); 					
+				}
+			}
+
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="State1"/>
+		<s:State name="Graphic"/>
+		<s:State name="MapCenter"/>
+		<s:State name="Place"/>
+	</s:states>
+	<fx:Declarations>
+		<esri:SimpleLineSymbol id="sls" width="3" alpha="1" color="0xff6600" style="solid"/>
+		<esri:SimpleFillSymbol id="sfs" alpha="0.5" color="0xff6600" outline="{sls}" style="solid"/>
+		<esri:SimpleMarkerSymbol id="sms" alpha="0.85" color="0xff6600"
+								 outline="{new SimpleLineSymbol('solid', 0xFFFFFF,1,2)}" size="10"
+								 style="circle"/>
+		<esri:DrawTool id="crimeDrawTool" drawEnd="crimeDrawTool_drawEndHandler(event)"
+					   drawStart="gl.clear()" fillSymbol="{sfs}" graphicsLayer="{gl}"
+					   lineSymbol="{sls}" map="{model.map}" markerSymbol="{sms}"/>
+		<esri:GraphicsLayer id="gl"/> 
+	</fx:Declarations>
+	<s:DropDownList id="ddl" width="100%" change="ddl_changeHandler()" prompt="Select Search Type...">
+		<s:ArrayList>
+			<fx:Object label="Graphic" state="Graphic"/>
+			<fx:Object label="Map Center" state="MapCenter"/>
+			<fx:Object label="Place" state="Place"/>			
+		</s:ArrayList>
+	</s:DropDownList>
+	<s:HGroup>
+		<s:Label text="Buffer Distance"/>
+		<s:TextInput id="distance" width="50" restrict="0-9/." text="1"/>
+		<s:DropDownList id="unitsDdl" selectedIndex="0">
+			<s:ArrayList>
+				<fx:Object label="Miles" units="{GeometryService.UNIT_STATUTE_MILE}"/>
+				<fx:Object label="Feet" units="{GeometryService.UNIT_FOOT}"/>				
+			</s:ArrayList>
+		</s:DropDownList>
+		<utils:ImageButton id="refreshButton" width="24" height="24" click="refreshButtonClick()"
+						   enabled="false"
+						   icon="@Embed(source='assets/Search.png')" toolTip="Search by map center"/>
+	</s:HGroup>
+
+
+	
+	<s:DropDownList id="placeDdl" includeIn="Place" width="100%"
+					change="placeDdl_changeHandler(event)" prompt="Search Type...">
+		<s:ArrayList>
+			<fx:Object label="School"/>
+			<fx:Object label="Subdivision"/>		
+		</s:ArrayList>
+	</s:DropDownList>	
+	<s:DropDownList id="placeNameDdl" includeIn="Place" width="100%"
+					change="placeNameDdl_changeHandler(event)"
+					enabled="{placeNameDdl.dataProvider as ArrayCollection}"/>
+	
+	<utils:DrawButtonBar id="drawBar" includeIn="Graphic" drawtool="{crimeDrawTool}"
+						 hideGraphics="false" labelField="label">
+		<s:ArrayList>
+			<fx:Object label="Point" tool="{DrawTool.MAPPOINT}"/>
+			<fx:Object label="Line" tool="{DrawTool.FREEHAND_POLYLINE}"/>
+			<fx:Object label="Polygon" tool="{DrawTool.FREEHAND_POLYGON}"/>			
+		</s:ArrayList>
+	</utils:DrawButtonBar>
+</s:Group>

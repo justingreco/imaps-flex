@@ -1,0 +1,8 @@
+<config>
+	<swuservice url='http://gis.raleighnc.gov/stormwater/swustormwaterservice.php'/>
+	<creditservice url='http://gis.raleighnc.gov/stormwater/swucreditservice.php'/>
+	<securityservice url='http://gis.raleighnc.gov/stormwater/swusecurityservice.php'/>
+	<ccbservice url='http://gis.raleighnc.gov/stormwater/SwuCcbService.php'/>
+	<parcels url='http://maps.raleighnc.gov/ArcGIS/rest/services/Parcels/MapServer'/>
+	<streets url='http://maps.raleighnc.gov/json/streetsraleigh.json'/>
+</config>

@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					showCloseButton="false"
+					title="Add Credits">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+
+			
+			
+			protected function btnClose_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+			protected function btnAdd_clickHandler(event:MouseEvent):void
+			{
+				var alertHdr:String  = "There is an error in the following field(s): \n";
+				var alertTxt:String  = "";				
+				var alertFlg:Boolean  = false;
+				if (validateInputs())
+				{	
+					if (Number(npdesPercentage.text)>50)
+					{alertTxt =  alertTxt + "NPDES Percentage entered exceeds max allowed... \n"
+						alertFlg=true;	
+					}
+					if (onsiteDDL.selectedItem.onsiteCreditCode=="US4"||onsiteDDL.selectedItem.onsiteCreditCode=="US5"||onsiteDDL.selectedItem.onsiteCreditCode=="US6")
+					{
+						if (Number(cntrldArea.text)<10||Number(cntrldArea.text)>100)                  
+						{
+							alertTxt =  alertTxt + "Controlled Acreage must be greater than 10 and less than 101 for selected Upstream Control Credit... \n" 
+							alertFlg=true;	
+						}
+					}
+					
+					if (upstreamDDL.selectedItem.upstreamCreditCode=="US1"||upstreamDDL.selectedItem.upstreamCreditCode=="US2"||upstreamDDL.selectedItem.upstreamCreditCode=="US3")
+					{
+						if (Number(cntrldArea.text)<1||Number(cntrldArea.text)>10)					
+						{	alertTxt = alertTxt + "Controlled Acreage must be greater than 0 and less than 11 for selected Upstream Control Credit... \n" 
+						alertFlg=true;	
+						}
+					}
+					if (upstreamDDL.selectedItem.upstreamCreditCode=="US7"||upstreamDDL.selectedItem.upstreamCreditCode=="US8"||upstreamDDL.selectedItem.upstreamCreditCode=="US9")
+					{
+						if (Number(cntrldArea.text)<101)
+							{alertTxt = alertTxt + "Controlled Acreage must be greater than 100 for selected Upstream Control Credit... \n" 
+							alertFlg=true;	
+							}
+					}
+				}
+				
+				if (alertFlg){
+					Alert.show(alertHdr + alertTxt);
+				} 
+				else {
+					AddCredits();
+				}
+			}
+			
+			protected function AddCredits():void
+			{
+				model.stormwater.searchPanel.creditService.addEventListener(ResultEvent.RESULT, creditAdded);
+				var adds:Object = {
+					swu_account_id:model.stormwater.currentAccount.swu_account_id,
+					inception_date:creditInceptDate.text,
+					credit_expire_date:creditExpireDate.text,
+					credit_approval_date:creditApprvlDate.text,
+					credit_approval_user:creditApprvlUser.text,
+					credit_comment:creditComment.text,
+					onsite_credit_code:onsiteDDL.selectedItem.ONSITE_CREDIT_CODE,
+					upstream_credit_code:upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE,
+					npdes_percentage:npdesPercentage.text,
+					controled_acreage:cntrldArea.text,
+					controlled_surface:cntrldSurface.text
+				};
+				
+				model.stormwater.searchPanel.creditService.send({
+					'function':'addcredits',
+					dbschema:model.stormwater.dbSchema,
+					adds:JSON.encode(adds),
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+
+			
+
+			protected function onsiteDDL_creationCompleteHandler(event:FlexEvent):void
+			{
+				var token:AsyncToken = model.stormwater.searchPanel.swuService.send({
+					'function': 'getonsitecredits',
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});
+				var responder:AsyncResponder = new AsyncResponder(onSiteCreditsRetrieved,null);
+				token.addResponder(responder);
+			}
+			
+			protected function upstreamDDL_creationCompleteHandler(event:FlexEvent):void
+			{
+				var token:AsyncToken = model.stormwater.searchPanel.swuService.send({
+					'function': 'getupstreamcredits',
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});
+				var responder:AsyncResponder = new AsyncResponder(upstreamCreditsRetrieved,null);
+				token.addResponder(responder);
+			}
+			
+			protected function upstreamCreditsRetrieved(event:ResultEvent, token:AsyncToken):void
+			{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, upstreamCreditsRetrieved);
+				if (event.result.length > 0){	
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.upstreamControlsCredit = data[0];
+						
+						upstreamDDL.dataProvider = new ArrayCollection(data);
+					}
+				};				
+			}
+			
+			protected function onSiteCreditsRetrieved(event:ResultEvent,token:AsyncToken):void
+			{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, onSiteCreditsRetrieved);
+				if (event.result.length > 0){	
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.onsiteControlsCredit = data[0];
+						
+						onsiteDDL.dataProvider = new ArrayCollection(data);
+					}
+				};					
+			}		
+ 	
+			
+			protected function creditAdded(event:ResultEvent):void{
+				if (event.result == 1){
+					Alert.show("Added record now...");
+					this.close();
+				}
+			}
+			
+
+			private function validateInputs():Boolean
+			{
+				var ret:Boolean = true;
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length > 0)
+				{
+					ret = false;
+				}
+				return ret;			
+			}
+			
+
+
+		]]>
+	</fx:Script>
+	
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+	<fx:Declarations>
+		<fx:Array id="validators">
+			<mx:DateValidator id="creditExpireDateValidate" required="true" source="{creditExpireDate}"/>
+			<mx:DateValidator id="creditInceptDateValidate" required="true" source="{creditInceptDate}"/>
+			<mx:DateValidator id="creditApprvlDateValidate" required="true" source="{creditApprvlDate}"/>
+			<mx:StringValidator id="creditApprvlUserValidate"  property="text" required="true" source="{creditApprvlUser}"/>	
+			<mx:StringValidator id="cntrldAreaValidate" property="text" required="true" source="{cntrldArea}"/>	
+		</fx:Array>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true"/>
+	</fx:Declarations>
+	<s:Form width="100%">
+		<s:FormItem width="100%" label="Controlled Area (acres)">
+			<s:TextInput id="cntrldArea" restrict="0-9"/>
+	</s:FormItem>
+		<s:FormItem width="100%" label="Controlled Surface">
+			<s:TextInput id="cntrldSurface" restrict="0-9"/>
+			<s:Label fontSize="10" fontWeight="bold" text="(optional) Sq Ft" verticalAlign="middle"/>
+	</s:FormItem>		
+		<s:FormItem width="100%" label="OnSite Credits">
+			<s:DropDownList id="onsiteDDL" width="156"
+							creationComplete="onsiteDDL_creationCompleteHandler(event)"
+							labelField="ONSITE_CREDIT_CODE_DESCR" prompt="Select an Onsite Credit">
+			</s:DropDownList>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Upstream Credits">
+			<s:DropDownList id="upstreamDDL" width="156"
+							creationComplete="upstreamDDL_creationCompleteHandler(event)"
+							labelField="UPSTREAM_CREDIT_CODE_DESCR" prompt="Select an Upstream Credit">
+			</s:DropDownList>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="NPDES MS4 Permts">
+			<s:TextInput id="npdesPercentage" restrict="0-9"/>
+			<s:Label fontSize="10" fontWeight="bold" text="(Percentage not to exceed 50%)"
+					 verticalAlign="middle"/>
+		</s:FormItem>	
+        <s:FormItem width="100%" label="Credit Inception Date">
+			<mx:DateField id="creditInceptDate"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Credit Expiration Date">
+			<mx:DateField id="creditExpireDate"/>
+    	</s:FormItem>	
+		<s:FormItem width="100%" label="Credit Approval Date">
+			<mx:DateField id="creditApprvlDate"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Credit Approval User">
+			<s:TextInput id="creditApprvlUser" restrict="A-Z"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Comment">
+			<s:TextInput id="creditComment" restrict="A-Z a-z 0-9"/>
+		</s:FormItem>	
+	</s:Form>
+	<s:HGroup paddingBottom="5" paddingLeft="10" paddingRight="10" paddingTop="5">
+		<s:Button id="btnClose" label="Cancel" click="btnClose_clickHandler(event)"/>
+		<s:Label width="254" text=""/>
+		<s:Button id="btnAdd" label="Add" 
+				  enabled="{Boolean(model.stormwater.creditInsertPrivs)}" 
+				  click="btnAdd_clickHandler(event)"/>
+	</s:HGroup>
+</toolbar:ToolWindow>

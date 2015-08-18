@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:esri="http://www.esri.com/2008/ags"
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" 
+		 creationComplete="group1_creationCompleteHandler(event)" 
+		 currentState="Extent" xmlns:utils="com.raleigh.components.utils.*">
+	<s:layout>
+		<s:VerticalLayout paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"/>
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.events.DrawEvent;
+			import com.esri.ags.events.GeoprocessorEvent;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.geometry.Geometry;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.geometry.Polygon;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.ArcGISTiledMapServiceLayer;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.layers.supportClasses.LayerInfo;
+			import com.esri.ags.tasks.supportClasses.JobInfo;
+			import com.esri.ags.tools.DrawTool;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.utils.StringUtil;
+			
+			[Bindable]
+			private var model:Model = Model.getInstance();			
+			
+			private var dataURL:String;
+			[Bindable]
+			private var xml:XML;
+		
+			protected function gp_jobCompleteHandler(event:GeoprocessorEvent):void
+			{
+ 				this.cursorManager.removeBusyCursor();
+				if (event.jobInfo.jobStatus == JobInfo.STATUS_SUCCEEDED)
+				{
+					gp.getResultData(gp.submitJobLastResult.jobId,"Output_Zip_File");
+				} 
+			}
+			
+			protected function extractButton_clickHandler(event:MouseEvent):void
+			{
+				if (radiogroup1.selectedValue == "Current Extent")
+				{
+					var ext:Extent = model.map.extent;
+					var ring:Array = [];
+					ring.push(new MapPoint(ext.xmin, ext.ymin, ext.spatialReference));
+					ring.push(new MapPoint(ext.xmin, ext.ymax, ext.spatialReference));
+					ring.push(new MapPoint(ext.xmax, ext.ymax, ext.spatialReference));
+					ring.push(new MapPoint(ext.xmax, ext.ymin, ext.spatialReference));
+					ring.push(new MapPoint(ext.xmin, ext.ymin, ext.spatialReference));
+					var rings:Array = [];
+					rings.push(ring);
+					var poly:Polygon = new Polygon(rings,ext.spatialReference);
+					sendGP(poly as Geometry);
+				}
+				else if (radiogroup1.selectedValue == "Draw Area")
+				{
+					if (gl.graphicProvider.length > 0)
+					{
+						sendGP(gl.graphicProvider[0].geometry);
+					}
+					else
+					{
+						Alert.show("Extract Area not Specified");
+					}
+				}
+			}
+			
+			private function sendGP(geom:Geometry):void
+			{
+				var layersToClip:Array = getLayersToClip();
+				if (layersToClip.length > 0)
+				{
+					
+					if (layersToClip.length <= config.maxlayers)
+					{
+						var fs:FeatureSet = new FeatureSet();
+						fs.features = [{geometry:geom}];
+						var params:Object = {"Input_Layers":layersToClip.toString().replace(new RegExp(",","g"),";"),
+							"Area_of_Interest":fs,
+							"Feature_Format":formatDLL.selectedItem.value,
+							"Raster_Format":"File Geodatabase - GDB - .gdb",
+							"Recipient":email.text,
+							"Spatial_Reference":"",
+							"env:outSR":"",
+							"env:processSR":""};
+						gp.submitJob(params);	
+						Alert.show("Data request being processed, a link to the ZIP file will be sent to your email account.");						
+					}
+					else
+					{
+						Alert.show("Maximum of "+config.maxlayers+" can be extracted at once", "Data Extraction Error");
+					}
+
+				}
+			}
+
+			protected function gp_getResultDataCompleteHandler(event:GeoprocessorEvent):void
+			{
+				if(event.parameterValue)
+				{
+					dataURL = String(event.parameterValue.value.url);
+					Alert.show("Would you like to save the zip file?","Extraction Complete", Alert.YES | Alert.NO, null, alertClickHandler);	
+				} 
+			}
+			
+			protected function gp_faultHandler(event:FaultEvent):void
+			{
+				Alert.show(event.fault.message, "Data Extraction Failed");
+			}			
+
+			private function alertClickHandler(event:CloseEvent):void
+			{
+				if (event.detail == Alert.YES)
+				{
+					downloadFile(dataURL);
+				}
+			}
+			
+			private function downloadFile(url:String):void
+			{
+				var urlReq:URLRequest = new URLRequest();
+				urlReq.url = url;
+				var file:FileReference = new FileReference();
+				file.download(urlReq, "output.zip");
+			}			
+			
+			private function getLayersToClip():Array
+			{
+				var layersToClip:Array = [];
+				var excludedArray:Array = config.excludedlayers.split(",");
+				var excludedLayers:ArrayCollection = new ArrayCollection();
+				for each (var exlayer:String in excludedArray)
+				{
+					excludedLayers.addItem(StringUtil.trim(exlayer));
+				}
+				for each (var layer:Layer in model.map.layers)
+				{
+					var infos:Array = [];
+					
+					if (!excludedLayers.contains(layer.id) && 
+						layer.visible && 
+						(layer.minScale >= model.map.scale|| layer.minScale == 0))
+					{
+						if(layer is ArcGISDynamicMapServiceLayer)
+						{
+							infos = ArcGISDynamicMapServiceLayer(layer).layerInfos;
+						}
+						else if (layer is ArcGISTiledMapServiceLayer)
+						{
+							infos = ArcGISTiledMapServiceLayer(layer).layerInfos;
+						}						
+					}
+					if (infos.length > 0)
+					{
+						for each (var info:LayerInfo in infos)
+						{
+							var srvName:String = "";
+							if (layer is ArcGISDynamicMapServiceLayer)
+							{
+								if (!info.subLayerIds && 
+									(info.minScale >=  model.map.scale || info.minScale == 0) && 
+									(info.maxScale <=  model.map.scale || info.maxScale == 0) && 
+									ArcGISDynamicMapServiceLayer(layer).visibleLayers.contains(info.id))
+								{
+									layersToClip.push(layer.id+"|"+info.name);										
+								}
+							}
+							else if (layer is ArcGISTiledMapServiceLayer)
+							{
+								if (!info.subLayerIds && (info.minScale >= model.map.scale || info.minScale == 0))
+								{
+									layersToClip.push(layer.id+"|"+info.name);
+								}
+							}								
+						}
+					}
+				}
+				return layersToClip;
+			}
+
+
+			
+
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				gl.id = "extractGL";
+				model.map.addLayer(gl);
+			}
+			protected function drawtool_drawStartHandler(event:DrawEvent):void
+			{
+				gl.clear();
+			}
+
+
+			protected function radiogroup1_changeHandler(event:Event):void
+			{
+				switch(radiogroup1.selectedValue)
+				{
+					case "Current Extent":
+						this.currentState = "Extent";
+						gl.clear();
+						break;
+					case "Draw Area":
+						this.currentState = "Draw";
+						break;
+				}
+			}
+
+			protected function gp_statusUpdateHandler(event:GeoprocessorEvent):void
+			{
+				gp.cancelJobStatusUpdates(event.jobInfo.jobId);
+			}
+
+		]]>
+	</fx:Script>
+	
+	<s:states>
+		<s:State name="Extent"/>
+		<s:State name="Draw"/>
+	</s:states>
+
+	<fx:Declarations>
+		<fx:XML id="config" source="config.xml"/>
+		<s:RadioButtonGroup id="radiogroup1" change="radiogroup1_changeHandler(event)"/>
+		<esri:Geoprocessor id="gp"
+						   jobComplete="gp_jobCompleteHandler(event)"
+						   getResultDataComplete="gp_getResultDataCompleteHandler(event)"
+						   fault="gp_faultHandler(event)"
+						   url="{config.taskurl}"
+						   concurrency="last"
+						   useAMF="true"
+						   statusUpdate="gp_statusUpdateHandler(event)"
+						   showBusyCursor="false"/>
+		<esri:DrawTool id="drawtool" map="{model.map}" graphicsLayer="{gl}"
+					   drawStart="drawtool_drawStartHandler(event)" />
+		<esri:GraphicsLayer id="gl" spatialReference="{model.map.spatialReference}"/>
+	</fx:Declarations>
+	
+	<s:Label text="Format" fontWeight="bold"/>
+	<s:DropDownList id="formatDLL" prompt="Select Export Format..." width="188" labelField="label"
+				    selectedIndex="0">
+		<s:ArrayList>
+			<fx:Object label="File Geodatabase" value="File Geodatabase - GDB - .gdb"/>
+			<fx:Object label="Shapefile" value="Shapefile - SHP - .shp"/>
+			<fx:Object label="DXF R2007" value="Autodesk AutoCAD - DXF_R2007 - .dxf"/>
+			<fx:Object label="DWG R2007" value="Autodesk AutoCAD - DWG_R2007 - .dwg"/>
+			<fx:Object label="DGN V8" value="Bentley Microstation Design (V8) - DGN_V8 - .dgn"/>			
+		</s:ArrayList>
+	</s:DropDownList>
+
+	<s:Label text="Area" fontWeight="bold"/>
+	<s:HGroup>
+		<s:RadioButton label="Current Extent" groupName="radiogroup1" selected="true"/>
+		<s:RadioButton label="Draw Area" groupName="radiogroup1"/>		
+	</s:HGroup>
+	<utils:DrawButtonBar id="drawBar" name="Extract"
+						includeIn="Draw" drawtool="{drawtool}">
+		<s:ArrayList>
+			<fx:Object label="Polygon" tool="{DrawTool.POLYGON}"/>
+			<fx:Object label="Freehand Polygon" tool="{DrawTool.FREEHAND_POLYGON}"/>		
+			<fx:Object label="Extent" tool="{DrawTool.EXTENT}"/>	
+			<fx:Object label="Circle" tool="{DrawTool.CIRCLE}"/>	
+			<fx:Object label="Ellipse" tool="{DrawTool.ELLIPSE}"/>				
+		</s:ArrayList>
+	</utils:DrawButtonBar>
+	<s:TextInput id="email"
+				 prompt.Extent="Enter Email Address"/>
+	<s:Button label="Extract Data" id="extractButton" click="extractButton_clickHandler(event)"/>
+	<s:Label includeIn="Extent" width="100%"
+			 text="Want the full dataset? Visit the City of Raleigh Geoportal or the Wake County GIS Download page."/>
+
+</s:Group>

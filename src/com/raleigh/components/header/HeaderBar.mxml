@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  width="100%" height="30" creationComplete="creationCompleteHandler(event)"
+					  filters="{[new spark.filters.DropShadowFilter()]}"
+					  skinClass="com.raleigh.skins.HeaderSkin">
+	
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<fx:Script source="../../scripts/SPtoDD.as"/>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Map;
+			import com.esri.ags.events.MapEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.raleigh.classes.Menuitem;
+			import com.raleigh.classes.Menuitems;
+			import com.raleigh.components.settings.Settings;
+			import com.raleigh.components.toolbar.ToolWindow;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			import com.raleigh.scripts.DDtoUSNG;
+			import com.raleigh.skins.HeaderSkin;
+			
+			import mx.controls.Menu;
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			import mx.events.MenuEvent;
+			import mx.managers.PopUpManager;
+			
+			import spark.filters.DropShadowFilter;
+
+			
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			[Bindable]
+			private var controller:Controller = Controller.getInstance();
+			
+			private var map:Map;
+			[Bindable]
+			private var menuXML:XML;
+			private var pButtonValue:String="Decimal Degrees";
+			
+			
+			
+			protected function creationCompleteHandler(event:FlexEvent):void
+			{
+				setupMenu();
+				map = model.map;
+				map.addEventListener(MapEvent.LOAD, mapLoadHandler,false,0,true);
+			}
+			
+			private function mapLoadHandler(event:MapEvent):void{
+
+				map.addEventListener(MouseEvent.MOUSE_MOVE, mapMouseMoveHandler,false,0,true);
+				map.removeEventListener(MapEvent.LOAD, mapLoadHandler);
+			}
+			
+			private function mapMouseMoveHandler(event:MouseEvent):void{
+				var mp:MapPoint = new MapPoint();
+				mp = map.toMapFromStage(event.stageX, event.stageY);
+				if (pButtonValue == "Decimal Degrees"){
+					mp = spToDD(mp);	
+					latLong.text = "Latitude: "+mp.y.toFixed(4)+"\nLongitude: "+mp.x.toFixed(4);
+				}else if (pButtonValue == "Stateplane Feet"){
+					latLong.text = "Northing: "+mp.y.toFixed(0)+"\nEasting: "+mp.x.toFixed(0);
+				}else if (pButtonValue == "US National Grid"){
+					mp = spToDD(mp);
+					var ddToUSNG:DDtoUSNG = new DDtoUSNG();
+					var usng:String = ddToUSNG.getDDtoUSNG(mp.y, mp.x, 5);
+					latLong.text = usng;
+				}
+
+			}
+			
+			private function setupMenu():void{
+				//var menu:valueObjects.Menu = model.controller.configuration.menu;
+				var xml:XML;
+				menuXML = new XML(<menu></menu>);
+				for each (var items:Menuitems in model.configuration.menuItems){
+					
+					xml = new XML(<menuitems label={items.label}/>);
+					for each (var item:Menuitem in items.menuItems){
+						xml.appendChild(new XML(<menuitem label={item.label} url={item.url}/>));							
+					}
+					menuXML.appendChild(xml);
+				}
+			}
+				
+
+
+			protected function menuBar_itemClickHandler(event:MenuEvent):void
+			{
+				if (event.item.@url != ""){
+					navigateToURL(new URLRequest(event.item.@url),"_blank");
+				}
+				else if (event.item.@label == "Disclaimer")
+				{
+					addWindow(new Disclaimer(), event.item.@label);
+				}
+				else if (event.item.@label == "About")
+				{
+					addWindow(new About(), event.item.@label);
+				}
+				else if (event.item.@label == "Comments")
+				{
+					addWindow(new Feedback(), "Send Feedback");
+				}			
+				else if (event.item.@label == "Settings")
+				{
+					addWindow(new Settings(), "Settings");
+				}
+			}
+			
+			private var windows:Array = [];
+			private var window:ToolWindow;
+			private var lastWindow:String = "";
+			
+			private function addWindow(content:Object, title:String):void
+			{
+				var windowExists:Boolean = false;
+				for each (var win:ToolWindow in windows)
+				{
+					if (win.title == title)
+					{
+						windowExists = true;
+					}
+				}
+
+				if(!windowExists)
+				{
+					window = new ToolWindow();
+					window.addEventListener(Event.REMOVED_FROM_STAGE, toolWindowCloseHandler,false,0,true);
+					window.title = title;
+					windows.push(window);
+					window.addElement(content as IVisualElement);
+					PopUpManager.removePopUp(window);
+					PopUpManager.addPopUp(window, model.mainView.popUpCanvas);
+					PopUpManager.centerPopUp(window);	
+				}
+
+			}
+			
+			private function toolWindowCloseHandler(event:Event):void
+			{
+				for (var i:int = 0;i < windows.length;i++)
+				{
+					if (windows[i].title == event.currentTarget.title)
+					{
+						windows.splice(i,1);
+					}
+				}
+				event.currentTarget.removeEventListener(Event.REMOVED_FROM_STAGE, toolWindowCloseHandler);
+			}
+
+			protected function pButton_creationCompleteHandler(event:FlexEvent):void
+			{
+				var menu:mx.controls.Menu = new mx.controls.Menu();
+				menu.setStyle("color", 0x000000);
+				var dp:Object = [
+					{label:"Decimal Degrees"},
+					{label:"Stateplane Feet"},
+					{label:"US National Grid"}
+				];
+				menu.dataProvider = dp;
+				menu.addEventListener("itemClick", pButton_changeHandler,false,0,true);
+				pButton.popUp = menu;
+			}
+
+
+			protected function pButton_changeHandler(event:MenuEvent):void
+			{
+				pButtonValue = event.label;
+			}
+
+
+		]]>
+	</fx:Script>
+	
+	<s:Label id="title" left="10" fontSize="12" fontWeight="bold" text="{model.configuration.title}"
+			 verticalCenter="0"/>
+	<s:HGroup right="2" verticalAlign="middle" verticalCenter="0">
+		<s:HGroup width="140" verticalAlign="middle">
+			<mx:PopUpButton id="pButton" width="19" height="10" buttonMode="true"
+							creationComplete="pButton_creationCompleteHandler(event)"
+							toolTip="Change Coordinate Units" useHandCursor="true"/>			
+			<s:Label id="latLong" top="2" text="{'Latitude: 0'+'\n'+'Longitude: 0'}"/>		
+		</s:HGroup>
+
+		<mx:MenuBar id="menuBar" buttonMode="true" color="black" dataProvider="{menuXML.menuitems}"
+					itemClick="menuBar_itemClickHandler(event)" labelField="@label"
+					useHandCursor="true"/>		
+	</s:HGroup>
+</s:SkinnableContainer>

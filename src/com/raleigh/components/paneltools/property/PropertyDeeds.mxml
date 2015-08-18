@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:property="services.property.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  width="100%" height="100%">
+	<fx:Script>
+		<![CDATA[
+			
+			
+			public var lastREID:String;
+
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+	</fx:Declarations>
+	
+	<mx:DataGrid id="dataGrid" width="100%" height="100%"
+				 dataProvider="{model.propertySearch.DeedsResult.lastResult.Deeds}"
+				 variableRowHeight="true" wordWrap="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="deedBook" headerText="Deed Book" wordWrap="false"/>
+			<mx:DataGridColumn dataField="deedPage" headerText="Deed Page"/>
+			<mx:DataGridColumn dataField="deedDate" headerText="Deed Date" width="100"/>
+			<mx:DataGridColumn dataField="deedDocNum" headerText="Deed"
+							   itemRenderer="com.raleigh.components.paneltools.property.DeedButtonItemRenderer"/>
+			<mx:DataGridColumn dataField="bomDocNum" headerText="Book of Maps"
+							   itemRenderer="com.raleigh.components.paneltools.property.DeedButtonItemRenderer"
+							   wordWrap="true"/>
+		</mx:columns>
+	</mx:DataGrid>
+</paneltools:BasePanelTool>

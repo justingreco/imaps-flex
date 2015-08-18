@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  width="310" maxHeight="200" currentState="{(allCb.selected)?'selected':'unselected'}">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.renderers.UniqueValueRenderer;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			private var model:Model = Model.getInstance();
+			[Bindable]
+			public var featureLayer:FeatureLayer;
+			[Bindable]
+			private var infos:ArrayCollection;
+			public var selectedCategories:ArrayCollection = new ArrayCollection([]);
+			public var categoryClause:String;
+			protected function dataGroup_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (featureLayer)
+				{
+					infos = new ArrayCollection(UniqueValueRenderer(featureLayer.layerDetails.drawingInfo.renderer).infos)
+				}
+			}
+
+
+			protected function allCb_changeHandler(event:Event):void
+			{
+				selectedCategories = new ArrayCollection([]);	
+				updateCategories();
+			}
+			
+			public function updateCategories():void
+			{
+				if (selectedCategories.length > 0)
+				{
+					categoryClause = "CRIMECATEGORY IN ('"+selectedCategories.source.toString().replace(new RegExp(",","g"),"','")+"')";
+				}
+				else
+				{
+					if (allCb.selected)
+					{
+						categoryClause = "";						
+					}
+					else
+					{
+						categoryClause = "CRIMECATEGORY IS NULL";						
+					}
+
+				}
+				model.crimeSearch.featureLayer.categoryClause = categoryClause;
+				model.crimeSearch.featureLayer.search();
+			}
+
+
+
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="selected"/>
+		<s:State name="unselected"/>
+	</s:states>
+	<fx:Declarations>
+		<fx:Component id="renderer" className="categoryRenderer">
+
+			<s:ItemRenderer>
+				<fx:Script>
+					<![CDATA[
+						import com.raleigh.model.Model;
+						
+						import mx.collections.ArrayCollection;
+						private var model:Model = Model.getInstance();
+						override protected function get hovered():Boolean
+						{
+							return false;
+						}
+						protected function categoryCb_changeHandler(event:Event):void
+						{
+							// TODO Auto-generated method stub
+							if (event.currentTarget.selected)
+							{
+								model.crimeSearch.categorySettings.selectedCategories.addItem(data.value);								
+							}
+							else
+							{
+								model.crimeSearch.categorySettings.selectedCategories.removeItemAt(
+									model.crimeSearch.categorySettings.selectedCategories.getItemIndex(data.value));
+							}
+
+							model.crimeSearch.categorySettings.updateCategories();
+						}					
+					]]>
+				</fx:Script>				
+				<s:VGroup verticalAlign="middle">
+					<s:CheckBox id="categoryCb" label="{data.label}" buttonMode="true"
+								change="categoryCb_changeHandler(event)" useHandCursor="true"/>
+				</s:VGroup>				
+			</s:ItemRenderer>
+
+		</fx:Component>
+	</fx:Declarations>
+	<s:CheckBox id="allCb" label="All Categories" change="allCb_changeHandler(event)" selected="true"/>
+	<s:Scroller includeIn="unselected" width="100%" height="100%">
+		<s:DataGroup id="dataGroup" width="100%" height="100%" maxWidth="300"
+					 creationComplete="dataGroup_creationCompleteHandler(event)"
+					 dataProvider="{infos}" itemRenderer="{renderer}">
+			<s:layout>
+				<s:TileLayout requestedColumnCount="2"/>
+			</s:layout>
+		</s:DataGroup>		
+	</s:Scroller>
+
+</s:VGroup>

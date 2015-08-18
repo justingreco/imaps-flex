@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:services="com.raleigh.components.paneltools.property.services.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  width="100%" height="100%" addedToStage="identify()"
+						  preinitialize="init()">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.events.GeometryServiceEvent;
+			import com.esri.ags.events.IdentifyEvent;
+			import com.esri.ags.geometry.Geometry;
+			import com.esri.ags.tasks.GeometryService;
+			import com.esri.ags.tasks.supportClasses.IdentifyResult;
+			import com.hillelcoren.utils.StringUtils;
+			import com.raleigh.components.paneltools.property.services.ServicesRenderer;
+			
+			import mx.collections.ArrayCollection;
+			import mx.rpc.events.FaultEvent;
+			
+			import spark.components.DataGroup;
+			import spark.components.NavigatorContent;
+			import spark.components.Scroller;
+			import spark.layouts.VerticalLayout;
+			private var lastPin:String = "";
+			
+			private var loader:URLLoader;
+			[Bindable]
+			public var config:XML;
+			protected function init():void
+			{				
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/services/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, configLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			
+			protected function configLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				idTask.url = config.service.@url;
+				loader.removeEventListener(Event.COMPLETE, configLoaded);
+				identify();
+			}
+			
+			protected function identify():void
+			{
+				if (config)
+				{
+					if (lastPin != model.selectedProperty.attributes.PIN_NUM)
+					{	
+						controller.showProgress('Retrieving Services...');			
+						bParams.geometries = [model.selectedProperty.geometry];
+						geomSrv.buffer(bParams);					
+					}
+					lastPin = model.selectedProperty.attributes.PIN_NUM;						
+				}
+			
+			}
+			
+			
+			protected function geomSrv_bufferCompleteHandler(event:GeometryServiceEvent):void
+			{
+				if (event.result.length > 0)
+				{
+					var geom:Geometry = event.result[0];
+					idParams.geometry = geom;
+					idParams.height = 1;
+					idParams.width = 1;
+					idParams.mapExtent = geom.extent;
+					idParams.returnGeometry = false;
+					idParams.spatialReference = geom.spatialReference;
+					idParams.layerOption = IdentifyParameters.LAYER_OPTION_ALL;
+					accordion.removeAllElements();
+					idTask.execute(idParams);					
+				}
+			}
+			
+			[Bindable]
+			private var ac:ArrayCollection;
+			protected function idTask_executeCompleteHandler(event:IdentifyEvent):void
+			{
+				ac = new ArrayCollection();
+				var lastLabel:String = "";
+				var lastTitle:String = "";
+				var lastCategory:String = "";
+				
+				//ddl.dataProvider = new ArrayCollection();
+				for each (var result:IdentifyResult in event.identifyResults)
+				{
+					var services:XMLList = config.categories.category.service.(@layerId == result.layerId.toString());
+					for each (var service:XML in services)
+					{ 
+						var title:String = service.@title;
+						var urls:Array = service.@urls.toString().split(';');
+						var labels:Array = service.@labels.toString().split(';');
+						var category:String = service.@category;
+						for (var i:int = 0;i < labels.length;i++)
+						{
+							var label:String = labels[i];
+							var url:String = '';
+							if (i < urls.length)
+							{
+								url = urls[i];
+							}
+							var newTitle:String = getLabel(title, result.feature.attributes, result.layerName, 'title');
+							var newLabel:String = getLabel(label, result.feature.attributes, result.layerName, 'label');
+							var newUrl:String = getLabel(url, result.feature.attributes, result.layerName, 'url');
+							if (newLabel.length > 0)
+							{
+								if (category != lastCategory)
+								{
+									//ac.addItem({'label':"<p><b>"+category+"</b></p>", 'type':'category'});
+									//ddl.dataProvider.addItem(category);
+									var nav:NavigatorContent = new NavigatorContent();
+									nav.label = category;
+									nav.percentHeight = 100;
+									nav.percentWidth = 100;
+									ac = new ArrayCollection();
+									var scroller:Scroller = new Scroller();
+									scroller.percentHeight = 100;
+									scroller.percentWidth = 100;
+									var dataGroup:DataGroup = new DataGroup();
+									dataGroup.percentHeight = 100;
+									dataGroup.percentWidth = 100;
+									var vl:VerticalLayout = new VerticalLayout();
+									vl.gap = 0;
+									dataGroup.layout = vl;
+									dataGroup.itemRenderer = new ClassFactory(ServicesRenderer);
+									dataGroup.dataProvider = ac;
+									scroller.viewport = dataGroup;
+									nav.addElement(scroller);
+									accordion.addElement(nav);
+								}
+								if (newTitle != lastTitle)
+								{
+									ac.addItem({'label':"<p><b>"+newTitle+"</b></p>", 'type':'title'});
+								}
+								if (newLabel != lastLabel)
+								{ 
+									if (newUrl.length > 0)
+									{
+										ac.addItem({'label':"<a href='"+newUrl+"' target='_blank'>"+newLabel+"</a>", 'type':'label','url':newUrl});
+									}
+									else
+									{
+										ac.addItem({'label':"<p>"+newLabel+"</p>", 'type':'label'});//, 'url':newUrl});
+									}									
+								}
+								else
+								{
+									if (newTitle != lastTitle)
+									{
+										if (newUrl.length > 0)
+										{
+											ac.addItem({'label':"<a href='"+newUrl+"' target='_blank'>"+newLabel+"</a>", 'type':'label','url':newUrl});
+										}
+										else
+										{
+											ac.addItem({'label':"<p>"+newLabel+"</p>", 'type':'label'});//, 'url':newUrl});
+										}
+									}
+									
+								}
+
+							}
+							lastLabel = newLabel;
+							lastTitle = newTitle;
+							lastCategory = category;
+						}
+					}						
+				}
+				controller.removeProgress();
+				
+			}
+			
+			private function getLabel(label:String, atts:Object, layer:String, type:String):String
+			{
+				var fieldCnt:int = label.split('[').length-1;
+			
+				for (var i:int = 0;i < fieldCnt;i++)
+				{
+					var start:int = label.indexOf('[')+1;
+					var end:int = label.indexOf(']');
+					var field:String = label.substring(start,end);
+					var fieldCase:String = getFieldCase(field);
+					if (fieldCase != '')
+					{
+						field = field.replace(new RegExp('.'+fieldCase+'\\(\\)','i'),'');						
+					}
+
+					var value:String = atts[field];
+					value = changeValueCase(value, fieldCase);
+					if (value == 'null' || !value)
+					{
+						label = '';
+					}
+					else
+					{
+						label = label.replace('['+label.substring(start,end)+']',value);						
+					}
+				}
+				if (label.indexOf("DevelopmentPlansReview") > -1)
+				{
+					label = setDevPlanUrl(label, atts.CASE, atts.CASE_YEAR);
+				}
+				return label;
+			}
+			
+			private function getFieldCase(field:String):String
+			{
+				var fieldCase:String = '';
+				if (field.toLowerCase().indexOf('.upper()') > -1)
+				{
+					fieldCase = 'upper';
+				}
+				else if (field.toLowerCase().indexOf('.lower()') > -1)
+				{
+					fieldCase = 'lower';
+				}
+				else if (field.toLowerCase().indexOf('.proper()') > -1)
+				{
+					fieldCase = 'proper';
+				}
+				return fieldCase;
+			}
+			
+			private function changeValueCase(value:String, fieldCase:String):String
+			{
+				if (value)
+				{
+					switch (fieldCase)
+					{
+						case 'upper':
+							return value.toUpperCase();
+							break;
+						case 'lower':
+							return value.toLowerCase();
+							break;
+						case 'proper':
+							return StringUtils.capitalizeWords(value.toLowerCase());
+							break;
+						default:
+							return value;
+							break;
+					}					
+				}
+				else
+				{
+					return '';
+				}
+
+			}
+			
+			
+
+			
+			private function setDevPlanUrl(base:String, fileNum:String, year:int):String
+			{
+				base += year.toString()+'/'
+				if (year >= 2010)
+				{
+					base += 'PlansSubmittalMapsByType/';
+				}
+				else if (year >= 2004)
+				{
+					base += 'PlanSubmittalMapsByType/';
+				}
+				else 
+				{
+					return "";
+				}
+				var list:Array = fileNum.split("-");
+				base += getFolderName(list[0])+'/';
+				base += list[0]+'-';
+				
+				for (var i:int = 0;i < Math.abs(list[1].toString().length-3);i++)
+				{
+					base += '0';
+				}
+				base += list[1]+'-';
+				base += year.toString().substr(2,2) + '.pdf';
+				return base;
+			}
+			
+			private function getFolderName(type:String):String
+			{
+				var folder:String="";
+				switch(type){
+					case "GH":
+						folder = "GroupHousing";
+						break;									
+					case "MP":
+						folder = "MasterPlan";
+						break;													
+					case "S":
+						folder = "Subdivision";
+						break;							
+					case "SP":
+						folder = "SitePlan";
+						break;					
+					case "SU":
+						folder = "SpecialUse";
+						break;															
+				}		
+				return folder;
+			}
+			
+			protected function faultHandler(event:FaultEvent):void
+			{
+				controller.removeProgress();
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<esri:IdentifyTask id="idTask" executeComplete="idTask_executeCompleteHandler(event)"
+						   fault="faultHandler(event)"/>
+		<esri:IdentifyParameters id="idParams" dpi="96"/>
+		<esri:GeometryService id="geomSrv" bufferComplete="geomSrv_bufferCompleteHandler(event)"
+							  url="{model.configuration.geometryUrl}"
+							  fault="faultHandler(event)"/>
+		<esri:BufferParameters id="bParams" distances="{[-5]}" unit="9002"/>
+	</fx:Declarations>
+	<mx:Accordion id="accordion" width="100%" height="100%"/>
+</paneltools:BasePanelTool>

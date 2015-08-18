@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.flexoop.utilities.dateutils.DateUtils;
+			import com.raleigh.model.Model;
+			
+			import mx.controls.Alert;
+			import mx.events.CalendarLayoutChangeEvent;
+			import mx.events.FlexEvent;
+
+			[Bindable]
+			private var now:Date = new Date();
+			[Bindable]
+			private var model:Model = Model.getInstance();
+
+			
+			protected function fromDate_changeHandler(event:CalendarLayoutChangeEvent):void
+			{
+				if (DateUtils.dateDiff("date", event.newDate, new Date()) > 180)
+				{
+					Alert.show("Only crimes in the last 180 days can be displayed", "Date Alert");
+					fromDate.selectedDate = new Date(now.fullYear, now.month, now.date-180);
+				}
+				setDateClause();
+			}
+			
+			
+			protected function toDate_changeHandler(event:CalendarLayoutChangeEvent):void
+			{
+				if (DateUtils.dateDiff("date", event.newDate, now) < 0)
+				{
+					Alert.show("Date entered is in the future, date will be set to today");
+					toDate.selectedDate = now;
+				}
+				setDateClause();
+			}
+			
+			protected function setDateClause():void
+			{
+				if (model.crimeSearch.featureLayer)
+				{
+
+					//model.crimeSearch.featureLayer.dateClause = "DATETMRPTD >= TO_DATE('"+dateFormat.format(fromDate.selectedDate)+"', 'MM/DD/YYYY') AND " +
+					//	"DATETMRPTD <= TO_DATE('"+dateFormat.format(toDate.selectedDate)+"', 'MM/DD/YYYY')";
+					model.crimeSearch.featureLayer.dateClause = "DATETMRPTD >= date '"+dateFormat.format(fromDate.selectedDate)+"' AND " +
+						"DATETMRPTD <= date '"+dateFormat.format(toDate.selectedDate)+"'";
+					model.crimeSearch.featureLayer.search();					
+				}
+
+			}
+			
+			protected function fromDate_creationCompleteHandler(event:FlexEvent):void
+			{
+				fromDate.selectedDate = new Date(now.fullYear, now.month, now.date-31);
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormat" formatString="YYYY-MM-DD"/>
+		<fx:String id="dateClause"/>
+	</fx:Declarations>
+	<s:HGroup verticalAlign="middle">
+		<s:Label text="From"/>
+		<mx:DateField id="fromDate" change="fromDate_changeHandler(event)"
+					  creationComplete="fromDate_creationCompleteHandler(event)"/>
+		<s:Label text="To"/>		
+		<mx:DateField id="toDate" change="toDate_changeHandler(event)" selectedDate="{now}"/>
+		
+	</s:HGroup>	
+</s:Group>

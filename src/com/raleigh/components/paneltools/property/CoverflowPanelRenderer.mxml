@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:mx="library://ns.adobe.com/flex/halo"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:property="com.raleigh.components.paneltools.property.*">
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="normal"/>
+	</s:states>
+
+	<property:ReflectionContainer width="200" height="200" buttonMode="true" imageHeight="150"
+								  imageWidth="200"
+								  source="{model.propertySearch.config.paths.path.(@name=='Building Photos').@url}{data.imageDir}/{data.imageName}"
+								  useHandCursor="true"/>
+</s:ItemRenderer>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  skinClass="com.raleigh.components.utils.CustomProgressBarContainerSkin">
+	<fx:Script>
+		<![CDATA[
+			
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<fx:String id="label"/>
+		<fx:Boolean id="indeterminate"/>
+	</fx:Declarations>
+	
+	<mx:ProgressBar label="{label}" chromeColor="0x0198E1" indeterminate="{indeterminate}"
+					styleName="ProgressBarStyle" trackHeight="30"/>
+</s:SkinnableContainer>

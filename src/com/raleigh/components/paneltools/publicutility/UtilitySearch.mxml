@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:NavigatorContent xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					xmlns:s="library://ns.adobe.com/flex/spark" 
+					xmlns:mx="library://ns.adobe.com/flex/mx" 
+					xmlns:paneltools="com.raleigh.components.paneltools.*"
+				    label="Utility Feature Search"
+					width="100%" height="100%" xmlns:esri="http://www.esri.com/2008/ags"
+					initialize="init()" xmlns:utils="com.raleigh.components.utils.*">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.layers.supportClasses.Field;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.IList;
+			import mx.collections.XMLListCollection;
+			import mx.controls.Alert;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.events.FaultEvent;
+			
+			import spark.events.IndexChangeEvent;
+			private var model:Model = Model.getInstance();
+			
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+				
+			}
+			
+
+			
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				var list:IList = new XMLListCollection(config.search.query);
+				ddl.dataProvider = list;
+				ddl.selectedIndex = 0;
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}
+			
+			private function search():void
+			{
+				if (!model.map.getLayer('puSearchGl')){
+					model.map.addLayer(puSearchGl);
+				}
+				//var q:Query = new Query();
+				q.where = ddl.selectedItem.@field+" = '"+input.text+"'";
+				//q.outFields=ddl.selectedItem.outfields;
+				//q.returnGeometry = true;
+				puSearchGl.clear();
+				//qt.url = ddl.selectedItem.url;
+				qt.execute(q, new AsyncResponder(queryComplete, queryFault));
+			}
+			
+			private function queryComplete(fs:FeatureSet, token:Object = null):void
+			{
+				dataGrid.dataProvider = new ArrayCollection();
+				if (fs.features.length > 0)
+				{
+					var feature:Graphic = fs.features[0];
+					for each (var field:Field in fs.fields)
+					{
+						ArrayCollection(dataGrid.dataProvider).addItem({
+							field:field.alias,
+							value:feature.attributes[field.name]});
+					}	
+					puSearchGl.add(feature);
+					model.map.centerAt(feature.geometry as MapPoint);
+					model.map.level = 9;
+				}
+				else
+				{
+					Alert.show("No features found...");
+				}
+
+
+				
+			}
+			private function queryFault(fault:FaultEvent, token:Object = null):void
+			{
+				Alert.show(fault.message.toString());
+			}
+			
+
+			
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<esri:Query id="q"
+					outFields="{ddl.selectedItem.@outFields.split(',')}"
+					returnGeometry="true"/>
+		<esri:QueryTask id="qt" 
+						useAMF="false" showBusyCursor="false"
+						url="{ddl.selectedItem.@url}"/>
+		<esri:GraphicsLayer id="puSearchGl">
+			<esri:symbol>
+				<esri:SimpleMarkerSymbol color="0x00B7EB" style="circle" alpha="0.75" size="24">
+					<esri:outline>
+						<esri:SimpleLineSymbol color="0x000000" style="solid" width="2"/>
+					</esri:outline>
+				</esri:SimpleMarkerSymbol>
+			</esri:symbol>
+		</esri:GraphicsLayer>
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<s:VGroup  paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+		<s:DropDownList id="ddl" labelField="@label"  change="input.text = ''" width="100%" >
+			<!--<s:ArrayList>
+				<fx:Object label="Meter #" url="{config.search.query.(@id=='meter').@url}" 
+						   field="{config.search.query.(@id=='meter').@fields.split(',')[0]}"
+						   outfields="{config.search.query.(@id=='meter').@outfields.split(',')}"
+						   prompt="5591065"/>
+				<fx:Object label="Premise #" url="{config.search.query.(@id=='meter').@url}" 
+						   field="{config.search.query.(@id=='meter').@fields.split(',')[1]}"
+						   outfields="{config.search.query.(@id=='meter').@outfields.split(',')}"
+						   prompt="9554900000"/>
+				<fx:Object label="Hydrant #" url="{config.search.query.(@id=='hydrant').@url}" 
+						   field="{config.search.query.(@id=='hydrant').@fields.split(',')[0]}"
+						   outfields="{config.search.query.(@id=='meter').@outfields.split(',')}"
+						   prompt="271178"/>	
+				<fx:Object label="Hydrant Facility ID" url="{config.search.query.(@id=='hydrant').@url}" 
+						   field="{config.search.query.(@id=='hydrant').@fields.split(',')[1]}"
+						   outfields="{config.search.query.(@id=='meter').@outfields.split(',')}"
+						   prompt="107475"/>
+			</s:ArrayList>-->
+		</s:DropDownList>
+		<s:HGroup>
+			<s:TextInput id="input"
+						 enter="search()"
+						 prompt="{ddl.selectedItem.@prompt}"/>
+			<utils:ImageButton id="searchBtn" width="24" height="24" label="Search" click="search()"
+							   icon="@Embed(source='../../assets/searchIcon.png')"/>
+			<utils:ImageButton id="clearBtn" width="24" height="24" label="Clear"
+							   click="input.text = ''"
+							   icon="@Embed(source='../../assets/clear.png')"/>
+		</s:HGroup>		
+	</s:VGroup>
+
+
+	<s:DataGrid id="dataGrid" width="100%" height="100%">
+		<s:columns>
+			<s:ArrayList>
+				<s:GridColumn dataField="field" headerText="Field"></s:GridColumn>
+				<s:GridColumn dataField="value" headerText="Value"></s:GridColumn>
+			</s:ArrayList>
+		</s:columns>
+		
+	</s:DataGrid>
+	
+</s:NavigatorContent>

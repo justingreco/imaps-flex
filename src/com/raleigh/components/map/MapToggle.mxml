@@ -1,0 +1,716 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 height="100" activate="group1_activateHandler(event)" chromeColor="0x333333" color="white"
+		 contentBackgroundAlpha="0.85" contentBackgroundColor="0x333333"
+		 creationComplete="group1_creationCompleteHandler(event)" currentState="Streets"
+		 filters="{[new spark.filters.DropShadowFilter()]}" xmlns:ns="http://www.esri.com/2008/ags"
+		 xmlns:esri="http://www.esri.com/2008/ags">
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center"/>
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Map;
+			import com.esri.ags.events.QueryEvent;
+			import com.esri.ags.layers.ArcGISImageServiceLayer;
+			import com.esri.ags.layers.ArcGISTiledMapServiceLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.components.paneltools.RightPanel;
+			import com.raleigh.components.paneltools.layerlist.LayerList;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.containers.Accordion;
+			import mx.events.FlexEvent;
+			
+			import spark.events.IndexChangeEvent;
+			import spark.filters.DropShadowFilter;
+			import spark.filters.GlowFilter;
+			
+	
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			private var map:Map;
+			public var orthoLayer:Layer;
+			[Bindable]
+			private var orthos:ArrayCollection;
+			private var defaultRaleighImageUrl:String = "";
+
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				removeEventListener(FlexEvent.CREATION_COMPLETE, group1_creationCompleteHandler);
+				map = model.map;
+				model.mapToggle = this;
+				callLater(getLayers);
+				if (model.settingsSO)
+				{
+					if (model.settingsSO.size > 0)
+					{
+						if (model.settingsSO.data[model.SETTINGS+"_"+model.config].maptype)
+						{
+							callLater(setMapType,[model.settingsSO.data[model.SETTINGS+"_"+model.config].maptype]);
+						}
+						if (model.settingsSO.data[model.SETTINGS+"_"+model.config].basemap)
+						{
+							callLater(setBaseMap,[model.settingsSO.data[model.SETTINGS+"_"+model.config].basemap]);
+						}
+					}
+				}
+			}
+
+			private function setMapType(name:String):void
+			{
+				for (var i:int = 0;i<buttonBar.dataProvider.length;i++)
+				{
+					var obj:Object = buttonBar.dataProvider.getItemAt(i);
+					if (obj[buttonBar.labelField] == name)
+					{
+						buttonBar.selectedIndex = i;
+						break;
+					}
+				}
+			}			
+			
+			private function setBaseMap(name:String):void
+			{
+				for (var i:int=0;i<baseMapDDL.dataProvider.length;i++)
+				{
+					var baseLayer:Layer = baseMapDDL.dataProvider.getItemAt(i) as Layer;
+					if (baseLayer.name == name)
+					{
+						baseMapDDL.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+			protected function buttonbar1_changeHandler(event:Event):void
+			{
+				switch(buttonBar.selectedIndex){
+					case 0:
+						currentState = "Streets";
+						toggleBaseMapVisibility(true);
+						if (orthoLayer)
+						{
+							orthoLayer.visible = false;							
+						}
+
+						break;
+					case 1:
+						currentState = "Aerials";
+						toggleBaseMapVisibility(false);
+						if (orthoLayer)
+						{
+							orthoLayer.visible = true;
+							orthoLayer.alpha = 1;
+						}
+						
+						break;
+					case 2:
+						currentState = "Blend";
+						toggleBaseMapVisibility(true);
+						if(orthoLayer)
+						{
+							orthoLayer.visible = true;
+							orthoLayer.alpha = slider.value / 100;							
+						}
+
+						break;
+				}
+				ExternalInterface.call("_gaq.push(['_trackEvent', 'Map Toggle', '"+currentState+"'])");
+			}
+			
+			protected function toggleBaseMapVisibility(isVisible:Boolean):void
+			{
+				if (model.baseLayers.length == 1)
+				{
+					model.baseLayers[0].visible = isVisible
+				}
+				else
+				{
+					for (var i:int = 0;i < model.baseLayers.length;i++)
+					{
+						
+						if (isVisible && baseMapDDL.selectedIndex == i)
+						{
+							model.baseLayers[i].visible = true;
+						}
+						else
+						{
+							model.baseLayers[i].visible = false;
+						}
+						
+					}					
+				}
+
+
+			}
+			
+			protected function getLayers():void{
+				orthos = new ArrayCollection();
+				baseMapDDL.selectedIndex = 0;
+				baseMapDDL.visible = model.baseLayers.length > 1;
+				for each(var layer:Layer in map.layers){
+					if (layer.name == "Base Map" && layer is ArcGISTiledMapServiceLayer){
+						model.baseMap = ArcGISTiledMapServiceLayer(layer);
+					}else if (layer is ArcGISImageServiceLayer || layer is ArcGISTiledMapServiceLayer){
+						for each (var ilayer:Layer in model.imageLayers){
+							if (ilayer.name == layer.name){
+								orthos.addItem({year:layer.name, layer:layer});
+								if (layer.name == model.configuration.imageLayers.raleighDefault)
+								{
+									if (layer is ArcGISTiledMapServiceLayer){
+										defaultRaleighImageUrl = ArcGISTiledMapServiceLayer(layer).url;
+									}else if (layer is ArcGISImageServiceLayer){
+										defaultRaleighImageUrl = ArcGISImageServiceLayer(layer).url;
+									}
+								}	
+								break;
+							}
+						}
+
+					}
+				}
+				orthos.sort = new Sort();
+				orthos.sort.fields = [new SortField("year", false, true)];
+				orthos.refresh();
+				orthoLayer = orthos[0].layer;
+
+			}
+
+			protected function dropdownlist1_changeHandler(event:IndexChangeEvent):void
+			{
+				orthoLayer.visible = false;
+				orthoLayer = orthos[event.newIndex].layer;
+				orthoLayer.visible = true;
+			}
+
+			protected function hslider1_changeHandler(event:Event):void
+			{
+				orthoLayer.alpha = event.currentTarget.value / 100;
+			}
+			
+			private function dataTipFormat(item:Object):String{
+				var value:int = item.valueOf();
+				return (100-value).toString()+"/"+value.toString();
+			}
+
+			protected function layersButton_clickHandler(event:MouseEvent):void
+			{
+				var rightPanel:RightPanel = model.rightPanel;
+				var acc:Accordion = rightPanel.accordion;
+				acc.getElementAt(0)
+				for (var i:int = 0;i < acc.numElements;i++)
+				{
+					if (acc.getElementAt(i) is LayerList){
+						acc.selectedIndex = i;
+					}
+				}
+			}
+			
+			protected function group1_activateHandler(event:Event):void
+			{
+				if (slider && orthoLayer)
+				{
+					orthoLayer.alpha = slider.value / 100;
+				}
+			}
+			
+			protected function orthoDDL_creationCompleteHandler(event:FlexEvent):void
+			{
+				CheckAerials();
+			}
+			
+			private function CheckAerials():void
+			{
+				var query:Query = new Query();
+				var queryTask:QueryTask = new QueryTask(defaultRaleighImageUrl);
+				queryTask.useAMF = true;
+				queryTask.showBusyCursor = false;
+				query.geometry = map.extent;
+				query.where = "Category = 1";
+				queryTask.addEventListener(QueryEvent.EXECUTE_FOR_COUNT_COMPLETE, countComplete);
+				queryTask.executeForCount(query);
+				function countComplete(e:QueryEvent):void
+				{
+					for(var i:int = 0;i < orthos.length;i++)
+					{
+						var layer:Object = orthos[i];
+						if (e.count > 0 && layer.year == model.configuration.imageLayers.raleighDefault)
+						{
+							orthoDDL.selectedIndex = i;
+							break;
+						}
+						else if (e.count == 0 && layer.year == model.configuration.imageLayers.wakeDefault)
+						{
+							orthoDDL.selectedIndex = i;
+							break;
+						}
+					}
+				}				
+			}
+			
+
+			protected function orthoDDL_valueCommitHandler(event:FlexEvent):void
+			{
+				orthoLayer.visible = false;
+				orthoLayer = orthos[orthoDDL.selectedIndex].layer;
+				orthoLayer.visible = true;
+			}
+			
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="Streets"/>
+		<s:State name="Aerials"/>
+		<s:State name="Blend"/>
+	</s:states>
+	<fx:Declarations>
+		<esri:Polygon id="raleighBounds" spatialReference="{new SpatialReference(2264)}">
+			<fx:Array>
+				<fx:Array>
+					<esri:MapPoint
+						x="2137500.00002"
+						y="792499.999837"
+						/>
+					<esri:MapPoint 
+						x="2152499.99988"
+						y="792499.999837"
+						/>
+					<esri:MapPoint 
+						x="2152499.99988"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2155000.00013"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2155000.00013"
+						y="767499.999969"
+						/>
+					<esri:MapPoint 
+						x="2155000.00013"
+						y="765000.000047"
+						/>
+					<esri:MapPoint 
+						x="2157500.00005"
+						y="765000.000047"
+						/>
+					<esri:MapPoint 
+						x="2157500.00005"
+						y="759999.999877"
+						/>
+					<esri:MapPoint 
+						x="2155000.00013"
+						y="759999.999877"
+						/>
+					<esri:MapPoint 
+						x="2155000.00013"
+						y="757499.999956"
+						/>
+					<esri:MapPoint 
+						x="2147500.00003"
+						y="757499.999956"
+						/>
+					<esri:MapPoint 
+						x="2147500.00003"
+						y="755000.000034"
+						/>
+					<esri:MapPoint 
+						x="2149999.99996"
+						y="755000.000034"
+						/>
+					<esri:MapPoint 
+						x="2149999.99996"
+						y="745000.000021"
+						/>
+					<esri:MapPoint 
+						x="2147500.00003"
+						y="745000.000021"
+						/>
+					<esri:MapPoint 
+						x="2147500.00003"
+						y="742500.0001"
+						/>
+					<esri:MapPoint 
+						x="2139999.99994"
+						y="742500.0001"
+						/>
+					<esri:MapPoint 
+						x="2139999.99994"
+						y="727499.999916"
+						/>
+					<esri:MapPoint 
+						x="2142499.99986"
+						y="727499.999916"
+						/>
+					<esri:MapPoint 
+						x="2142499.99986"
+						y="724999.999995"
+						/>
+					<esri:MapPoint 
+						x="2145000.00011"
+						y="724999.999995"
+						/>
+					<esri:MapPoint 
+						x="2145000.00011"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2149999.99996"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2149999.99996"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2147500.00003"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2147500.00003"
+						y="714999.999982"
+						/>
+					<esri:MapPoint 
+						x="2145000.00011"
+						y="714999.999982"
+						/>
+					<esri:MapPoint 
+						x="2145000.00011"
+						y="710000.00014"
+						/>
+					<esri:MapPoint 
+						x="2132499.99985"
+						y="710000.00014"
+						/>
+					<esri:MapPoint 
+						x="2132499.99985"
+						y="712500.000061"
+						/>
+					<esri:MapPoint 
+						x="2125000.00009"
+						y="712500.000061"
+						/>
+					<esri:MapPoint 
+						x="2125000.00009"
+						y="714999.999982"
+						/>
+					<esri:MapPoint 
+						x="2122499.99984"
+						y="714999.999982"
+						/>
+					<esri:MapPoint 
+						x="2122499.99984"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2112500.00015"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2112500.00015"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2102500.00014"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2102500.00014"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2099999.99989"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2099999.99989"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2095000.00005"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2095000.00005"
+						y="714999.999982"
+						/>
+					<esri:MapPoint 
+						x="2087499.99996"
+						y="714999.999982"
+						/>
+					<esri:MapPoint 
+						x="2087499.99996"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2085000.00003"
+						y="717499.999903"
+						/>
+					<esri:MapPoint 
+						x="2085000.00003"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2082500.00011"
+						y="720000.000153"
+						/>
+					<esri:MapPoint 
+						x="2082500.00011"
+						y="722500.000074"
+						/>
+					<esri:MapPoint 
+						x="2079999.99986"
+						y="722500.000074"
+						/>
+					<esri:MapPoint 
+						x="2079999.99986"
+						y="724999.999995"
+						/>
+					<esri:MapPoint 
+						x="2077499.99994"
+						y="724999.999995"
+						/>
+					<esri:MapPoint 
+						x="2077499.99994"
+						y="732500.000087"
+						/>
+					<esri:MapPoint 
+						x="2075000.00002"
+						y="732500.000087"
+						/>
+					<esri:MapPoint 
+						x="2075000.00002"
+						y="737499.999929"
+						/>
+					<esri:MapPoint 
+						x="2072500.0001"
+						y="737499.999929"
+						/>
+					<esri:MapPoint 
+						x="2072500.0001"
+						y="745000.000021"
+						/>
+					<esri:MapPoint 
+						x="2075000.00002"
+						y="745000.000021"
+						/>
+					<esri:MapPoint 
+						x="2075000.00002"
+						y="752500.000113"
+						/>
+					<esri:MapPoint 
+						x="2072500.0001"
+						y="752500.000113"
+						/>
+					<esri:MapPoint 
+						x="2072500.0001"
+						y="755000.000034"
+						/>
+					<esri:MapPoint 
+						x="2069999.99985"
+						y="755000.000034"
+						/>
+					<esri:MapPoint 
+						x="2069999.99985"
+						y="759999.999877"
+						/>
+					<esri:MapPoint 
+						x="2065000.00001"
+						y="759999.999877"
+						/>
+					<esri:MapPoint 
+						x="2065000.00001"
+						y="765000.000047"
+						/>
+					<esri:MapPoint 
+						x="2062500.00009"
+						y="765000.000047"
+						/>
+					<esri:MapPoint 
+						x="2062500.00009"
+						y="767499.999969"
+						/>
+					<esri:MapPoint 
+						x="2065000.00001"
+						y="767499.999969"
+						/>
+					<esri:MapPoint 
+						x="2065000.00001"
+						y="769999.99989"
+						/>
+					<esri:MapPoint 
+						x="2067499.99993"
+						y="769999.99989"
+						/>
+					<esri:MapPoint 
+						x="2067499.99993"
+						y="779999.999903"
+						/>
+					<esri:MapPoint 
+						x="2065000.00001"
+						y="779999.999903"
+						/>
+					<esri:MapPoint 
+						x="2065000.00001"
+						y="777499.999982"
+						/>
+					<esri:MapPoint 
+						x="2062500.00009"
+						y="777499.999982"
+						/>
+					<esri:MapPoint 
+						x="2062500.00009"
+						y="775000.000061"
+						/>
+					<esri:MapPoint 
+						x="2057499.99992"
+						y="775000.000061"
+						/>
+					<esri:MapPoint 
+						x="2057499.99992"
+						y="779999.999903"
+						/>
+					<esri:MapPoint 
+						x="2052500.00007"
+						y="779999.999903"
+						/>
+					<esri:MapPoint 
+						x="2052500.00007"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2055000"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2055000"
+						y="797500.000008"
+						/>
+					<esri:MapPoint 
+						x="2067499.99993"
+						y="797500.000008"
+						/>
+					<esri:MapPoint 
+						x="2067499.99993"
+						y="795000.000087"
+						/>
+					<esri:MapPoint 
+						x="2072500.0001"
+						y="795000.000087"
+						/>
+					<esri:MapPoint 
+						x="2072500.0001"
+						y="797500.000008"
+						/>
+					<esri:MapPoint 
+						x="2077499.99994"
+						y="797500.000008"
+						/>
+					<esri:MapPoint 
+						x="2077499.99994"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2082500.00011"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2082500.00011"
+						y="787499.999995"
+						/>
+					<esri:MapPoint 
+						x="2087499.99996"
+						y="787499.999995"
+						/>
+					<esri:MapPoint 
+						x="2087499.99996"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2092500.00013"
+						y="789999.999916"
+						/>
+					<esri:MapPoint 
+						x="2092500.00013"
+						y="787499.999995"
+						/>
+					<esri:MapPoint 
+						x="2099999.99989"
+						y="787499.999995"
+						/>
+					<esri:MapPoint 
+						x="2099999.99989"
+						y="795000.000087"
+						/>
+					<esri:MapPoint 
+						x="2122499.99984"
+						y="795000.000087"
+						/>
+					<esri:MapPoint 
+						x="2122499.99984"
+						y="799999.999929"
+						/>
+					<esri:MapPoint 
+						x="2125000.00009"
+						y="799999.999929"
+						/>
+					<esri:MapPoint 
+						x="2125000.00009"
+						y="802499.99985"
+						/>
+					<esri:MapPoint 
+						x="2127500.00001"
+						y="802499.99985"
+						/>
+					<esri:MapPoint 
+						x="2127500.00001"
+						y="809999"
+						/>
+					<esri:MapPoint 
+						x="2137500.00002"
+						y="809999.999942"
+						/>
+				</fx:Array>
+			</fx:Array>
+		</esri:Polygon>
+
+	</fx:Declarations>
+	<s:HGroup>
+		<s:Button id="layersButton" label="Layers" buttonMode="true"
+				  click="layersButton_clickHandler(event)" toolTip="View Additional Layers"
+				  useHandCursor="true"/>
+		<s:ButtonBar id="buttonBar" buttonMode="true" change="buttonbar1_changeHandler(event)"
+					 labelField="label" requireSelection="true" selectedIndex="0"
+					 useHandCursor="true" valueCommit="buttonbar1_changeHandler(event)"> 
+			<s:ArrayList>
+				<fx:Object label="Streets"/>
+				<fx:Object label="Aerials"/>
+				<fx:Object label="Blend"/>
+			</s:ArrayList>
+		</s:ButtonBar>		
+	</s:HGroup>
+	<s:DropDownList id="baseMapDDL" includeIn="Streets" change="toggleBaseMapVisibility(true)"
+					dataProvider="{new ArrayCollection(model.baseLayers)}" labelField="name"
+					valueCommit="toggleBaseMapVisibility(true)"/>
+
+	<s:DropDownList id="orthoDDL" includeIn="Aerials" change="dropdownlist1_changeHandler(event)"
+					creationComplete="orthoDDL_creationCompleteHandler(event)"
+					valueCommit="orthoDDL_valueCommitHandler(event)"
+					dataProvider="{orthos}" labelField="year" selectedIndex="0"/>
+	<mx:HSlider id="slider" includeIn="Blend" width="100%" buttonMode="true"
+				change="hslider1_changeHandler(event)" dataTipFormatFunction="dataTipFormat"
+				filters="{[new spark.filters.GlowFilter(0x888888,1,10,10,4)]}" labels="['Streets','Aerials']"
+				liveDragging="true" maximum="100" minimum="0" showTrackHighlight="true"
+				tickInterval="10" useHandCursor="false" value="0"/>
+
+</s:Group>

@@ -1,0 +1,1299 @@
+
+<model xmlns="http://ns.adobe.com/Fiber/1.0">
+  <annotation name="ActionScriptGeneration">
+    <item name="FullyQualifyReferences">true</item>
+  </annotation>
+  <entity name="Query">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Query</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+  </entity>
+  <entity name="Queries">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Queries</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="query" type="Query" required="true"/>
+  </entity>
+  <entity name="Featurelayer">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Featurelayer</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="id" type="string" required="true"/>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+  </entity>
+  <entity name="GetImperviousAreaResponse">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">GetImperviousAreaResponse</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+  </entity>
+  <entity name="GetImperviousArea">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">GetImperviousArea</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+  </entity>
+  <entity name="Path">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Path</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+  </entity>
+  <entity name="Category_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Category_type</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Name" type="string" required="true"/>
+    <property name="Area" type="string" required="true"/>
+    <property name="Percent" type="string" required="true"/>
+    <property name="SubCategory" type="SubCategory_type[]" required="true"/>
+  </entity>
+  <entity name="Configuration1">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Configuration</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="getData">
+      <item name="propertySpecifier">title,map,rightpanel,toolbar,lowerpanel,property,paths,menu,bookmarks,style</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="title" type="string" required="true"/>
+    <property name="map" type="Map" required="true"/>
+    <property name="rightpanel" type="Rightpanel" required="true"/>
+    <property name="toolbar" type="Toolbar" required="true"/>
+    <property name="lowerpanel" type="Lowerpanel" required="true"/>
+    <property name="property" type="Property" required="true"/>
+    <property name="paths" type="Paths" required="true"/>
+    <property name="menu" type="Menu" required="true"/>
+    <property name="bookmarks" type="Bookmarks" required="true"/>
+    <property name="style" type="Style" required="true"/>
+  </entity>
+  <entity name="Paths">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Paths</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="path" type="Path[]" required="true"/>
+  </entity>
+  <entity name="SubCategory_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SubCategory_type</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Name" type="string" required="true"/>
+    <property name="Area" type="string" required="true"/>
+    <property name="Percent" type="string" required="true"/>
+    <property name="SubType" type="string" required="true"/>
+  </entity>
+  <entity name="Surface_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Surface_type</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Area" type="string" required="true"/>
+    <property name="Percent" type="string" required="true"/>
+    <property name="Category" type="Category[]" required="true"/>
+  </entity>
+  <entity name="Propertylayer">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Propertylayer</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="id" type="string" required="true"/>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+  </entity>
+  <entity name="Imagelayers">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Imagelayers</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="wakeDefault" type="string" required="true"/>
+    <property name="raleighDefault" type="string" required="true"/>
+    <property name="imagelayer" type="Imagelayer[]" required="true"/>
+  </entity>
+  <entity name="Style">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Style</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="theme" type="Theme" required="true"/>
+    <property name="panelcolors" type="Panelcolors" required="true"/>
+    <property name="titlecolors" type="Titlecolors" required="true"/>
+  </entity>
+  <entity name="Maplayers">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Maplayers</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="categories" type="string" required="true"/>
+    <property name="excludedLayers" type="string" required="true"/>
+    <property name="maplayer" type="Maplayer[]" required="true"/>
+  </entity>
+  <entity name="Titlecolors">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Titlecolors</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="background" type="string" required="true"/>
+    <property name="text" type="string" required="true"/>
+  </entity>
+  <entity name="Menu">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Menu</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="menuitems" type="Menuitems[]" required="true"/>
+  </entity>
+  <entity name="Toolbartool">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Toolbartool</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="name" type="string" required="true"/>
+    <property name="file" type="string" required="true"/>
+    <property name="tooltip" type="string" required="true"/>
+  </entity>
+  <entity name="Rightpanel">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Rightpanel</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="paneltools" type="Paneltools" required="true"/>
+  </entity>
+  <entity name="Panelcolors">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Panelcolors</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="enabled" type="string" required="true"/>
+    <property name="downColor" type="string" required="true"/>
+    <property name="upColor" type="string" required="true"/>
+    <property name="textColor" type="string" required="true"/>
+  </entity>
+  <entity name="Paneltool">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Paneltool</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="name" type="string" required="true"/>
+    <property name="file" type="string" required="true"/>
+  </entity>
+  <entity name="Maplayer">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Maplayer</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="id" type="string" required="true"/>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+    <property name="visible" type="string" required="true"/>
+    <property name="type" type="string" required="true"/>
+    <property name="minscale" type="string" required="true"/>
+    <property name="alpha" type="string" required="true"/>
+    <property name="visibleLayers" type="string" required="true"/>
+    <property name="identifiable" type="string" required="true"/>
+    <property name="identifiableLayers" type="string" required="true"/>
+    <property name="category" type="string" required="true"/>
+  </entity>
+  <entity name="Map">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Map</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="showPOI" type="string" required="true"/>
+    <property name="poilayer" type="Poilayer" required="true"/>
+    <property name="baselayers" type="Baselayers" required="true"/>
+    <property name="imagelayers" type="Imagelayers" required="true"/>
+    <property name="maplayers" type="Maplayers" required="true"/>
+  </entity>
+  <entity name="Toolbartools">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Toolbartools</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="toolbartool" type="Toolbartool[]" required="true"/>
+  </entity>
+  <entity name="Toolbar">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Toolbar</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="toolbartools" type="Toolbartools" required="true"/>
+  </entity>
+  <entity name="Paneltools">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Paneltools</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="paneltool" type="Paneltool[]" required="true"/>
+  </entity>
+  <entity name="Baselayers">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Baselayers</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="baselayer" type="Baselayer[]" required="true"/>
+  </entity>
+  <entity name="Lowerpanel">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Lowerpanel</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="enabled" type="string" required="true"/>
+  </entity>
+  <entity name="Bookmark">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Bookmark</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="name" type="string" required="true"/>
+    <property name="extent" type="string" required="true"/>
+  </entity>
+  <entity name="Imagelayer">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Imagelayer</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="id" type="string" required="true"/>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+    <property name="visible" type="string" required="true"/>
+    <property name="type" type="string" required="true"/>
+    <property name="minscale" type="string" required="true"/>
+    <property name="alpha" type="string" required="true"/>
+  </entity>
+  <entity name="Menuitems">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Menuitems</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="label" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+    <property name="menuitem" type="Menuitem[]" required="true"/>
+  </entity>
+  <entity name="Menuitem">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Menuitem</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="label" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+  </entity>
+  <entity name="Bookmarks">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Bookmarks</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="bookmark" type="Bookmark[]" required="true"/>
+  </entity>
+  <entity name="Baselayer">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Baselayer</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="id" type="string" required="true"/>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+    <property name="visible" type="string" required="true"/>
+    <property name="type" type="string" required="true"/>
+    <property name="minscale" type="string" required="true"/>
+    <property name="alpha" type="string" required="true"/>
+    <property name="visibleLayers" type="string" required="true"/>
+    <property name="identifiable" type="string" required="true"/>
+    <property name="identifiableLayers" type="string" required="true"/>
+  </entity>
+  <entity name="Poilayer">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Poilayer</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="id" type="string" required="true"/>
+    <property name="name" type="string" required="true"/>
+    <property name="url" type="string" required="true"/>
+    <property name="visible" type="string" required="true"/>
+  </entity>
+  <entity name="Theme">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Theme</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="enabled" type="string" required="true"/>
+    <property name="textColor" type="string" required="true"/>
+    <property name="backgroundColor" type="string" required="true"/>
+    <property name="rolloverColor" type="string" required="true"/>
+    <property name="selectionColor" type="string" required="true"/>
+    <property name="titleColor" type="string" required="true"/>
+    <property name="linkColor" type="string" required="true"/>
+    <property name="applicationBackgroundColor" type="string" required="true"/>
+    <property name="styleAlpha" type="string" required="true"/>
+  </entity>
+  <entity name="CCBCIBill">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">CCBCIBill</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="RemoteClass">com.raleigh.stormwater.CCBCIBill</item>
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="GetCCBCIBill">
+      <item name="propertySpecifier">complete_dttm,acct_id,tot_amt,bill_id</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="complete_dttm" type="date" required="true"/>
+    <property name="acct_id" type="string" required="true"/>
+    <property name="tot_amt" type="double" required="true" default="0"/>
+    <property name="bill_id" type="string" required="true"/>
+  </entity>
+  <entity name="SwuAccount">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Account</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="RemoteClass">com.raleigh.stormwater.Account</item>
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="GetStormwaterAccount">
+      <item name="propertySpecifier">upstream_per,sfeu_type,total_credit,nbr_apportionment_units,npdes_per,cnty_acct_num,billable_imp_surface,rpid_lot,prev_credited_imp_surface,swu_account_id,site_add,landusecode_descr,rpid_map,prem_id,total_prev_impervious_surface,apportionment_code,prev_billable_imp_surface,orig_add,account_status,sfeu,credited_imp_surface,parc_acres,onsite_per,ncpin,total_impervious_surface</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="upstream_per" type="double" required="true" default="0"/>
+    <property name="sfeu_type" type="string" required="true"/>
+    <property name="total_credit" type="double" required="true" default="0"/>
+    <property name="nbr_apportionment_units" type="double" required="true" default="0"/>
+    <property name="npdes_per" type="double" required="true" default="0"/>
+    <property name="cnty_acct_num" type="string" required="true"/>
+    <property name="billable_imp_surface" type="integer" required="true"/>
+    <property name="rpid_lot" type="string" required="true"/>
+    <property name="prev_credited_imp_surface" type="double" required="true" default="0"/>
+    <property name="swu_account_id" type="integer" required="true"/>
+    <property name="site_add" type="string" required="true"/>
+    <property name="landusecode_descr" type="string" required="true"/>
+    <property name="rpid_map" type="string" required="true"/>
+    <property name="prem_id" type="string" required="true"/>
+    <property name="total_prev_impervious_surface" type="integer" required="true"/>
+    <property name="apportionment_code" type="string" required="true"/>
+    <property name="prev_billable_imp_surface" type="integer" required="true"/>
+    <property name="orig_add" type="string" required="true"/>
+    <property name="account_status" type="string" required="true"/>
+    <property name="sfeu" type="double" required="true" default="0"/>
+    <property name="credited_imp_surface" type="double" required="true" default="0"/>
+    <property name="parc_acres" type="double" required="true" default="0"/>
+    <property name="onsite_per" type="double" required="true" default="0"/>
+    <property name="ncpin" type="string" required="true"/>
+    <property name="total_impervious_surface" type="integer" required="true"/>
+  </entity>
+  <entity name="JournalEntries">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Journal</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="RemoteClass">com.raleigh.stormwater.Journal</item>
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="GetJournalEntries">
+      <item name="propertySpecifier">journalTypeCode,accountID,insertionDate,insertionAppID,journalID,journalEntry,insertionUserID</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="journalTypeCode" type="string" required="true"/>
+    <property name="accountID" type="integer" required="true"/>
+    <property name="insertionDate" type="date" required="true"/>
+    <property name="insertionAppID" type="string" required="true"/>
+    <property name="journalID" type="integer" required="true"/>
+    <property name="journalEntry" type="string" required="true"/>
+    <property name="insertionUserID" type="string" required="true"/>
+  </entity>
+  <entity name="SwuAccount1">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SwuAccount</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="RemoteClass">com.raleigh.stormwater.SwuAccount</item>
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="GetStormwaterAccount">
+      <item name="propertySpecifier">insertion_user_id,upstream_per,sfeu_type,total_credit,nbr_apportionment_units,update_user_id,insertion_application_id,account_status_desc,npdes_per,cnty_acct_num,insertion_date,billable_imp_surface,rpid_lot,prev_credited_imp_surface,swu_account_id,site_add,landusecode_descr,rpid_map,prem_id,total_prev_impervious_surface,apportionment_code,prev_billable_imp_surface,addressID,orig_add,account_status,sfeu,credited_imp_surface,parc_acres,onsite_per,update_application_id,ncpin,update_date,total_impervious_surface</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="insertion_user_id" type="string" required="true"/>
+    <property name="upstream_per" type="double" required="true" default="0"/>
+    <property name="sfeu_type" type="string" required="true"/>
+    <property name="total_credit" type="double" required="true" default="0"/>
+    <property name="nbr_apportionment_units" type="double" required="true" default="0"/>
+    <property name="update_user_id" type="string" required="true"/>
+    <property name="insertion_application_id" type="string" required="true"/>
+    <property name="account_status_desc" type="string" required="true"/>
+    <property name="npdes_per" type="double" required="true" default="0"/>
+    <property name="cnty_acct_num" type="string" required="true"/>
+    <property name="insertion_date" type="date" required="true"/>
+    <property name="billable_imp_surface" type="integer" required="true"/>
+    <property name="rpid_lot" type="string" required="true"/>
+    <property name="prev_credited_imp_surface" type="double" required="true" default="0"/>
+    <property name="swu_account_id" type="integer" required="true"/>
+    <property name="site_add" type="string" required="true"/>
+    <property name="landusecode_descr" type="string" required="true"/>
+    <property name="rpid_map" type="string" required="true"/>
+    <property name="prem_id" type="string" required="true"/>
+    <property name="total_prev_impervious_surface" type="double" required="true" default="0"/>
+    <property name="apportionment_code" type="string" required="true"/>
+    <property name="prev_billable_imp_surface" type="double" required="true" default="0"/>
+    <property name="addressID" type="integer" required="true"/>
+    <property name="orig_add" type="string" required="true"/>
+    <property name="account_status" type="string" required="true"/>
+    <property name="sfeu" type="double" required="true" default="0"/>
+    <property name="credited_imp_surface" type="double" required="true" default="0"/>
+    <property name="parc_acres" type="double" required="true" default="0"/>
+    <property name="onsite_per" type="double" required="true" default="0"/>
+    <property name="update_application_id" type="string" required="true"/>
+    <property name="ncpin" type="string" required="true"/>
+    <property name="update_date" type="date" required="true"/>
+    <property name="total_impervious_surface" type="integer" required="true"/>
+  </entity>
+  <entity name="Property">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Property</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <property name="propertylayer" type="Propertylayer[]" required="true"/>
+    <property name="Area" type="double"/>
+    <property name="_Surface" type="Surface"/>
+    <property name="ExecuteTime" type="string"/>
+  </entity>
+  <entity name="SubCategory">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SubCategory</item>
+    </annotation>
+    <annotation name="WSDLCollectionTypes">
+      <item name="SubType">https://maps.raleighnc.gov/,ArrayOfSubType</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Name" type="string"/>
+    <property name="Area" type="double"/>
+    <property name="Percent" type="double"/>
+    <property name="SubType" type="SubType[]"/>
+  </entity>
+  <entity name="Surface">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Surface</item>
+    </annotation>
+    <annotation name="WSDLCollectionTypes">
+      <item name="Category">https://maps.raleighnc.gov/,ArrayOfCategory</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Area" type="double"/>
+    <property name="Percent" type="double"/>
+    <property name="Category" type="Category[]"/>
+  </entity>
+  <entity name="Category">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Category</item>
+    </annotation>
+    <annotation name="WSDLCollectionTypes">
+      <item name="SubCategory">https://maps.raleighnc.gov/,ArrayOfSubCategory</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Name" type="string"/>
+    <property name="Area" type="double"/>
+    <property name="Percent" type="double"/>
+    <property name="SubCategory" type="SubCategory[]"/>
+  </entity>
+  <entity name="SubType">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SubType</item>
+    </annotation>
+    <annotation name="service Group"/>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Name" type="string"/>
+    <property name="Area" type="double"/>
+    <property name="Percent" type="double"/>
+  </entity>
+  <entity name="WellDtails">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">WellDtails</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="WellDetails">
+      <item name="propertySpecifier">WellDetails</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="WellDetails" type="WellDetails_type[]" required="true"/>
+  </entity>
+  <service name="SubdivisonSearch">
+    <annotation name="ActionScriptGeneration">
+      <item name="ServiceType">HTTPMultiService</item>
+      <item name="Package">services.subdivisonsearch</item>
+      <item name="rootURL">https://maps.raleighnc.gov/arcgis/rest/services/Planning/Subdivisions/MapServer/exts/SubdivisonSOE/</item>
+    </annotation>
+    <annotation name="ServiceTypeGroup">
+      <item name="ServiceBackendType">HTTPService</item>
+    </annotation>
+    <annotation name="ServiceConfig">
+      <item name="DEFAULT_ENTITY_PACKAGE">valueObjects</item>
+      <item name="LINKED_FILE"></item>
+    </annotation>
+    <function name="DistinctSubdivisions" return-type="Subdivisions">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">DistinctSubdivisions</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Planning/Subdivisions/MapServer/exts/SubdivisonSOE/DistinctSubdivisions</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">Names</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">text,f</item>
+        <item name="inputParams">string,string</item>
+      </annotation>
+      <parameter name="text" type="string"/>
+      <parameter name="f" type="string"/>
+    </function>
+  </service>
+  <entity name="Subdivisions">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Subdivisions</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SubdivisonSearch</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="DistinctSubdivisions">
+      <item name="propertySpecifier">Names</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">valueObjects</item>
+    </annotation>
+    <property name="Names" type="string[]" required="true"/>
+  </entity>
+  <service name="SoeService">
+    <annotation name="ActionScriptGeneration">
+      <item name="ServiceType">HTTPMultiService</item>
+      <item name="Package">services.soeservice</item>
+      <item name="rootURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/</item>
+    </annotation>
+    <annotation name="ServiceTypeGroup">
+      <item name="ServiceBackendType">HTTPService</item>
+    </annotation>
+    <annotation name="ServiceConfig">
+      <item name="DEFAULT_ENTITY_PACKAGE">soeObjects</item>
+      <item name="LINKED_FILE"></item>
+    </annotation>
+    <function name="RealEstate" return-type="SoeRealEstate">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">POST</item>
+        <item name="url">RealEstateSearch</item>
+        <item name="contentType">application/x-www-form-urlencoded</item>
+        <item name="requestBodyParameter">false</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/RealEstateSearch</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">Accounts,Fields</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">type,values,f</item>
+        <item name="inputParams">string,opaque,string</item>
+      </annotation>
+      <parameter name="type" type="string"/>
+      <parameter name="values" type="opaque"/>
+      <parameter name="f" type="string"/>
+    </function>
+    <function name="Photos" return-type="SoePhotos">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">PhotoSearch</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/PhotoSearch</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">Photos</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">reid,f</item>
+        <item name="inputParams">string,string</item>
+      </annotation>
+      <parameter name="reid" type="string"/>
+      <parameter name="f" type="string"/>
+    </function>
+    <function name="Deeds" return-type="SoeDeeds">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">DeedSearch</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/DeedSearch</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">Deeds</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">reid,f</item>
+        <item name="inputParams">string,string</item>
+      </annotation>
+      <parameter name="reid" type="string"/>
+      <parameter name="f" type="string"/>
+    </function>
+    <function name="Addresses" return-type="SoeAddresses">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">AddressSearch</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/AddressSearch</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">Addresses</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">pin,reid,f</item>
+        <item name="inputParams">string,string,string</item>
+      </annotation>
+      <parameter name="pin" type="string"/>
+      <parameter name="reid" type="string"/>
+      <parameter name="f" type="string"/>
+    </function>
+    <function name="Septic" return-type="SepticPermits">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">SepticPermits</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/SepticPermits</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">SepticPermits</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">pin,f</item>
+        <item name="inputParams">string,string</item>
+      </annotation>
+      <parameter name="pin" type="string"/>
+      <parameter name="f" type="string"/>
+    </function>
+    <function name="Wells" return-type="WellResults">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">WellResults</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/WellResults</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">WellResults</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">pin,f</item>
+        <item name="inputParams">string,string</item>
+      </annotation>
+      <parameter name="pin" type="string"/>
+      <parameter name="f" type="string"/>
+    </function>
+    <function name="AutoComplete" return-type="SearchResults">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">AutoComplete</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/AutoComplete</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">Results</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">type,input,limit,f</item>
+        <item name="inputParams">string,string,integer,string</item>
+      </annotation>
+      <parameter name="type" type="string"/>
+      <parameter name="input" type="string"/>
+      <parameter name="limit" type="integer"/>
+      <parameter name="f" type="string"/>
+    </function>
+    <function name="WellDetails" return-type="SoeWellDetails">
+      <annotation name="analyze group">
+        <item name="analyzed">true</item>
+      </annotation>
+      <annotation name="ActionScriptGeneration">
+        <item name="SerializationFilter">com.adobe.serializers.json.JSONSerializationFilter</item>
+        <item name="method">GET</item>
+        <item name="url">WellDetails</item>
+      </annotation>
+      <annotation name="url group">
+        <item name="completeURL">https://maps.raleighnc.gov/arcgis/rest/services/Parcels/MapServer/exts/PropertySOE/WellDetails</item>
+      </annotation>
+      <annotation name="ValidProperties">
+        <item name="propertySpecifier">WellDetails</item>
+      </annotation>
+      <annotation name="original signature">
+        <item name="returnType">opaque</item>
+        <item name="inputParamNames">permit,code,f</item>
+        <item name="inputParams">string,string,string</item>
+      </annotation>
+      <parameter name="permit" type="string"/>
+      <parameter name="code" type="string"/>
+      <parameter name="f" type="string"/>
+    </function>
+  </service>
+  <entity name="WellDetails_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">WellDetails_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="casrn" type="string" required="true"/>
+    <property name="limit" type="double" required="true" default="0"/>
+    <property name="epiUnit" type="string" required="true"/>
+    <property name="concentration" type="double" required="true" default="0"/>
+    <property name="qualDesc" type="string" required="true"/>
+    <property name="chemName" type="string" required="true"/>
+    <property name="epi" type="double" required="true" default="0"/>
+    <property name="nc2lUnit" type="string" required="true"/>
+    <property name="permit" type="string" required="true"/>
+    <property name="sampledOn" type="string" required="true"/>
+    <property name="qualifier" type="string" required="true"/>
+    <property name="code" type="string" required="true"/>
+    <property name="origPin" type="string" required="true"/>
+    <property name="unit" type="string" required="true"/>
+    <property name="nc2l" type="double" required="true" default="0"/>
+    <property name="analyteType" type="string" required="true"/>
+    <property name="sampleType" type="string" required="true"/>
+  </entity>
+  <entity name="SoePhotos">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SoePhotos</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="Photos">
+      <item name="propertySpecifier">Photos</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="Photos" type="Photos_type[]" required="true"/>
+  </entity>
+  <entity name="Deeds_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Deeds_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="deedBook" type="string" required="true"/>
+    <property name="bomDocNum" type="string" required="true"/>
+    <property name="deedPage" type="string" required="true"/>
+    <property name="deedDate" type="string" required="true"/>
+    <property name="deedDocNum" type="string" required="true"/>
+  </entity>
+  <entity name="SoeDeeds">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SoeDeeds</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="Deeds">
+      <item name="propertySpecifier">Deeds</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="Deeds" type="Deeds_type[]" required="true"/>
+  </entity>
+  <entity name="SepticPermits">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SepticPermits</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService,SoeServiceDummy</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="Septic">
+      <item name="propertySpecifier">SepticPermits</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="SepticPermits" type="SepticPermits_type[]" required="true"/>
+  </entity>
+  <entity name="SoeRealEstate">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SoeRealEstate</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="RealEstate">
+      <item name="propertySpecifier">Accounts,Fields</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="Accounts" type="Accounts_type[]" required="true"/>
+    <property name="Fields" type="Fields_type[]" required="true"/>
+  </entity>
+  <entity name="SoeWellDetails">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SoeWellDetails</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="WellDetails">
+      <item name="propertySpecifier">WellDetails</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="WellDetails" type="WellDetails_type[]" required="true"/>
+  </entity>
+  <entity name="Photos_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Photos_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="imageDir" type="string" required="true"/>
+    <property name="imageName" type="string" required="true"/>
+    <property name="dateCreated" type="string" required="true"/>
+  </entity>
+  <entity name="WellResults">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">WellResults</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="Wells">
+      <item name="propertySpecifier">WellResults</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="WellResults" type="WellResults_type[]" required="true"/>
+  </entity>
+  <entity name="Fields_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Fields_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="field" type="string" required="true"/>
+    <property name="alias" type="string" required="true"/>
+    <property name="type" type="string" required="true"/>
+  </entity>
+  <entity name="Addresses_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Addresses_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="rpidLot" type="string" required="true"/>
+    <property name="address" type="string" required="true"/>
+    <property name="status" type="string" required="true"/>
+    <property name="suite" type="string" required="true"/>
+    <property name="type" type="string" required="true"/>
+    <property name="rpidMap" type="string" required="true"/>
+  </entity>
+  <entity name="WellResults_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">WellResults_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="prefix" type="string" required="true"/>
+    <property name="permit" type="string" required="true"/>
+    <property name="sampledOn" type="string" required="true"/>
+    <property name="code" type="string" required="true"/>
+  </entity>
+  <entity name="SearchResults">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SearchResults</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="AutoComplete">
+      <item name="propertySpecifier">Results</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="Results" type="string[]" required="true"/>
+  </entity>
+  <entity name="Accounts_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">Accounts_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="deedBook" type="string" required="true"/>
+    <property name="township" type="string" required="true"/>
+    <property name="yearBuilt" type="integer" required="true"/>
+    <property name="oldParcel" type="string" required="true"/>
+    <property name="typeUse" type="string" required="true"/>
+    <property name="city" type="string" required="true"/>
+    <property name="propDesc" type="string" required="true"/>
+    <property name="saleDate" type="string" required="true"/>
+    <property name="pin_ext" type="string" required="true"/>
+    <property name="designStyle" type="string" required="true"/>
+    <property name="totalVal" type="integer" required="true"/>
+    <property name="bldgVal" type="integer" required="true"/>
+    <property name="deedAcres" type="double" required="true" default="0"/>
+    <property name="heatArea" type="integer" required="true"/>
+    <property name="landVal" type="integer" required="true"/>
+    <property name="deedDate" type="string" required="true"/>
+    <property name="siteAddress" type="string" required="true"/>
+    <property name="mapName" type="string" required="true"/>
+    <property name="landClass" type="string" required="true"/>
+    <property name="mailAddress2" type="string" required="true"/>
+    <property name="mailAddress1" type="string" required="true"/>
+    <property name="pin" type="string" required="true"/>
+    <property name="billClass" type="string" required="true"/>
+    <property name="reid" type="string" required="true"/>
+    <property name="mailAddress3" type="string" required="true"/>
+    <property name="deedPage" type="string" required="true"/>
+    <property name="owner" type="string" required="true"/>
+    <property name="salePrice" type="integer" required="true"/>
+  </entity>
+  <entity name="SoeAddresses">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SoeAddresses</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService,SoeServiceDummy</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="Addresses">
+      <item name="propertySpecifier">Addresses</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="Addresses" type="Addresses_type[]" required="true"/>
+  </entity>
+  <entity name="SepticPermits_type">
+    <annotation name="EntityProperties">
+      <item name="EntityOriginalName">SepticPermits_type</item>
+    </annotation>
+    <annotation name="service Group">
+      <item name="service">SoeService</item>
+    </annotation>
+    <annotation name="ServerProperties">
+      <item name="IncludeRemoteClass">nonempty</item>
+    </annotation>
+    <annotation name="ActionScriptGeneration">
+      <item name="Package">soeObjects</item>
+    </annotation>
+    <property name="permitNumber" type="string" required="true"/>
+  </entity>
+</model>

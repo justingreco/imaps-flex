@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:layerlist="com.raleigh.components.paneltools.layerlist.*"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:components="com.raleigh.components.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:utils="com.raleigh.components.utils.*"
+						  width="100%" height="100%" label="Show Additional Layers">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.ArcGISImageServiceLayer;
+			import com.esri.ags.layers.ArcGISTiledMapServiceLayer;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.layers.supportClasses.LayerDetails;
+			import com.esri.ags.layers.supportClasses.LayerInfo;
+			import com.raleigh.classes.Maplayer;
+			import com.raleigh.components.map.LayersLoadedEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.IndexChangedEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.Fault;
+			
+	
+			
+
+			[Bindable]
+			private var treeXML:XML;
+			private var catXML:XML;
+			private var serviceXML:XML;
+			private var layerXML:XML;
+			
+			public var excludedLayers:Array;
+
+			[Bindable]
+			public var legendURL:String;
+			[Bindable]			
+			public var lid:int;		
+			[Bindable]
+			public var legendLayers:Array = [];
+			[Bindable]
+			public var legendHasChildren:Boolean;			
+			public var hasCategories:Boolean;
+			
+			private var fileReference:FileReference = new FileReference();
+
+			
+			protected function tree_creationCompleteHandler(event:FlexEvent):void
+			{
+
+				excludedLayers = configuration.excludedLayers;
+				hasCategories = model.configuration.useCategories;
+				
+				
+				if (model.map.loaded && model.layersLoaded)
+				{
+					callLater(setXML);
+				}
+				else
+				{
+					model.mapPanel.addEventListener("layersloaded", layersLoadedHandler);
+				}
+							
+			}
+			
+			private function layersLoadedHandler(event:LayersLoadedEvent):void
+			{
+				model.mapPanel.removeEventListener("layersloaded", layersLoadedHandler);
+				callLater(setXML);
+			}
+			
+			private function addCategories(xml:XML):void
+			{
+				var cats:ArrayCollection = new ArrayCollection();
+				configuration.mapLayers.sort = new Sort();
+				configuration.mapLayers.sort.fields = [new SortField("name")];
+				configuration.mapLayers.refresh();
+				
+				for each (var mapLayer:Maplayer in configuration.mapLayers)
+				{
+					if (mapLayer.category !="" && mapLayer.category != null && !cats.contains(mapLayer.category))
+					{
+						catXML = new XML(<node name={mapLayer.category}></node>);
+						xml.appendChild(catXML);
+						cats.addItem(mapLayer.category);			
+					}
+
+				}
+					
+			}
+			
+			protected function setXML():void{
+				treeXML = new XML(<tree></tree>);
+				if(configuration.useCategories)
+				{
+					addCategories(treeXML);					
+				}
+
+				if (configuration.showPoi)
+				{
+					addPOILayer();
+				}
+				for each (var mapLayer:Maplayer in configuration.mapLayers)
+				{
+					var layer:Layer = map.getLayer(mapLayer.id);
+					//for each (var layer:Layer in map.layers){
+						
+						if (layer.loaded)
+						{
+							var ac:ArrayCollection = new ArrayCollection(excludedLayers);
+							if (!ac.contains(layer.id) && !(layer is GraphicsLayer)){
+								setLayerXML(layer, mapLayer.category);
+							}						
+						}
+					//}					
+				}
+
+				
+
+				xlc.sort = new Sort();
+				xlc.sort.fields = [new SortField("@name")];
+				xlc.refresh();
+				openAllItems();
+			}
+			
+/* 			private function layerLoaded(event:LayerEvent):void{
+				setLayerXML(event.currentTarget as Layer);
+			} */
+			
+			private function addPOILayer():void
+			{
+				var poi:FeatureLayer = FeatureLayer(map.getLayer("poi"));				
+				if (poi)
+				{				
+					if (hasCategories)
+					{
+						treeXML.appendChild(<node name="Places of Interest"></node>);
+					}
+					serviceXML = new XML(<node name="Places of Interest" id={poi.id} visible={poi.visible}
+					alpha={poi.alpha} minscale={poi.minScale} maxscale={poi.maxScale} url={poi.url.substr(0,poi.url.length - 2)}
+					type="poi"></node>);
+
+/* 					for each (var info:UniqueValueInfo in UniqueValueRenderer(poi.layerDetails.drawingInfo.renderer).infos)
+					{
+						layerXML = new XML(<node name={info.label} type="poi"/>);
+						serviceXML.appendChild(layerXML);
+					}	 */		
+					var poiAC:ArrayCollection = new ArrayCollection();
+					model.poiSO = SharedObject.getLocal(model.POIS+"_"+model.config);
+					if (model.poiSO.size > 0){
+						poiAC = model.poiSO.data[model.POIS+"_"+model.config];
+					}
+					else
+					{
+						poiAC = model.poiIcons;
+					}
+					
+					for each (var item:Object in poiAC)
+					{
+						layerXML = new XML(<node name={item.name} minscale={item.minscale} visible={item.visible} type="poi"/>);
+						serviceXML.appendChild(layerXML);
+					}
+				}
+				else
+				{
+					Alert.show("Map does not contain places of interest feature layer");
+				}
+				if (layerXML != null){
+					if (hasCategories)
+					{
+						treeXML.node.(@name=="Places of Interest").appendChild(serviceXML);						
+					}
+					else
+					{
+						treeXML.appendChild(serviceXML);						
+					}
+				}				
+			}
+			
+			protected function setLayerXML(layer:Layer, category:String):void{
+				layerXML = null;
+				if (layer is ArcGISDynamicMapServiceLayer){
+					var dLayer:ArcGISDynamicMapServiceLayer = ArcGISDynamicMapServiceLayer(layer);
+					serviceXML = new XML(<node name={layer.name} id={layer.id} visible={layer.visible} alpha={layer.alpha}
+						minscale={layer.minScale} maxscale ={layer.maxScale} url={dLayer.url} 
+						type="dynamic"></node>);
+					for each (var info:LayerInfo in dLayer.layerInfos){
+						layerXML = new XML(<node name={info.name} service={dLayer.name} layerid={info.id}
+							url={dLayer.url} visible={isLayerVisible(dLayer, info)} minscale='' maxscale=''
+							type="dynamic" legend='true'/>);
+
+						var token:AsyncToken = new AsyncToken(null);
+						token.layerXML = layerXML;
+						token.serviceXML = serviceXML;
+						dLayer.getDetails(info.id, new AsyncResponder(getLayerDetails, fault, token));
+						serviceXML.appendChild(token.layerXML);
+					}
+				}
+				else if (layer is ArcGISTiledMapServiceLayer)
+				{
+					var tLayer:ArcGISTiledMapServiceLayer = ArcGISTiledMapServiceLayer(layer);
+					serviceXML = new XML(<node name={layer.name} id={layer.id} visible={layer.visible} alpha={layer.alpha}
+						minscale={layer.minScale} maxscale ={layer.maxScale} url={tLayer.url} 
+						type="tiled"></node>);		
+ 					for each (var info1:LayerInfo in tLayer.layerInfos){
+						layerXML = new XML(<node name={info1.name} service={tLayer.name} layerid={info1.id}
+							url={tLayer.url} visible='' minscale='' maxscale='' type="tiled" legend='true'/>);
+						
+						var token1:AsyncToken = new AsyncToken(null);
+						token1.layerXML = layerXML;
+						tLayer.getDetails(info1.id, new AsyncResponder(getLayerDetails, fault, token1));
+						serviceXML.appendChild(token1.layerXML);
+					}	 			
+				}
+				
+				if (layerXML != null){
+					if (hasCategories && category)
+					{
+						treeXML.node.(@name==category).appendChild(serviceXML);					
+						trace(category);
+					}
+					else
+					{
+						treeXML.appendChild(serviceXML);						
+					}
+
+				}
+			}
+			
+			protected function getLayerDetails(details:LayerDetails, token:Object):void
+			{
+				if (details.type != "Annotation Sublayer" && details.type != "Group Layer" && details.type != "Table")
+				{
+					XML(token.layerXML).@minscale = details.minScale;
+					XML(token.layerXML).@maxscale = details.maxScale;
+					if (details.type == "Annotation Layer")
+					{
+						XML(token.layerXML).@legend = "false";						
+					}
+					
+				}else{
+					for (var i:int = 0;i < token.serviceXML.children().length();i++){
+						if (token.serviceXML.node[i].@name == details.name){
+							delete token.serviceXML.node[i];	
+						}
+					}
+
+				}
+			}			
+			
+			protected function isLayerVisible (layer:ArcGISDynamicMapServiceLayer, layerInfo:LayerInfo):Boolean
+			{
+				var retVal:Boolean = false;
+				if (layer.visibleLayers.contains(layerInfo.id))
+				{
+					retVal = true;
+				}
+				return retVal;
+			}	
+
+			protected function fault(event:Fault, token:Object):void
+			{
+				//Alert.show(event.faultDetail);
+				//var dTask:DetailsTask = new DetailsTask(token.layerXML.@url);
+				//dTask.getDetails(token.layerXML.@lid, new AsyncResponder(getLayerDetails, fault, token));
+			}
+
+
+
+
+
+			protected function viewstack_changeHandler(event:IndexChangedEvent):void
+			{
+				if (viewstack.selectedIndex == 1)
+				{
+					legend.getLegend();					
+				}
+				else
+				{
+					legend.legendAC.removeAll();
+				}
+
+			}
+
+
+			protected function saveBtn_clickHandler(event:MouseEvent):void
+			{
+				var ac:ArrayCollection = new ArrayCollection();
+				for each (var layer:Layer in map.layers){
+					if (layer.name != "Labels" && !(layer is ArcGISImageServiceLayer) && !(layer is GraphicsLayer)){
+						if (layer is ArcGISDynamicMapServiceLayer)
+						{
+							ac.addItem({name:layer.name, visible:layer.visible, alpha:layer.alpha, visibleLayers:ArcGISDynamicMapServiceLayer(layer).visibleLayers});							
+						}
+						else
+						{
+							ac.addItem({name:layer.name, visible:layer.visible, alpha:layer.alpha});							
+						}
+
+					}
+				}
+				model.layerSO.clear();
+				
+				model.layerSO.data[model.LAYERS+"_"+model.config] = ac;
+				model.layerSO.flush();
+				
+				var poiAC:ArrayCollection = new ArrayCollection();
+				for each (var poi:Object in model.poiIcons)
+				{
+					poiAC.addItem({name:poi.name, minscale:poi.minscale, visible:poi.visible});
+				}
+				model.poiSO.data[model.POIS+"_"+model.config] = poiAC;
+				model.poiSO.flush();
+				
+			}
+
+
+			protected function defaultBtn_clickHandler(event:MouseEvent):void
+			{
+				model.layerSO.clear();
+				model.poiSO.clear();
+			}
+			
+			protected function openAllItems():void
+			{
+				this.validateNow();
+				tree.expandChildrenOf(treeXML,true);
+			}
+
+			protected function imagebutton1_clickHandler(event:MouseEvent):void
+			{
+
+				for each (var item:Object in tree.dataProvider)
+				{
+					for each (var node:Object in item.node)
+					{
+						node.@visible = false;
+					}
+				}
+			}
+			
+
+			
+			protected function saveXmlBtn_clickHandler(event:MouseEvent):void
+			{
+				var fileReference:FileReference = new FileReference();
+				var xmlSaveStr:String = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"+treeXML.toXMLString();
+				fileReference.save(xmlSaveStr, "iMaps_Layers.xml");
+			}
+			
+			protected function loadXmlBtn_clickHandler(event:MouseEvent):void
+			{
+				fileReference.addEventListener(Event.SELECT, fileSelectHandler,false,0,true);
+				fileReference.addEventListener(Event.COMPLETE, fileCompleteHandler,false,0,true);
+				var fileTypes:FileFilter = new FileFilter("XML (*.xml)", "*.xml");
+				var allTypes:Array = new Array(fileTypes);
+				fileReference.browse(allTypes);
+			}
+			private function fileSelectHandler(e:Event):void{
+				fileReference.load();					
+			}				
+			private function fileCompleteHandler(e:Event):void{
+				var content:ByteArray = fileReference.data as ByteArray;
+				xlc = null;
+				treeXML = XML(content);
+				xlc = new XMLListCollection(treeXML.node);
+				//ADD CODE TO LOOP THROUGH XLC AND TURN LAYERS ON!!!//
+				//xlc.source = treeXML.node;
+				xlc.sort = new Sort();
+				xlc.sort.fields = [new SortField("@name")];
+				xlc.refresh();
+				fileReference.removeEventListener(Event.SELECT, fileSelectHandler); 
+				fileReference.removeEventListener(Event.COMPLETE, fileCompleteHandler);	
+				
+				callLater(openAllItems);
+			} 			
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<s:XMLListCollection id="xlc" source="{treeXML.node}"/>
+	</fx:Declarations>
+	<mx:ViewStack id="viewstack" width="100%" height="100%" change="viewstack_changeHandler(event)">
+		<paneltools:BasePanelTool width="100%" height="100%">
+			<paneltools:layout>
+				<s:VerticalLayout gap="0"/>
+			</paneltools:layout>
+			<mx:Tree id="tree" width="100%" height="100%"
+					 creationComplete="tree_creationCompleteHandler(event)" dataProvider="{xlc}"
+					 itemRenderer="com.raleigh.components.paneltools.layerlist.LayerTreeItemRenderer"
+					 labelField="@name" selectable="false" showDataTips="true"/>	
+			<s:SkinnableContainer width="100%" backgroundColor="0x333333">
+				<s:layout>
+					<s:HorizontalLayout paddingBottom="2" paddingLeft="2"/>
+				</s:layout>
+				<utils:ImageButton id="saveBtn" width="24" height="24"
+								   click="saveBtn_clickHandler(event)"
+								   icon="@Embed(source='assets/save.png')"
+								   toolTip="Save Layer Configuration"/>
+				<utils:ImageButton id="defaultBtn" width="24" height="24"
+								   click="defaultBtn_clickHandler(event)"
+								   icon="@Embed(source='assets/clear.png')"
+								   toolTip="Clear Layer Configuration"/>
+				<utils:ImageButton width="24" height="24" click="openAllItems()"
+								   icon="@Embed(source='assets/expand.png')" toolTip="Expand All"/>
+				<utils:ImageButton width="24" height="24" click="tree.openItems = new Object()"
+								   icon="@Embed(source='assets/collapse.png')"
+								   toolTip="Collapse All"/>
+				<utils:ImageButton width="24" height="24" click="imagebutton1_clickHandler(event)"
+								   icon="@Embed(source='assets/redX.png')"
+								   toolTip="Turn All Layers Off"/>	
+				<utils:ImageButton id="saveXmlBtn" width="24" height="24"
+								   click="saveXmlBtn_clickHandler(event)"
+								   icon="@Embed(source='assets/saveas.png')"
+								   toolTip="Save Layer XML"/>
+				<utils:ImageButton id="loadXmlBtn" width="24" height="24"
+								   click="loadXmlBtn_clickHandler(event)"
+								   icon="@Embed(source='assets/i_folder.png')"
+								   toolTip="Load Layer XML"/>
+
+			</s:SkinnableContainer>
+		</paneltools:BasePanelTool>
+		<paneltools:BasePanelTool width="100%" height="100%">
+			<layerlist:LayerLegend id="legend" width="100%" height="100%"
+								   legendHasChildren="{legendHasChildren}" legendURL="{legendURL}"
+								   lid="{lid}"/>
+		</paneltools:BasePanelTool>		
+	</mx:ViewStack>
+
+
+</paneltools:BasePanelTool>

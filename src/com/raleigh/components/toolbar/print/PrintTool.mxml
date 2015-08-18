@@ -1,0 +1,764 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:BaseToolbarTool xmlns:fx="http://ns.adobe.com/mxml/2009" 
+						 xmlns:s="library://ns.adobe.com/flex/spark" 
+						 xmlns:mx="library://ns.adobe.com/flex/mx" width="400" 
+						 xmlns:toolbar="com.raleigh.components.toolbar.*"
+						 xmlns:esri="http://www.esri.com/2008/ags" 
+						 currentState="{exportDdl.selectedItem.state}"
+						 creationComplete="init();"
+						 removedFromStage="basetoolbartool1_removedFromStageHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.ExtentEvent;
+			import com.esri.ags.events.GeoprocessorEvent;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.geometry.Geometry;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.geometry.Polygon;
+			import com.esri.ags.geometry.Polyline;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.ArcGISImageServiceLayer;
+			import com.esri.ags.layers.ArcGISTiledMapServiceLayer;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.layers.supportClasses.LOD;
+			import com.esri.ags.symbols.SimpleFillSymbol;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.esri.ags.tasks.supportClasses.GPMessage;
+			import com.esri.ags.tasks.supportClasses.JobInfo;
+			import com.pfp.events.JPEGAsyncCompleteEvent;
+			import com.pfp.utils.JPEGAsyncEncoder;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.controls.Alert;
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.graphics.ImageSnapshot;
+			import mx.rpc.events.FaultEvent;
+			import mx.validators.Validator;
+			
+			import spark.events.IndexChangeEvent;
+			
+			import soeObjects.Accounts_type;
+			
+			
+			private var dataURL:String;			
+			private var ptFS:FeatureSet;
+			private var lnFS:FeatureSet;
+			private var pyFS:FeatureSet;
+			private var lbFS:FeatureSet;
+			private var gl:GraphicsLayer;
+			private var g:Graphic;
+			private var printExt:Extent;
+			
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+				
+				callLater(layoutChange,[map.extent.center])
+			}
+			
+			protected function basetoolbartool1_removedFromStageHandler(event:Event):void
+			{
+				map.removeLayer(gl);
+				map.removeEventListener(ExtentEvent.EXTENT_CHANGE, mapExtentChange);
+				orientRadioGroup.removeEventListener(Event.CHANGE, layoutChange);
+				sizeDDL.removeEventListener(Event.CHANGE, layoutChange);
+				scaleDDL.removeEventListener(Event.CHANGE, layoutChange);
+				customScale.removeEventListener(Event.CHANGE, layoutChange);
+				gl = null;
+				g = null;
+			}		
+			
+			protected function scaleDDL_creationCompleteHandler(event:FlexEvent):void
+			{
+				scaleDDL.dataProvider = new ArrayCollection();
+				scaleDDL.dataProvider.addItem({label:"Current Scale",scale:""});
+				var lods:ArrayCollection = new ArrayCollection(model.map.lods);
+				lods.sort = new Sort();
+				lods.sort.fields = [new SortField("scale")];
+				lods.refresh();
+				for each (var lod:LOD in lods)
+				{
+					scaleDDL.dataProvider.addItem({label:"1' = "+lod.scale/12+"''",scale:lod.scale});					
+				}
+				scaleDDL.dataProvider.addItem({label:"Custom Scale...", scale:""});
+				scaleDDL.selectedIndex = 0;
+				scaleDDL.removeEventListener(FlexEvent.CREATION_COMPLETE, scaleDDL_creationCompleteHandler);
+			}		
+			
+			private function updateProgress(event:ProgressEvent):void
+			{
+				progbar.setProgress(event.bytesLoaded, event.bytesTotal);
+				progbar.label = (event.bytesLoaded/event.bytesTotal*100).toFixed()+"% Complete";
+			}				
+			
+			//code for exporting map to PDF//
+			protected function submitPDF():void
+			{
+				var validators:Array = [titleValidator];
+				if (customScale.enabled)
+				{
+					validators.push(customScaleValidator);
+				}
+				if (Validator.validateAll(validators).length == 0)
+				{
+					exportPDF();
+				}
+			}
+			
+			protected function exportPDF():void
+			{
+				var size:String = sizeDDL.selectedItem.@label;
+				var orient:String = orientRadioGroup.selectedValue.toString().toLowerCase();
+				var title:String = titleInput.text;
+				if (titleInput.text.length == 0)
+				{
+					title = " ";
+				}
+				var srvcs:Array = [];
+				var types:Array = [];
+				var visLayers:String = "";
+				var defExp:String = "";
+				var trans:Array = [];
+				var scale:String = getScale().toString();
+				var extent:String = map.extent.xmin.toString()+";"+map.extent.ymin.toString()+";"+map.extent.xmax.toString()+";"+map.extent.ymax.toString();
+				var attributes:Array = getAttributes();
+				var pin:String = getPIN();
+				var pins:String = getPINS();
+				
+				if (pins != ""){
+					pin += ";"+pins;
+				}
+				
+				
+				if (model.propertyInfo && centerCheck.selected)
+				{
+					var propExtent:Extent = model.selectedProperty.geometry.extent;
+					extent = propExtent.xmin.toString()+";"+propExtent.ymin.toString()+";"+propExtent.xmax.toString()+";"+propExtent.ymax.toString();
+				}
+				
+				for each (var layer:Layer in map.layers){
+					if (layer.visible)
+					{
+						
+						if (layer is ArcGISDynamicMapServiceLayer)
+						{
+							srvcs.push(layer.id);
+							trans.push(Math.round(100-(layer.alpha*100)));
+							types.push("dynamic");
+							visLayers += ArcGISDynamicMapServiceLayer(layer).visibleLayers.source.toString()+";";
+							defExp += ";";
+						}
+						else if (layer is ArcGISImageServiceLayer)
+						{
+							srvcs.push(layer.id);
+							trans.push(Math.round(100-(layer.alpha*100)));
+							types.push("image");
+							visLayers += "0;";
+							defExp += ";";
+						}
+						else if (layer is ArcGISTiledMapServiceLayer)
+						{
+							srvcs.push(layer.id);
+							trans.push(Math.round(100-(layer.alpha*100)));
+							types.push("tiled");
+							visLayers += "0;";
+							defExp += ";";
+						}
+						else if (layer is FeatureLayer)
+						{
+							srvcs.push(layer.id);
+							trans.push(Math.round(100-(layer.alpha*100)));
+							types.push("feature");
+							visLayers += "0;";
+							if (layer is FeatureLayer)
+							{
+								defExp += FeatureLayer(layer).definitionExpression+";";
+							}
+							else
+							{
+								defExp += ";";
+							}
+							
+						}
+					}
+				}
+				ptFS = new FeatureSet([]);
+				lnFS = new FeatureSet([]);
+				pyFS = new FeatureSet([]);
+				lbFS = new FeatureSet([]);
+				if (graphicCheck.enabled && graphicCheck.selected)
+				{
+					getGraphics();					
+				}
+				
+				var gCount:String = ptFS.features.length+";"+lnFS.features.length+";"+pyFS.features.length+";"+lbFS.features.length;
+				
+				var params:Object={
+					"Title":title, 
+					"Size":size, 
+					"Orientation":orient, 
+					"Services":srvcs.toString().replace(new RegExp(",","g"),";"),
+					"Types":types.toString().replace(new RegExp(",","g"),";"), 
+					"Visible_Layers":visLayers, 
+					"Transparency_Values":trans.toString().replace(new RegExp(",","g"),";"),
+					"Definition_Expressions":defExp,
+					"Extent":extent, 
+					"Scale":scale, 
+					"Attributes":attributes.toString().replace(new RegExp("_,","g"),";").replace(new RegExp("_","g"),""),
+					"PIN":pin, 
+					//"PINS":pins,
+					"Graphics_Count": gCount,
+					"Graphic_Points":(ptFS.features.length > 0)?ptFS:"", 
+					"Graphic_Lines":(lnFS.features.length > 0)?lnFS:"", 
+					"Graphic_Polygons":(pyFS.features.length > 0)?pyFS:"", 
+					"Graphic_Labels":(lbFS.features.length > 0)?lbFS:"",
+					"env:outSR":"", 
+					"env:processSR":""};
+				/* 				if (ptFS.features.length < 1)
+				{
+				params["Graphic_Points"] = "";
+				}
+				if (lnFS.features.length < 1)
+				{
+				params["Graphic_Lines"] = "";
+				}
+				if (pyFS.features.length < 1)
+				{
+				params["Graphic_Polygons"] = "";
+				}		
+				if (lbFS.features.length < 1)
+				{
+				params["Graphic_Labels"] = "";
+				}	 */
+				progbar.visible = true;
+				exportButton.enabled = false;
+				gp.submitJob(params);
+			}
+			
+			private function getAttributes():Array
+			{
+				var attributes:Array = [];
+				if (model.propertyInfo)
+				{
+					if (attribCheck.selected)
+					{
+						for each (var item:Object in model.propertyInfo)
+						{
+							var value:String = item.field+": "+item.value;
+							/* if (value.length > 40){
+							var tempStr:String = "";
+							if (value.charAt(41) != " ")
+							{
+							var tempArr:Array = value.split(0,40);
+							
+							for (var i:int = 0; i < tempArr.length; i++)
+							{
+							tempStr += tempArr[i]+" ";
+							}
+							attributes.push(tempStr+"_");
+							attributes.push(value.substring(tempStr.length)+"_");
+							}
+							else
+							{
+							attributes.push(value.substring(0,40)+"_");
+							attributes.push(value.substring(40)+"_");
+							}
+							}
+							else
+							{ */
+							attributes.push(value+"_");
+							//}
+						}						
+					}	
+				}
+				return attributes;
+			}
+			
+			private function getPIN():String
+			{
+				var pin:String = "";
+				if (model.propertyInfo.length > 0 && showCheck.selected && showCheck.enabled)
+				{
+					pin  = model.selectedProperty.attributes.PIN_NUM;
+				}
+				return pin;
+			}		
+			
+			private function getPINS():String
+			{
+				var pins:Array = [];
+				if (model.propertyResults.length > 0 && showCheck.selected && showCheck.enabled)
+				{
+					for each (var prop:Accounts_type in model.propertyResults)
+					{
+						pins.push(prop.pin);
+						if (pins.length == 1000){
+							break;
+						}
+					}
+
+				}
+				return pins.toString();
+			}
+			
+			protected function getGraphics():void
+			{
+				ptFS = new FeatureSet([]);
+				lnFS = new FeatureSet([]);
+				pyFS = new FeatureSet([]);
+				lbFS = new FeatureSet([]);
+				
+				for each (var layer:Layer in map.layers)
+				{
+					if (layer is GraphicsLayer){
+						if (layer.name == "Measure Graphics Layer" || layer.name == "Property Buffer Graphics Layer"||
+							layer.name == "Subdivision Search Graphics Layer" || layer.name == "Crime Search Graphics Layer"||
+							layer.name == "Identify Graphics Layer" || layer.name == "Drawing Graphics Layer"){
+							for each (var g:Graphic in GraphicsLayer(layer).graphicProvider){
+								if (printExt.intersects(g.geometry)){//checks to see if graphic is in the print extent
+									if (g.attributes){//checks if graphic has attributes
+										g.attributes.GraphicsLayer = layer.name;//adds graphic layer attribute
+									}else{
+										g.attributes = {GraphicsLayer:layer.name};//creates graphic layer attribute
+									}
+									
+									if (g.geometry is MapPoint)
+									{
+										if (g.attributes.label){
+											lbFS.features.push(new Graphic(g.geometry,null,g.attributes));	
+										}
+										else
+										{
+											ptFS.features.push(new Graphic(g.geometry,null,g.attributes));								
+										}									
+										
+									}
+									else if (g.geometry is Polyline)
+									{
+										lnFS.features.push(new Graphic(g.geometry,null,g.attributes));
+									}
+									else if (g.geometry is Polygon)
+									{
+										pyFS.features.push(new Graphic(g.geometry,null,g.attributes));
+									}
+									else if (g.geometry is Extent)
+									{
+										var ext:Extent = g.geometry as Extent;
+										var ring:Array = new Array();
+										ring.push(new MapPoint(ext.xmin, ext.ymin));
+										ring.push(new MapPoint(ext.xmin, ext.ymax));
+										ring.push(new MapPoint(ext.xmax, ext.ymax));
+										ring.push(new MapPoint(ext.xmax, ext.ymin));
+										ring.push(new MapPoint(ext.xmin, ext.ymin));							
+										var py:Polygon = new Polygon([ring]);
+										pyFS.features.push(new Graphic(py, null, g.attributes));
+									}									
+								}
+							}
+						}
+					}
+				}
+				
+				/* 				if (model.drawingTool)
+				{
+				for each (var g:Graphic in model.drawingTool.graphicsLayer.graphicProvider)
+				{
+				if (g.geometry is MapPoint)
+				{
+				if(g.attributes)
+				{
+				
+				} 
+				else
+				{
+				ptFS.features.push({geometry:g.geometry});								
+				}
+				
+				}
+				else if (g.geometry is Polyline)
+				{
+				lnFS.features.push({geometry:g.geometry});
+				}
+				else if (g.geometry is Polygon)
+				{
+				pyFS.features.push({geometry:g.geometry});
+				}
+				else if (g.geometry is Extent)
+				{
+				var ext:Extent = g.geometry as Extent;
+				var ring:Array = new Array();
+				ring.push(new MapPoint(ext.xmin, ext.ymin));
+				ring.push(new MapPoint(ext.xmin, ext.ymax));
+				ring.push(new MapPoint(ext.xmax, ext.ymax));
+				ring.push(new MapPoint(ext.xmax, ext.ymin));
+				ring.push(new MapPoint(ext.xmin, ext.ymin));							
+				var py:Polygon = new Polygon([ring]);
+				pyFS.features.push(new Graphic(py, null, g.attributes));
+				}
+				} 
+				
+				}*/
+			}
+			
+			protected function getScale():Number
+			{
+				var scale:Number = map.scale;
+				switch (scaleDDL.selectedIndex)
+				{
+					case 0:
+						//current scale//
+						scale = map.scale;
+						break;
+					case scaleDDL.dataProvider.length-1:
+						//custom scale//
+						scale = parseInt(customScale.text)*12;
+						break;
+					default:
+						scale = scaleDDL.selectedItem.scale;
+						break;
+				}
+				return scale;
+			}
+			
+			//geoprocessing event handlers//
+			protected function gp_faultHandler(event:FaultEvent):void
+			{
+				progbar.visible = false;
+				exportButton.enabled = true;
+				Alert.show(event.fault.message.toString());
+			}
+			
+			
+			protected function gp_jobCompleteHandler(event:GeoprocessorEvent):void
+			{
+				if (event.jobInfo.jobStatus == JobInfo.STATUS_SUCCEEDED)
+				{
+					gp.getResultData(gp.submitJobLastResult.jobId, "Output_URL")
+				}
+				progbar.visible = false;
+				exportButton.enabled = true;
+			}
+			
+			protected function gp_statusUpdateHandler(event:GeoprocessorEvent):void
+			{
+				if (event.jobInfo.messages.length > 0){
+					var message:GPMessage = event.jobInfo.messages[event.jobInfo.messages.length - 1];
+					progbar.label = message.description;
+				}
+			}
+			
+			
+			protected function gp_getResultDataCompleteHandler(event:GeoprocessorEvent):void
+			{
+				if(event.parameterValue)
+				{
+					dataURL = String(event.parameterValue.value);
+					if (saveRadioGroup.selectedValue == "Open PDF")
+					{
+						navigateToURL(new URLRequest(dataURL), "_blank");						
+					}
+					else
+					{
+						Alert.show("Would you like to save the PDF file?","PDF Creation Complete", Alert.YES | Alert.NO, null, alertClickHandler);
+					}
+					
+				}
+			}
+			
+			private function alertClickHandler(event:CloseEvent):void
+			{
+				if (event.detail == Alert.YES)
+				{
+					downloadFile(dataURL);
+				}
+			}
+			private function downloadFile(url:String):void
+			{
+				var urlReq:URLRequest = new URLRequest();
+				urlReq.url = url;
+				var file:FileReference = new FileReference();
+				file.addEventListener(IOErrorEvent.IO_ERROR, downloadErrorHandler,false,0,true);
+				file.download(urlReq, "iMaps.pdf");
+			}	
+			
+			protected function downloadErrorHandler(event:IOErrorEvent):void
+			{
+				Alert.show(event.text, "File Download Error");
+			}
+			
+			//code for exporting map to JPG//
+			protected function exportJPG():void
+			{
+				model.map.scaleBarVisible = false;
+				model.map.zoomSliderVisible = false;
+				callLater(encodeJPG);
+			}
+			
+			private function encodeJPG():void
+			{
+				try
+				{
+					var encoder:JPEGAsyncEncoder = new JPEGAsyncEncoder(100);
+					encoder.PixelsPerIteration = 128;
+					encoder.addEventListener(ProgressEvent.PROGRESS, updateProgress,false,0,true);
+					encoder.addEventListener(JPEGAsyncCompleteEvent.JPEGASYNC_COMPLETE, asyncComplete,false,0,true);
+					encoder.encode(ImageSnapshot.captureBitmapData(model.map));
+					progbar.visible = true;
+					exportButton.enabled = false;					
+				}
+				catch(err:Error)
+				{
+					progbar.visible = false;
+					exportButton.enabled = true;
+					model.map.zoomSliderVisible=true;
+					model.map.scaleBarVisible=true;
+				}
+				
+			}
+			
+			//code for saving PDF//
+			private function asyncComplete(event:JPEGAsyncCompleteEvent):void
+			{
+				
+				var alert:Alert = Alert.show("Image created, would you like to save the image?","Image Creation Complete", Alert.YES|Alert.NO,this, jpgAlertClickHandler);
+				function jpgAlertClickHandler(e:CloseEvent):void
+				{
+					if (e.detail == Alert.YES)
+					{
+						const fileRef:FileReference = new FileReference();
+						fileRef.addEventListener(IOErrorEvent.IO_ERROR, fileRefIOError,false,0,true);						
+						fileRef.addEventListener(Event.SELECT, fileRefSelectHandler,false,0,true);
+						fileRef.save(event.ImageData, "iMapsExport.jpg");	
+					}
+					
+				}
+				progbar.visible = false;
+				exportButton.enabled = true;
+				model.map.zoomSliderVisible=true;
+				model.map.scaleBarVisible=true;
+			}	
+			
+			
+			
+			protected function fileRefIOError(event:IOErrorEvent):void
+			{
+				Alert.show("File could not be saved.  If overwriting a file, make sure it is not open or read only", "File Export Error");
+				event.currentTarget.removeEventListener(IOErrorEvent.IO_ERROR, fileRefIOError);
+			}			
+			
+			protected function fileRefSelectHandler(event:Event):void
+			{
+				if (event.currentTarget.type != ".jpg")
+				{
+					Alert.show("File saved, but is missing the .jpg extension, please add before opening file.","File Extension Missing");
+				}
+			}			
+			
+			//code for print extent graphic//
+			private function layoutChange(center:MapPoint):void
+			{
+				if (!gl)
+				{
+					gl = new GraphicsLayer();
+					map.addLayer(gl);
+					map.addEventListener(ExtentEvent.EXTENT_CHANGE, mapExtentChange);
+				}
+				gl.clear();
+				var frameW:int;
+				var frameH:int;
+				if (sizeDDL.selectedIndex == -1)
+				{
+					sizeDDL.selectedIndex = 0;
+				}
+				if (orientRadioGroup.selectedValue == "Landscape")
+				{
+					if (attribCheck.selected && attribCheck.enabled){
+						frameW = sizeDDL.selectedItem.mapframe.landscape.@widtha;
+						frameH = sizeDDL.selectedItem.mapframe.landscape.@heighta;						
+					}else{
+						frameW = sizeDDL.selectedItem.mapframe.landscape.@width;
+						frameH = sizeDDL.selectedItem.mapframe.landscape.@height;						
+					}
+				}
+				else if (orientRadioGroup.selectedValue == "Portrait")
+				{
+					if (attribCheck.selected && attribCheck.enabled){
+						frameW = sizeDDL.selectedItem.mapframe.portrait.@widtha;
+						frameH = sizeDDL.selectedItem.mapframe.portrait.@heighta;						
+					}else{
+						frameW = sizeDDL.selectedItem.mapframe.portrait.@width;
+						frameH = sizeDDL.selectedItem.mapframe.portrait.@height;						
+					}			
+				}
+				var scale:int = map.scale/12;
+				if (scaleDDL.selectedIndex > 0 && scaleDDL.selectedIndex < scaleDDL.dataProvider.length-1)
+				{
+					scale = scaleDDL.selectedItem.scale/12;
+				}
+				else if (scaleDDL.selectedIndex == scaleDDL.dataProvider.length-1)
+				{
+					if (customScale.text.length > 0)
+					{
+						scale = int(customScale.text);						
+					}
+				}
+				
+				frameW = scale*frameW;
+				frameH = scale*frameH;
+				if (centerCheck.selected && centerCheck.enabled)
+				{
+					center = model.selectedProperty.geometry.extent.center;
+				}
+				printExt = new Extent();
+				printExt.xmin = center.x - frameW/2;
+				printExt.ymin = center.y - frameH/2;
+				printExt.xmax = center.x + frameW/2;
+				printExt.ymax = center.y + frameH/2;
+				
+				g = new Graphic(printExt as Geometry, new SimpleFillSymbol(SimpleFillSymbol.STYLE_NULL, 0, 0.75, new SimpleLineSymbol("solid",0, 0.75, 3)), null);
+				gl.add(g);
+			}
+			
+			private function mapExtentChange(event:ExtentEvent):void
+			{
+				if (!centerCheck.selected)
+				{
+					layoutChange(event.extent.center);					
+				}
+			}
+			
+			protected function exportDdl_changeHandler(event:IndexChangeEvent):void
+			{
+				if (event.newIndex == 0)
+				{
+					gl.visible = true;
+					layoutChange(map.extent.center);	
+				}
+				else
+				{
+					gl.visible = false;
+					layoutChange(map.extent.center);	
+				}
+			}
+			
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<esri:Geoprocessor id="gp" url="{config.service.@url}"
+						   fault="gp_faultHandler(event)" jobComplete="gp_jobCompleteHandler(event)"
+						   useAMF="false" statusUpdate="gp_statusUpdateHandler(event)"
+						   getResultDataComplete="gp_getResultDataCompleteHandler(event)"/>
+		<s:RadioButtonGroup id="orientRadioGroup" change="layoutChange(map.extent.center)"/>
+		<s:RadioButtonGroup id="saveRadioGroup"/>
+		<mx:StringValidator id="titleValidator" minLength="0" maxLength="50" required="false" source="{titleInput}" property="text"/>
+		<mx:NumberValidator id="customScaleValidator" source="{customScale}" property="text"  required="true" maxValue="25600" minValue="10"/>
+	</fx:Declarations>
+	
+	<toolbar:layout>
+		<s:VerticalLayout paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"/>
+	</toolbar:layout>	
+	<toolbar:states>
+		<s:State name="PDF"/>
+		<s:State name="JPG"/>
+	</toolbar:states>
+	
+	<s:DropDownList id="exportDdl" selectedIndex="0" change="exportDdl_changeHandler(event)">
+		<s:ArrayList>
+			<fx:Object label="Export PDF" state="PDF"/>
+			<fx:Object label="Export JPG" state="JPG"/>			
+		</s:ArrayList>
+	</s:DropDownList>
+	
+	<s:VGroup width="100%" includeIn="PDF">
+		
+		<mx:FormItem label="Title" width="100%">
+			<s:TextInput id="titleInput" width="100%"/>
+		</mx:FormItem>	
+		
+		<mx:FormItem label="Size" direction="horizontal" >
+			
+			<s:DropDownList id="sizeDDL" selectedIndex="0" x="62" y="3" labelField="@label"  change="layoutChange(map.extent.center)">
+				<s:dataProvider>
+					<s:XMLListCollection source="{config.sizes.size}"/>
+				</s:dataProvider>
+			</s:DropDownList>
+			
+			<s:RadioButton x="71" y="14" label="Landscape" groupName="orientRadioGroup"
+						   selected="true"/>
+			
+			<s:RadioButton x="71" y="40" label="Portrait" groupName="orientRadioGroup"/>	
+			
+		</mx:FormItem>
+		
+		<mx:FormItem label="Scale" direction="horizontal" width="100%">
+			<s:DropDownList id="scaleDDL" creationComplete="scaleDDL_creationCompleteHandler(event)" width="150"
+							change="layoutChange(map.extent.center)" />
+			
+			<s:HGroup enabled="{(scaleDDL.selectedIndex == scaleDDL.dataProvider.length-1)?true:false}"
+					  verticalAlign="middle">
+				<s:Label text="1'="/>
+				
+				<s:TextInput id="customScale" restrict="0-9" maxChars="5" width="50"
+							 enabled="{(scaleDDL.selectedIndex == scaleDDL.dataProvider.length-1)?true:false}"
+							 change="layoutChange(map.extent.center)"/>	
+				
+				<s:Label text="Feet"/>
+			</s:HGroup>
+			
+		</mx:FormItem>
+		
+		<mx:FormItem>
+			<s:VGroup id="propertySettings">
+				<s:CheckBox label="Show Graphics?" id="graphicCheck" 
+							
+							selected="true"/>
+				
+				<s:CheckBox label="Include Property Attributes?" id="attribCheck" 
+							enabled="{(model.propertyInfo.length > 0)?true:false}"
+							change="layoutChange(map.extent.center)"/>	
+				<s:CheckBox label="Show Selected Property?" id="showCheck" 
+							enabled="{(model.propertyResults.length > 0)?true:false}"
+							selected="true"/>
+				<s:CheckBox label="Center On Property?" id="centerCheck" 
+							enabled="{(model.propertyInfo.length > 0)?true:false}"
+							change="layoutChange(map.extent.center)"/>		
+			</s:VGroup>
+		</mx:FormItem>	
+		
+	</s:VGroup>
+	<s:VGroup width="100%" includeIn="JPG">
+		<s:Label width="100%" text="Exports the current map to a JPG image.  The exported image will not include a map layout and will not be to scale."/>
+	</s:VGroup>
+	<mx:FormItem label="Export Options" direction="horizontal" width="100%" includeIn="PDF">
+		<s:RadioButton x="71" y="14" label="Open PDF" groupName="saveRadioGroup"
+					   selected="true"/>
+		<s:RadioButton x="71" y="40" label="Save PDF" groupName="saveRadioGroup"/>	
+	</mx:FormItem>
+	<s:HGroup width="100%" >
+		<s:Button id="exportButton" label="Print PDF" click.PDF="submitPDF()" click.JPG="exportJPG()"  
+				  label.JPG="Export JPG" label.PDF="Export PDF"/>
+		<mx:ProgressBar indeterminate.PDF="true" indeterminate.JPG="false" 
+						enabled="true" visible="false" id="progbar" 
+						label.PDF="Creating PDF"
+						mode.JPG="manual"/>
+	</s:HGroup>
+</toolbar:BaseToolbarTool>

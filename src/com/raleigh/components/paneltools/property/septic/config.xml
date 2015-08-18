@@ -1,0 +1,5 @@
+<config>
+	<path>http://gisasp2.wakegov.com/imaps/RequestedPermit.aspx?permit=</path>
+	<contact>If your permit is not displayed here, or if the wrong permit is displayed for the selected property, please call (919) 856-7400 to request assistance.</contact>
+	<disclaimer>Disclaimer: Contact information displayed on the permit was provided by the applicant at the time of application.</disclaimer>
+</config>

@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					creationComplete="toolwindow1_creationCompleteHandler(event)"
+					title="Apportionments Details">
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+	<toolbar:states>
+		<s:State name="Update"/>
+		<s:State name="Add"/>
+	</toolbar:states>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.states.State;
+
+			
+			[Bindable]
+			public var currentStateChk:State;
+			[Bindable]
+			public var ccbCIPrem:Object;
+  			
+			private var apptProcess:String;
+			
+			protected function toolwindow1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (currentStateChk){
+					currentState="Add"}
+				else {
+					currentState="Update"
+				}
+			}
+
+			protected function btnClose_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+			protected function btnUpdate_clickHandler(event:MouseEvent):void
+			{	
+				var updates:Object = {
+					expiration_date:apptExpireDate.text,
+					apportionment_percentage:apptPercentage.text
+				};
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, apptUpdated);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'updateappts',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					apptid:model.stormwater.apptAccount.SWU_ACCOUNT_APPORTIONMENT_ID,
+					updates:JSON.encode(updates),
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});						
+				
+			}
+			
+
+
+
+			protected function btnDelete_clickHandler(event:MouseEvent):void
+			{
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, apptDeleted);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'deleteappts',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					apptid:model.stormwater.apptAccount.SWU_ACCOUNT_APPORTIONMENT_ID,
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});
+				
+			}
+			
+			protected function btnAdd_clickHandler(event:MouseEvent):void
+			{					 
+				var adds:Object = {
+					expiration_date:apptExpireDate.text,
+					approval_user:model.stormwater.user,
+					prem_id:ccbCIPrem.PREM_ID,
+					apportionment_percentage:apptPercentage.text
+					
+				};
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, apptAdded);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'addappts',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					adds:JSON.encode(adds),
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});				
+				
+				
+			}
+			
+			protected function apptAdded(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, apptAdded);
+				if (event.result == 1){
+					Alert.show("Apportionment record has been Added...");
+					model.stormwater.searchPanel.getJournalEntries(0);
+					model.stormwater.searchPanel.getApportionments(0);
+					this.close();
+				}else{
+					Alert.show("Apportionment Addition Failed");
+				}				
+				
+			}
+			
+			protected function apptUpdated(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, apptUpdated);
+				if (event.result == 1){
+					Alert.show("Apportionment record has been Updated...");
+					model.stormwater.searchPanel.getJournalEntries(0);
+					model.stormwater.searchPanel.getApportionments(0);
+					this.close();
+				}else{
+					Alert.show("Apportionment Update Failed");
+				}		
+
+			}
+		
+			protected function apptDeleted(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, apptDeleted);
+				if (event.result == 1){
+					Alert.show("Apportionment record has been Deleted...");
+					model.stormwater.searchPanel.getJournalEntries(0);
+					model.stormwater.searchPanel.getApportionments(0);
+					this.close();
+				}else{
+					Alert.show("Apportionment Deletion Failed");
+				}
+			}
+			
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true" rounding="none" precision="5"/>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+	</fx:Declarations>
+	<s:HGroup width="603" paddingBottom="5" paddingLeft="15" paddingRight="15" paddingTop="5"
+			  height.Update="120">
+		<mx:Form width="261"
+				 height.Update="112">
+			<mx:FormItem label="SWU Account:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{model.stormwater.currentAccount.SWU_ACCOUNT_ID}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Apportionment ID:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{model.stormwater.apptAccount.SWU_ACCOUNT_APPORTIONMENT_ID}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Apportionment Type:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{model.stormwater.currentAccount.APPORTIONMENT_CODE}"/>				
+			</mx:FormItem>
+				</mx:Form>
+		<mx:Form width="295" height="90"
+				 height.Update="106">
+			<mx:FormItem label="Property  Address:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal"
+						 text="{model.stormwater.currentAccount.SITE_ADD}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Apportionment Units:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" 
+						 enabled="{model.stormwater.chgApptUnitsPrivs}"
+						  text="{model.stormwater.currentAccount.NBR_APPORTIONMENT_UNITS}"/>				
+			</mx:FormItem>
+		</mx:Form>	
+	</s:HGroup>
+	<mx:HRule width="403" height="0"/>
+	<s:HGroup width="616" height="165" paddingBottom="5" paddingLeft="15" paddingRight="15"
+			  paddingTop="5">
+		<mx:Form width="289" height="152">
+			<mx:FormItem label="CCB Premise: " fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{ccbCIPrem.PREM_ID}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="CCB Account: " fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{ccbCIPrem.ACCT_ID }"/>				
+			</mx:FormItem>
+			<mx:FormItem label="CCB Address: " fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{ccbCIPrem.ADDRESS1}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="CCB Customer:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{ccbCIPrem.ENTITY_NAME}"/>				
+			</mx:FormItem>
+		</mx:Form>
+		<mx:Form width="304" height="152">
+			<mx:FormItem>
+				<s:Label fontWeight="normal"/>				
+			</mx:FormItem>
+     		<mx:FormItem width="263" height="36" label="Percentage (50% is .5): " fontWeight="bold"
+						 paddingTop="5">
+				<s:TextInput id="apptPercentage" width="97" restrict="0-9"  text="{Number(model.stormwater.apptAccount.APPORTIONMENT_PERCENTAGE)}"/>
+			</mx:FormItem>
+			<mx:FormItem height="35" label="Apportionment Expires: " fontWeight="bold" paddingTop="5">
+				<mx:DateField id="apptExpireDate" text="{dateFormatter.format(model.stormwater.apptAccount.EXPIRATION_DATE)}"/>
+			</mx:FormItem>
+		</mx:Form>	
+	</s:HGroup>
+	<s:HGroup width="611" height="35" paddingBottom="15" paddingLeft="10" paddingRight="10"
+			  paddingTop="5">
+		<s:Button id="btnClose" label="Cancel" click="btnClose_clickHandler(event)"/>
+		<s:Label width="435" text=""
+				 width.Update="360"/>
+		<s:Button id="btnDelete" label="Delete" includeIn="Update"
+				  enabled="{Boolean(model.stormwater.apptDeletePrivs)}"
+				  visible="{Boolean(model.stormwater.apptDeletePrivs)}"
+				  click="btnDelete_clickHandler(event)"/>
+		<s:Button id="btnUpdate" label="Update" includeIn="Update"
+				  enabled="{Boolean(model.stormwater.apptUpdatePrivs)}"
+				  visible="{Boolean(model.stormwater.apptUpdatePrivs)}"
+				  click="btnUpdate_clickHandler(event)"/>
+		<s:Button id="btnAdd" label="Add" includeIn="Add"
+				  enabled="{Boolean(model.stormwater.apptAddPrivs)}"
+				  visible="{Boolean(model.stormwater.apptAddPrivs)}"
+				  click="btnAdd_clickHandler(event)"/>
+	</s:HGroup>
+</toolbar:ToolWindow>

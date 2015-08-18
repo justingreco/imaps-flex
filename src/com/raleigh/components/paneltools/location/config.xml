@@ -1,0 +1,8 @@
+<configuration>
+	<locator url='http://maps.raleighnc.gov/ArcGIS/rest/services/Locators/Locator/GeocodeServer'/>
+	<wakelocator url='http://maps.raleighnc.gov/ArcGIS/rest/services/Locators/Locator/GeocodeServer'/>
+	<dissolvedStreets url='http://maps.raleighnc.gov/ArcGIS/rest/services/StreetsDissolved/MapServer/0'/>
+	<subdivisions url='http://maps.raleighnc.gov/ArcGIS/rest/services/Planning/Subdivisions/MapServer/0'
+				  color='0x00FFFF' weight='4'/>
+	<poiphotos url="http://maps.raleighnc.gov/poi_images/"/>
+</configuration>

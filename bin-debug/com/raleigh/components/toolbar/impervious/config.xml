@@ -1,0 +1,3 @@
+<config>
+	<parcels url="http://maps.raleighnc.gov/ArcGIS/rest/services/Parcels/MapServer/0"/>
+</config>

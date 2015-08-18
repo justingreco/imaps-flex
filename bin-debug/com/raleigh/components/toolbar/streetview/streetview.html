@@ -1,0 +1,135 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+    <title>
+        Streetview
+    </title>
+    
+    <script src="http://maps.google.com/maps?file=api&amp;v=2&amp;sensor=false&amp;key=ABQIAAAAN2VJ5apasS6OsvpFnkxYGRTqfAXJAhfU-CfsG1iLlFel__8xuxRfAUF2CUFZfxquQxIVdlAaoalW3g" type="text/javascript"></script>
+    <script type="text/javascript">
+        //<![CDATA[
+
+        var m_streetViewClient;
+        var m_streetViewPanorama;
+        var m_lastLocation;
+
+        function onLoadHandler()
+        {
+            try
+            {
+                window.parent.streetView = window;
+
+                m_streetViewClient = new GStreetviewClient();
+                var latlon = new GLatLng(window.parent.streetViewLat, window.parent.streetViewLon);
+                var options = { latlng:latlon };
+                m_streetViewPanorama = new GStreetviewPanorama(document.getElementById("panoramaDiv"), options);
+                GEvent.addListener(m_streetViewPanorama, "error", errorHandler);
+                GEvent.addListener(m_streetViewPanorama, "initialized", initializedHandler);
+                GEvent.addListener(m_streetViewPanorama, "yawchanged", yawChangedHandler);
+            }
+            catch(e)
+            {
+                //alert(e.message);
+            }
+        }
+
+        function onUnloadHandler()
+        {
+            try
+            {
+                window.parent.streetView = null;
+                GUnload();
+            }
+            catch(e)
+            {
+                //alert(e.message);
+            }
+        }
+
+        function errorHandler(errorCode)
+        {
+            if (errorCode == GStreetviewPanorama.ErrorValues.FLASH_UNAVAILABLE)
+            {
+                alert("Error: Flash doesn't appear to be supported by your browser");
+            }
+            else if (errorCode == GStreetviewPanorama.ErrorValues.NO_NEARBY_PANO)
+            {
+                //alert("No panorama data was found.");
+            }
+        }
+
+        function initializedHandler(location)
+        {
+            m_lastLocation = location;
+            setMapLatLonYaw(location.pov.yaw);
+        }
+
+        function yawChangedHandler(yaw)
+        {
+            setMapLatLonYaw(yaw);
+        }
+
+        function setMapLatLonYaw(yaw)
+        {
+            try
+            {
+                if(m_lastLocation)
+                {
+                    window.parent.flexApp.setLatLonYaw(m_lastLocation.latlng.lat(), m_lastLocation.latlng.lng(), yaw);
+                }
+            }
+            catch(e)
+            {
+                //alert(e.message);
+            }
+        }
+
+        function getNearestPanoramaHandler(streetviewData)
+        {
+            if (streetviewData.code == GStreetviewClient.ReturnValues.SUCCESS)
+            {
+                m_lastLocation = streetviewData.location;
+                m_streetViewPanorama.setLocationAndPOV(streetviewData.location.latlng, streetviewData.location.pov.yaw);
+                // setMapLatLonYaw(streetviewData.location.pov);
+            }
+            else if (streetviewData.code == GStreetviewClient.ReturnValues.SERVER_ERROR)
+            {
+                alert("The server is not responding to queries.");
+            }
+            else if (streetviewData.code == GStreetviewClient.ReturnValues.NO_NEARBY_PANO)
+            {
+                //alert("No panorama data was found.");
+            }
+        }
+
+        function getNearestPanorama(lat, lon)
+        {
+            try
+            {
+                if (m_streetViewClient)
+                {
+                    m_streetViewClient.getNearestPanorama(new GLatLng(lat, lon), getNearestPanoramaHandler);
+                }
+            }
+            catch(e)
+            {
+                //alert(e.message);
+            }
+        }
+        //]]>
+    </script>
+    <style type="text/css">
+        /*<![CDATA[*/
+        body {
+            margin: 0px;
+            overflow: hidden
+        }
+        /*]]>*/
+    </style>
+</head>
+<body onload="onLoadHandler()" onunload="onUnloadHandler()">
+<div id="panoramaDiv" style="position:absolute;width:550px; height:200px"></div>
+</body>
+</html>

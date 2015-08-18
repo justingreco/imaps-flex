@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009" 
+						  xmlns:s="library://ns.adobe.com/flex/spark" 
+						  xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:paneltools="com.raleigh.components.paneltools.*" 
+						  width="100%" height="100%"
+						  label="Raleigh Crime Search" xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:crime="com.raleigh.components.paneltools.crime.*"
+						  currentState="Location"
+						  creationComplete="init()" 
+						  xmlns:classes="com.hillelcoren.components.autoComplete.classes.*" 
+						  xmlns:utils="com.raleigh.components.utils.*" 
+						  xmlns:layerlist="com.raleigh.components.paneltools.layerlist.*">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.FeatureLayerEvent;
+			import com.esri.ags.events.GraphicEvent;
+			import com.hillelcoren.utils.StringUtils;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			
+			import spark.events.GridSelectionEvent;
+			
+			private var now:Date = new Date();
+			
+			public var dateClause:String = "";
+			[Bindable]
+			private var categoryClause:String = "";
+
+
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				model.crimeSearch = this;
+				model.rightPanel.accordion.addEventListener(FlexEvent.VALUE_COMMIT, accordionValueCommitHandler,false,0,true);
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}					
+			
+			protected function featureLayer_queryFeaturesCompleteHandler(event:FeatureLayerEvent):void
+			{
+				// TODO Auto-generated method stub
+			}
+
+			public function updateDefinitionExpression():void
+			{
+
+			}
+			
+			protected function queryComplete(fs:FeatureSet, token:Object = null):void
+			{
+
+			}
+
+
+
+			
+			protected function datagrid1_creationCompleteHandler(event:FlexEvent):void
+			{
+				dateClause = "DATETMRPTD  >= date '"+dateFormat.format(new Date(now.fullYear, now.month, now.date-30))+"' AND " +
+					"DATETMRPTD  <= date '"+dateFormat.format(now)+"'";
+				map.addLayer(crimeGl);
+				map.addLayer(featureLayer);
+				updateDefinitionExpression();
+			}
+
+			protected function togglebutton_changeHandler(event:Event):void
+			{
+				switch (event.currentTarget.id)
+				{
+					case "dateToggle":
+						this.currentState = "Date";
+						break;
+					case "dateLbl":
+						this.currentState = "Date";
+						break;					
+					case "locationToggle":
+						this.currentState = "Location";
+						break;
+					case "locationLbl":
+						this.currentState = "Location";
+						break;					
+					case "categoriesToggle":
+						this.currentState = "Categories";
+						break;
+					case "categoriesLbl":
+						this.currentState = "Categories";
+						break;					
+				}
+				if (!dateToggle.selected && !locationToggle.selected && !categoriesToggle.selected)
+				{
+					this.currentState = "Search";
+				}
+			}
+
+
+
+
+			protected function featureLayer_graphicAddHandler(event:GraphicEvent):void
+			{
+				event.graphic.toolTip = dtf.format(event.graphic.attributes.DATETMRPTD)+"\n"+event.graphic.attributes.CRIMECLASS+"\n"+event.graphic.attributes.PREMISETYPE;
+			}
+
+			
+			protected function accordionValueCommitHandler(event:FlexEvent):void
+			{
+				if (crimeGl)
+				{
+					var isVisible:Boolean = event.currentTarget.selectedIndex == event.currentTarget.getElementIndex(this as IVisualElement);
+					crimeGl.visible = isVisible;
+					featureLayer.visible = isVisible;
+				}
+			}
+			[Bindable]
+			private var crimeAc:ArrayCollection = new ArrayCollection();;
+
+			protected function featureLayer_selectionCompleteHandler(event:FeatureLayerEvent):void
+			{
+
+				crimeAc = new ArrayCollection();
+				for each (var g:Graphic in featureLayer.selectedFeatures)
+				{
+					crimeAc.addItem({geometry:g.geometry, DATETMRPTD:dtf.format(g.attributes.DATETMRPTD), CRIMECATEGORY:StringUtils.capitalizeWords(g.attributes.CRIMECATEGORY.toLowerCase()), CRIMECLASS:StringUtils.capitalizeWords(g.attributes.CRIMECLASS.toLowerCase()), DATE: g.attributes.DATETMRPTD});
+				}
+				crimeAc.sort = new Sort();
+				crimeAc.sort.fields = [new SortField("DATE",false, true)];
+				crimeAc.refresh();
+			}
+			
+			private var lastState:String = "Location";
+			
+			protected function legendButton_clickHandler(event:MouseEvent):void
+			{
+				switch (currentState)
+				{
+					case "Legend":
+						currentState = lastState;
+						lastState = "Legend";
+						break;
+					default:
+						lastState = currentState;
+						currentState = "Legend";
+						legend.getLegend();
+						break;
+				}
+			}
+			
+
+
+			
+			protected function dataGrid_selectionChangeHandler(event:GridSelectionEvent):void
+			{
+				model.map.centerAt(event.currentTarget.selectedItem.geometry);
+				model.map.level = 10;		
+			}
+			
+			protected function clearResults():void
+			{
+				featureLayer.clearSelection();
+				crimeGl.clear();
+				crimeAc.removeAll();
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+
+		<crime:CrimeFeatureLayer id="featureLayer"  url="{config.featurelayer.@url}"
+								 outFields="{['CRIMECATEGORY','CRIMECLASS', 'DATETMRPTD', 'PREMISETYPE']}"
+								 graphicAdd="featureLayer_graphicAddHandler(event)"
+								 selectionComplete="featureLayer_selectionCompleteHandler(event)"
+								 useAMF="true"/>
+		<mx:DateFormatter id="dateFormat" formatString="MM/DD/YYYY"/>
+		<s:DateTimeFormatter id="dtf" timeStyle="medium" dateStyle="medium" useUTC="true"/>
+		<esri:GraphicsLayer id="crimeGl" name="Crime Search Graphics Layer"/> 
+	</fx:Declarations>
+	<paneltools:states>
+		<s:State name="Search"/>
+		<s:State name="Legend"/>
+		<s:State name="Location"/>
+		<s:State name="Date"/>		
+		<s:State name="Categories"/>
+	</paneltools:states>
+	<paneltools:layout>
+		<s:VerticalLayout paddingBottom="3" 
+						  paddingLeft="3" 
+						  paddingRight="3" 
+						  paddingTop="3"/>
+	</paneltools:layout>
+	<s:VGroup width="100%" height="100%" includeIn="Search,Categories,Date,Location">
+		<s:HGroup verticalAlign="middle">
+			<s:ToggleButton id="locationToggle" 
+							selected.Location="true" 
+							selected.Categories="false" 
+							selected.Date="false" 
+							selected.Search="false"
+							change="togglebutton_changeHandler(event)"
+							width="20" height="10"
+							skinClass="com.raleigh.skins.ArrowToggleButtonSkin"/>			
+			<s:Label id="locationLbl" 
+				text="Set Location"
+					 fontWeight="bold"
+					 click="togglebutton_changeHandler(event)"
+					 useHandCursor="true" buttonMode="true" mouseChildren="false"/>		
+		</s:HGroup>
+		
+		<s:VGroup includeIn="Location">
+			<crime:CrimeLocationSettings gl="{crimeGl}"/>
+		</s:VGroup>	
+		<s:HGroup verticalAlign="middle">
+			<s:ToggleButton id="dateToggle" 
+							selected.Date="true" 
+							selected.Categories="false" 
+							selected.Location="false" 
+							selected.Search="false"
+							change="togglebutton_changeHandler(event)"
+							width="20" height="10"
+							skinClass="com.raleigh.skins.ArrowToggleButtonSkin"/>	
+			<s:Label text="Set Date"
+					 id="dateLbl"
+					 fontWeight="bold"
+					 click="togglebutton_changeHandler(event)"
+					 useHandCursor="true" buttonMode="true" mouseChildren="false"/>	
+		</s:HGroup>
+		
+		<s:VGroup includeIn="Date">
+			<crime:CrimeDateSettings/>	
+		</s:VGroup>
+		
+		
+		<s:HGroup verticalAlign="middle">
+			<s:ToggleButton id="categoriesToggle" 
+							selected.Categories="true" 
+							selected.Date="false" 
+							selected.Location="false" 
+							selected.Search="false"
+							change="togglebutton_changeHandler(event)"
+							width="20" height="10"
+							skinClass="com.raleigh.skins.ArrowToggleButtonSkin"/>		
+			<s:Label text="Set Categories"
+					 id="categoriesLbl"
+					 fontWeight="bold"
+					 click="togglebutton_changeHandler(event)"
+					 useHandCursor="true" buttonMode="true" mouseChildren="false"/>	
+		</s:HGroup>
+		
+		<s:VGroup includeIn="Categories">
+			<crime:CrimeCategorySettings id="categorySettings" featureLayer="{featureLayer}" categoryClause="{categoryClause}"/>
+		</s:VGroup>	
+		<s:DataGrid id="dataGrid" width="100%" height="100%"
+					creationComplete="datagrid1_creationCompleteHandler(event)"
+					dataProvider="{crimeAc}"
+					variableRowHeight="true" horizontalScrollPolicy="off"
+					selectionChange="dataGrid_selectionChangeHandler(event)"
+					>
+			<s:columns>
+				<s:ArrayList>
+					<s:GridColumn dataField="DATETMRPTD" headerText="Date" width="80"></s:GridColumn>
+					<s:GridColumn dataField="CRIMECATEGORY" headerText="Category"></s:GridColumn>
+					<s:GridColumn dataField="CRIMECLASS" headerText="Class" width="100"></s:GridColumn>
+				</s:ArrayList>
+			</s:columns>
+		</s:DataGrid>
+
+		<s:Label id="countLbl" text="{crimeAc.length +' crime(s) found.'}"/>		
+	</s:VGroup>
+	<layerlist:LayerLegend id="legend" 
+						   width="100%" height="100%"
+						   includeIn="Legend" 
+						   backButtonVisible="false" 
+						   legendURL="{featureLayer.url.substring(0,featureLayer.url.length-2)}" 
+						   lid="0" 
+						   legendHasChildren="false"/>
+	<s:HGroup>
+		<utils:ImageButton id="legendButton" width="24" height="24" 
+						   toolTip="View Legend"
+						   toolTip.Legend="Return to Search"
+						   click="legendButton_clickHandler(event)" 
+						   icon="@Embed(source='assets/i_layers.png')"
+						   icon.Legend="@Embed(source='assets/search.png')"/>
+		<utils:ImageButton id="clearButton"
+						   width="24" height="24" 
+						   toolTip="Clear Results"
+						   click="clearResults()"
+						   icon="@Embed(source='assets/clear.png')"/>
+		<s:CheckBox id="clusterCb" selected="true" label="Clustering Enabled"
+					click="featureLayer.setClustering(clusterCb.selected)"/>
+	</s:HGroup>
+</paneltools:BasePanelTool>

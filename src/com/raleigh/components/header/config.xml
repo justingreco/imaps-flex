@@ -1,0 +1,20 @@
+<configuration>
+	<about version="iMaps 2.0 beta">
+		<esri text="Mapping powered by:">
+			<api version="ArcGIS API for Flex 2.5"/>
+			<server version="ArcGIS Server 10 SP 3"/>
+		</esri>
+<!-- 		<flex text="Application built using:"> -->
+<!-- 			<builder version="Adobe Flash Builder 4.6"/> -->
+<!-- 			<sdk version="Adobe Flex SDK 4.5.1"/> -->
+<!-- 		</flex> -->
+<!-- 		<database text="Web services built using:"> -->
+<!-- 			<oracle version="Oracle 11g"/> -->
+<!-- 			<blazeds version="Adobe BlazeDS"/> -->
+<!-- 			<eclipse version="Eclipse Helios"/> -->
+<!-- 		</database> -->
+	</about>
+	<disclaimer>
+		<![CDATA[<p>iMaps makes every effort to produce and publish the most current and accurate information possible. However, the maps are produced for information purposes, and are NOT surveys. No warranties, expressed or implied,are provided for the data therein, its use,or its interpretation.</p><br/><p>Register of Deeds documents accessed through this site are unofficial.  The official records are maintained at the Wake County Register of Deeds office.  The Wake County Register of Deeds assumes no responsibility or liability associated with the use or misuse of this data.</p>]]>
+	</disclaimer>
+</configuration>

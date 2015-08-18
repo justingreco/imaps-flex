@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  width="60" height="60" chromeColor="0x333333" contentBackgroundAlpha=".85"
+					  contentBackgroundColor="0x333333"
+					  filters="{[new spark.filters.DropShadowFilter()]}">
+
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			import spark.components.Label;
+			import spark.filters.DropShadowFilter;
+			
+			private var lastAngle:int = 0;
+			private var lastDir:String = "N";
+			private var model:Model = Model.getInstance();
+			
+			protected function rotateCompass(angle:int, textAngle:int):void
+			{
+				rotate.angleBy =angle;
+				rotate.play();
+				for (var i:int = 0;i < group.numElements;i++)
+				{
+					if (group.getElementAt(i) is Button)
+					{
+						//changed at Flex 4.5//
+						Label(Button(group.getElementAt(i)).labelDisplay).rotation = textAngle;
+					}
+				}
+			}
+
+			protected function topButton_clickHandler(event:MouseEvent):void
+			{	
+				var angle:int = 0;
+				switch(lastDir)
+				{
+					case "E":
+						angle = -270;
+						break;
+					case "S":
+						angle = -180;
+						break;
+					case "W":
+						angle = -90;
+						break;
+				}
+				lastDir = "N";
+				model.pictometryButton.changeOrientation(lastDir);
+				rotateCompass(angle,0);
+			}
+
+
+			protected function rightButton_clickHandler(event:MouseEvent):void
+			{
+				var angle:int = 0;
+				switch(lastDir)
+				{
+					case "S":
+					angle = -270;
+					break;
+					case "W":
+					angle = -180;
+					break;
+					case "N":
+					angle = -90;
+					break;
+				}
+				lastDir = "E";
+				model.pictometryButton.changeOrientation(lastDir);
+				rotateCompass(angle,90);
+			}
+
+
+			protected function bottomButton_clickHandler(event:MouseEvent):void
+			{
+				var angle:int = 0;
+				switch(lastDir)
+				{
+					case "W":
+					angle = -270;
+					break;
+					case "N":
+					angle = -180;
+					break;
+					case "E":
+					angle = -90;
+					break;
+				}
+				lastDir = "S";
+				model.pictometryButton.changeOrientation(lastDir);
+				rotateCompass(angle,180);
+			}
+
+
+			protected function leftButton_clickHandler(event:MouseEvent):void
+			{
+				var angle:int = 0;
+				switch(lastDir)
+				{
+					case "N":
+					angle = -270;
+					break;
+					case "E":
+					angle = -180;
+					break;
+					case "S":
+					angle = -90;
+					break;
+				}
+				lastDir = "W";
+				model.pictometryButton.changeOrientation(lastDir);				
+				rotateCompass(angle,270);
+			}
+			
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<s:Rotate id="rotate" effectEnd="{group.enabled = true}"
+				  effectStart="{group.enabled = false;}" target="{group}"/>
+	
+	</fx:Declarations>
+	<s:Group id="group" width="56.568" height="56.568" horizontalCenter="0" verticalCenter="0">
+		<s:Button id="topButton" x="8.2" y="1.3" label="N" click="topButton_clickHandler(event)"
+				  color="#FFFFFF"
+				  skinClass="com.raleigh.components.toolbar.pictometry.topButtonSkin"
+				  toolTip="Rotate to North"/>
+
+		<s:Button id="rightButton" x="28.3" y="7.9" label="E" click="rightButton_clickHandler(event)"
+				  color="#FFFFFF"
+				  skinClass="com.raleigh.components.toolbar.pictometry.rightButtonSkin"
+				  toolTip="Rotate to East"/>
+		<s:Button id="bottomButton" x="7.5" y="27.46" label="S"
+				  click="bottomButton_clickHandler(event)" color="#FFFFFF"
+				  skinClass="com.raleigh.components.toolbar.pictometry.bottomButtonSkin"
+				  toolTip="Rotate to South"/>
+		<s:Button id="leftButton" x="0" y="8" label="W" click="leftButton_clickHandler(event)"
+				  color="#FFFFFF"
+				  skinClass="com.raleigh.components.toolbar.pictometry.leftButtonSkin"
+				  toolTip="Rotate to West"/>		
+	</s:Group>
+	
+</s:SkinnableContainer>

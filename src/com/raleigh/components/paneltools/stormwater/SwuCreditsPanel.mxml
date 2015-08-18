@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<stormwater:SwuBasePanel xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:services="services.*"
+						 xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+						 creationComplete="panel1_creationCompleteHandler(event)"
+						 currentState="{(toggleBtn.selected)?'Credits':'NoCredits'}" 
+						 title="Credits">
+	
+	<stormwater:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</stormwater:layout>
+	<stormwater:states>
+		<s:State name="NoCredits"/>		
+		<s:State name="Credits"/>
+	</stormwater:states>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.IndexChangeEvent;
+			
+		
+			protected function panel1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (model.stormwater.foundNoCredit){
+					this.addBtn.enabled=true;
+				}
+				else{
+					this.addBtn.enabled=false;
+				}
+			}
+			
+			protected function addBtn_clickHandler(event:MouseEvent):void
+			{
+				var addPanel:SwuCreditsAdd = new SwuCreditsAdd();
+				PopUpManager.addPopUp(addPanel, this.parentApplication as DisplayObject, true);
+				PopUpManager.centerPopUp(addPanel);	
+			}		
+			
+			protected function UpdateBtn_clickHandler(event:MouseEvent):void
+			{
+				var UpdatePanel:SwuCreditsUpdate = new SwuCreditsUpdate();
+				PopUpManager.addPopUp(UpdatePanel, this.parentApplication as DisplayObject, true);
+				PopUpManager.centerPopUp(UpdatePanel);	
+			}	
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true"/>
+	</fx:Declarations>
+	<s:TileGroup requestedColumnCount="2" requestedRowCount="4">
+		<s:Label fontWeight="bold" text="NPDES"/>
+		<s:Label text="{(model.stormwater.currentAccount.NPDES_PER != 'null')?model.stormwater.currentAccount.NPDES_PER:'0'}%"/>
+		<s:Label fontWeight="bold" text="Onsite"/>
+		<s:Label text="{(model.stormwater.currentAccount.ONSITE_PER != 'null')?model.stormwater.currentAccount.ONSITE_PER:'0'}%"/>
+		<s:Label fontWeight="bold" text="Upstream"/>
+		<s:Label text="{(model.stormwater.currentAccount.UPSTREAM_PER != 'null')?model.stormwater.currentAccount.UPSTREAM_PER:'0'}%"/>
+		<s:Label fontWeight="bold" text="Total"/>
+		<s:Label text="{(model.stormwater.currentAccount.TOTAL_CREDIT != 'null')?model.stormwater.currentAccount.TOTAL_CREDIT:'0'}%"/>
+	</s:TileGroup>
+	<s:HGroup horizontalAlign="center">
+		<s:ToggleButton id="toggleBtn" enabled="{Boolean(stormwater.credits)}"
+						label.Credits="Hide Credits "
+						label.NoCredits="Show Credits"/>	
+		<s:Label width="227"
+				 width.NoCredits="227"/>				
+		<s:Button id="addBtn" label="Add"
+				  enabled="{(Boolean(stormwater.credits))?false:true}"
+			      click="addBtn_clickHandler(event)"/>
+  </s:HGroup>	
+	
+	<mx:Form includeIn="Credits" paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0">
+		<s:HGroup>
+			<mx:Form>
+				<mx:FormItem label="Controlled Area" fontWeight="bold" paddingBottom="0" paddingLeft="0"
+							 paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{model.stormwater.credits.CONTROLED_ACREAGE}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Controlled Surface " fontWeight="bold" paddingBottom="0"
+							 paddingLeft="0" paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{model.stormwater.credits.CONTROLLED_SURFACE}"/>				
+				</mx:FormItem>
+				<s:Label paddingLeft="15" fontWeight="bold" text="(optional; in sq ft)"/>
+			  <mx:FormItem label="OnSite Credits" fontWeight="bold" paddingBottom="0" paddingLeft="0"
+							 paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{model.stormwater.credits.ONSITE_CREDIT_CODE_DESCR}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Upstream Credits" fontWeight="bold" paddingBottom="0"
+							 paddingLeft="0" paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{model.stormwater.credits.UPSTREAM_CREDIT_CODE_DESCR}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="NPDES MS4 Permts" fontWeight="bold" paddingBottom="1"
+							 paddingLeft="0" paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{model.stormwater.credits.NPDES_PERCENTAGE}"/>				
+				</mx:FormItem>
+				<s:Label fontWeight="bold" text="(Percentage not to exceed 50%)"/>
+				<mx:FormItem label="Credit Inception Date" fontWeight="bold" paddingBottom="0"
+							 paddingLeft="0" paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{dateFormatter.format(model.stormwater.credits.INCEPTION_DATE)}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Credit Expiration Date" fontWeight="bold" paddingBottom="0"
+							 paddingLeft="0" paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{dateFormatter.format(model.stormwater.credits.CREDIT_EXPIRE_DATE)}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Credit Approval Date" fontWeight="bold" paddingBottom="0"
+							 paddingLeft="0" paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{dateFormatter.format(model.stormwater.credits.CREDIT_APPROVAL_DATE)}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Credit Approval User" fontWeight="bold" paddingBottom="0"
+							 paddingLeft="0" paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{stormwater.credits.CREDIT_APPROVAL_USER}"/>				
+				</mx:FormItem>
+				<mx:FormItem label="Comment:" fontWeight="bold" paddingBottom="0" paddingLeft="0"
+							 paddingRight="0" paddingTop="5">
+					<s:Label fontWeight="normal" text="{stormwater.credits.CREDIT_COMMENT}"/>				
+				</mx:FormItem>
+				<s:HGroup paddingBottom="5" paddingLeft="10" paddingRight="10" paddingTop="5">
+	  					<s:Label width="254" text=""/>
+					<s:Button id="UpdateBtn" label="Update"
+							  enabled="{Boolean(model.stormwater.creditUpdatePrivs)}"
+							  click="UpdateBtn_clickHandler(event)"/>
+				</s:HGroup>
+
+			</mx:Form>		
+		</s:HGroup>
+	</mx:Form>
+	
+</stormwater:SwuBasePanel>

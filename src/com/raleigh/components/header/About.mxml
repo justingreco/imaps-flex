@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					xmlns:s="library://ns.adobe.com/flex/spark" 
+					xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:toolbar="com.raleigh.components.toolbar.*"
+					creationComplete="init()">
+	<fx:Script>
+		<![CDATA[
+			[Bindable]
+			private var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}
+		]]>
+	</fx:Script>
+	<s:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</s:layout>
+
+	<s:Label text="{config.about.@version}" fontSize="14" fontWeight="bold"/>
+	<s:Label text="{config.about.esri.@text}"/>
+	<s:HGroup verticalAlign="middle" horizontalAlign="left">
+		<s:Image source="@Embed('assets/esri.PNG')" maxHeight="30" />
+		<s:VGroup>
+			<s:Label text="{config.about.esri.server.@version}"/>
+			<s:Label text="{config.about.esri.api.@version}"/>
+		</s:VGroup>
+	</s:HGroup>
+</s:Group>

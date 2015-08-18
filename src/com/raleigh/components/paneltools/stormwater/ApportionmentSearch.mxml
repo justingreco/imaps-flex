@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"						  
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					xmlns:services="services.*"
+					xmlns:utils="com.raleigh.components.utils.*"
+					xmlns:paneltools="com.raleigh.components.paneltools.*"
+					width="100%" height="100%" 
+				    title="Add Apportionment Search">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.components.utils.AutoComplete;
+			import com.raleigh.components.utils.AutoCompleteChangeEvent;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import spark.events.IndexChangeEvent;
+			
+
+			private var detailsWin:SwuAcctApportionmentsDetailsWindow;
+
+			
+			private function search():void
+			{
+				if (validateInputs())
+				{
+					var strDirPre:String = "";
+					var strType:String = "";
+					var strDirSuf:String = "";
+					var type:String = "";
+					var values:Array = [];
+					
+					var params:Object = {
+						'function':'getapptpremacct',
+						dbschema:model.stormwater.dbschemaCCB
+					};					
+					
+					switch(this.currentState)
+					{
+						case "Premise":
+							model.controller.showProgress("Searching for CCB information by Premise...");
+							params.premid = premiseInput.text;
+							break;
+						case "Address":
+							model.controller.showProgress("Searching for CCB information by Address...");
+							params.address = stNumInput.text+" "+stNameInput.text.toUpperCase();
+							break; 
+						case "Account":
+							model.controller.showProgress("Searching for CCB information by Account...");
+							params.acctid = accountInput.text;
+				 	}	
+					
+					model.stormwater.searchPanel.ccbService.addEventListener(ResultEvent.RESULT, premApptAcctRetreived);
+					model.stormwater.searchPanel.ccbService.send(params);					
+					
+				}
+			}
+			
+			
+
+			private function validateInputs():Boolean
+			{
+				var ret:Boolean = true;
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length > 0)
+				{
+					ret = false;
+				}
+				return ret;				
+			}			
+			
+			protected function searchDdl_changeHandler(event:IndexChangeEvent):void
+			{
+				this.currentState = searchDdl.selectedItem.state;
+			}
+			
+			protected function stNameInput_creationCompleteHandler(event:FlexEvent):void
+			{
+				stNameInput.input.prompt = "W HARGETT ST";
+				stNameInput.addEventListener(AutoCompleteChangeEvent.SELECTION_CHANGE, streetNameSelectionChangeHandler);
+
+			}
+			
+			
+
+			
+			private function streetNameSelectionChangeHandler(event:AutoCompleteChangeEvent):void
+			{
+				if (event.currentTarget.selectedValue != "")
+				{
+					search();
+				}
+			}
+			
+					
+
+			
+			
+			protected function premApptAcctRetreived(event:ResultEvent):void{
+				model.stormwater.searchPanel.ccbService.removeEventListener(ResultEvent.RESULT, premApptAcctRetreived);
+				model.controller.removeProgress();
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.ccbCIPremApportionment = data[0];
+						dataGrid.dataProvider = new ArrayCollection(data);
+					}else{
+						Alert.show("CCB Premise/Account not found");
+					}
+				}
+			}
+	
+
+			protected function dataGrid_changeHandler(event:ListEvent):void
+			{
+				model.stormwater.searchPanel.ccbService.addEventListener(ResultEvent.RESULT, premInfoRetreived);
+				model.stormwater.searchPanel.ccbService.send({
+					'function':'getpreminfo',
+					dbschema:model.stormwater.dbschemaCCB,
+					premid:event.itemRenderer.data.PREM_ID
+				});
+			}	
+			
+			protected function premInfoRetreived(event:ResultEvent):void{
+				if (!detailsWin)
+				{
+					detailsWin = new SwuAcctApportionmentsDetailsWindow();
+				}		
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						detailsWin.currentState = "Add";
+						detailsWin.ccbCIPrem = data[0];
+						PopUpManager.addPopUp(detailsWin, this.parentApplication as DisplayObject);
+						PopUpManager.centerPopUp(detailsWin);						
+					}
+				}
+			}
+
+
+
+			
+			
+			protected function clearBtn_clickHandler(event:MouseEvent):void
+			{
+				if (this.currentState == "Address")
+				{
+					stNumInput.text = "";
+					stNameInput.text = "";
+				}
+				else if (this.currentState == "Premise")
+				{
+					premiseInput.text = "";					
+				}
+				else if (this.currentState == "Account")
+				{
+					accountInput.text = "";					
+				}
+				model.stormwater.ccbCIPremApportionment=null;
+			}
+
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+
+
+			
+		]]>
+	</fx:Script>
+	<toolbar:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</toolbar:layout>
+	<toolbar:states>
+		<s:State name="Premise"/>
+		<s:State name="Address"/>
+		<s:State name="Account"/>
+	</toolbar:states>
+	<fx:Declarations>
+		<fx:Array id="validators">
+			<mx:StringValidator id="premiseValidate" includeIn="Premise" minLength="10" source="{premiseInput}" property="text"
+								required="true" />	
+			<mx:StringValidator id="accountValidate" includeIn="Account" minLength="10" source="{accountInput}" property="text"
+								required="true" />				
+			<!--<mx:Validator id="stNumValidate" includeIn="Address" required="true" source="{stNumInput}" property="text"/>-->
+			<mx:Validator id="stNameValidate" includeIn="Address" required="true" source="{stNameInput.input}" property="text"/>			
+		</fx:Array>
+
+</fx:Declarations>
+			<s:HGroup x="0" y="0" width="100%" verticalAlign="middle">
+				<s:Label text="Search By"/>
+				<s:DropDownList id="searchDdl" change="searchDdl_changeHandler(event)" selectedIndex="0"  width="161">
+					<s:ArrayList>
+						<fx:Object label="Premise Code" state="Premise"/>
+						<fx:Object label="CCB Address" state="Address"/>
+						<fx:Object label="CCB Account" state="Account"/>
+					</s:ArrayList>
+				</s:DropDownList>
+			</s:HGroup>	
+			<s:HGroup width="100%">
+				<s:HGroup includeIn="Premise" width="100%" horizontalAlign="center">
+					<s:TextInput id="premiseInput" width="100%" enter="search()" maxChars="10"
+								 prompt="CIS Premise Code" restrict="0-9"/>
+				</s:HGroup>	
+				<s:HGroup width="100%" horizontalAlign="center" includeIn="Address" >
+					<s:Label text="Address"/>
+					<s:TextInput id="stNumInput" width="50" enter="search()" maxChars="7" prompt="222"/>
+					<utils:AutoComplete id="stNameInput"   
+										width="100%" dataProvider="{model.stormwater.streets}"
+										creationComplete="stNameInput_creationCompleteHandler(event)"
+										displayField="STREET_NAME" filterFields="{['STREET_NAME']}" minChars="3"/>
+				</s:HGroup>	
+				<s:HGroup includeIn="Account" width="100%" horizontalAlign="center">
+					<s:TextInput id="accountInput" width="100%" enter="search()" prompt="CCB Account"
+								 restrict="0-9"/>
+				</s:HGroup>	
+				<utils:ImageButton id="searchBtn" width="24" height="24" label="Search" click="search()"
+								   icon="@Embed(source='assets/searchIcon.png')"/>
+				<utils:ImageButton id="clearBtn" width="24" height="24" label="Clear"
+								   click="clearBtn_clickHandler(event)"
+								   icon="@Embed(source='assets/clear.png')"/>
+			</s:HGroup>	
+	
+			<mx:DataGrid id="dataGrid" width="100%" height="100%"
+						 change="dataGrid_changeHandler(event)"
+					     wordWrap="true">
+				<mx:columns>
+					<mx:DataGridColumn dataField="PREM_ID" headerText="Premise"/>
+					<mx:DataGridColumn dataField="ADDRESS1" headerText="CCB Address"/>			
+					<mx:DataGridColumn dataField="ACCT_ID" headerText="Account"/>
+					<mx:DataGridColumn dataField="ENTITY" headerText="CustomerName"/>
+				</mx:columns>
+			</mx:DataGrid>
+	<s:HGroup>
+		<s:Button label="Cancel" click="button1_clickHandler(event)"/>
+	</s:HGroup>
+
+</toolbar:ToolWindow>	
+	

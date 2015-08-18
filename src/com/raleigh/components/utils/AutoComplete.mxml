@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx">
+	<fx:Metadata>
+		[Event(type="com.raleigh.components.utils.AutoCompleteChangeEvent", name="selectionchanged")]
+	</fx:Metadata>
+	<fx:Script>
+		<![CDATA[
+			import mx.collections.ArrayCollection;
+			import mx.controls.Label;
+			import mx.events.FlexEvent;
+			
+			import spark.events.TextOperationEvent;
+			public var textString:String;
+			public var selectedValue:String;
+			[Bindable]
+			private var selected:Boolean = false;
+			[Bindable]
+			public var dataProvider:ArrayCollection = new ArrayCollection();
+			private var loaded:Boolean = false;
+			[Bindable]
+			public var prompt:String = '';
+			
+			protected function input_changeHandler(event:TextOperationEvent):void
+			{
+				dataProvider.filterFunction = dpFilterFunction;
+
+				dataProvider.refresh();				
+				
+				if (list)
+				{
+					if (list.height > list.maxHeight)
+					{
+						list.height = list.maxHeight;
+					}		
+/* 					if (list.dataProvider.length > 0)
+					{
+						list.selectedIndex = 0;					
+					} */
+
+				}
+				list.selectedIndex = 0;
+				trace(dataProvider.length.toString());
+				
+			}
+			
+			private function dpFilterFunction(item:Object):Boolean
+			{
+
+				var b:Boolean = false;
+				if (input.text.length >= minChars)
+				{
+					if (filterFields.length > 0)
+					{
+						for each(var field:String in filterFields)
+						{
+							if (item[field] != null)
+							{
+								if (item[field].toLowerCase().toString().substr(0,input.text.length) == input.text.toLowerCase())
+								{
+									b = true;
+									break;
+								}								
+							}
+
+						}
+					}
+					else if (displayField != "")
+					{
+						if (item[displayField].toLowerCase().toString().substr(0,input.text.length) == input.text.toLowerCase())
+						{
+							b = true;
+						}
+					}					
+				}
+
+				return b;
+			}
+
+
+			protected function list_changeHandler():void
+			{
+				if (list.selectedItem)
+				{
+					selected = true;
+					input.text = list.selectedItem[displayField];
+					selectedValue = list.selectedItem[displayField];
+					text = list.selectedItem[displayField];
+					input.selectRange(input.text.length, input.text.length);
+					popUp.displayPopUp = false;	
+					dispatchEvent(new AutoCompleteChangeEvent(AutoCompleteChangeEvent.SELECTION_CHANGE, false, false));
+				}
+
+			}
+
+			protected function input_enterHandler(event:FlexEvent):void
+			{
+
+					//list.selectedIndex = 0;
+					list_changeHandler();
+				
+			}
+			
+			protected function list_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+				//list.scroller.setStyle('horizontalScrollPolicy', ScrollPolicy.OFF);
+			}
+
+			protected function input_keyDownHandler(event:KeyboardEvent):void
+			{
+				if (event.keyCode == Keyboard.BACKSPACE && selected)
+				{
+					list.selectedIndex = 0;
+					input.text = "";
+					selected = false;
+					selectedValue = "";
+					text = "";
+				}
+				else if (event.keyCode == Keyboard.DOWN)
+				{
+					
+					if (list.selectedIndex == list.dataProvider.length -1)
+					{
+						list.selectedIndex = 0;
+						list.dataGroup.layout.verticalScrollPosition = 0;
+					}
+					else
+					{
+						list.selectedIndex+=1;	
+						list.dataGroup.layout.verticalScrollPosition += 22;						
+					}
+
+				}
+				else if (event.keyCode == Keyboard.UP)
+				{
+					if (list.selectedIndex == 0)
+					{
+						list.selectedIndex = list.dataProvider.length -1;
+						list.dataGroup.layout.verticalScrollPosition = (list.dataProvider.length -1)*22;
+					}
+					else
+					{
+						list.selectedIndex-=1;		
+						list.dataGroup.layout.verticalScrollPosition -= 22;						
+					}
+
+				}				
+			}
+
+
+			protected function input_clickHandler(event:MouseEvent):void
+			{
+				loaded = true;
+				if (selected)
+				{
+					input.selectRange(input.text.length, input.text.length);					
+				}
+
+			}
+
+
+			
+
+			
+			protected function input_focusOutHandler(event:FocusEvent):void
+			{
+				popUp.displayPopUp = false;
+			}
+			
+			protected function list_clickHandler(event:MouseEvent):void
+			{
+				if (event.target.className == "Label")
+				{
+					list_changeHandler();
+				}
+			}
+			
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<fx:String id="text"/>
+		<fx:int id="minChars"/>
+		<fx:Array id="filterFields"/>
+		<fx:String id="displayField"/>
+	</fx:Declarations>
+	<s:Group width="100%">
+		<s:TextInput id="input" width="100%" change="input_changeHandler(event)"
+					 click="input_clickHandler(event)" enter="input_enterHandler(event)"
+					 focusOut="input_focusOutHandler(event)" keyDown="input_keyDownHandler(event)"
+					 text="{text}" prompt="{prompt}"/>
+		<s:PopUpAnchor id="popUp" width="100%" height="100%"
+					   displayPopUp="{(dataProvider.length &gt; 0,input.text.length &gt;= minChars)? true:false}"
+					   popUpPosition="below" popUpWidthMatchesAnchorWidth="true">
+			
+			<s:List id="list" width="100%" height="{dataProvider.length * 22}" maxHeight="286"
+					change="list_changeHandler()"  click="list_clickHandler(event)"
+					creationComplete="list_creationCompleteHandler(event)"
+					dataProvider="{dataProvider}" labelField="{displayField}"
+					horizontalScrollPolicy="off"/>	
+	</s:PopUpAnchor>
+	</s:Group>
+</s:VGroup>

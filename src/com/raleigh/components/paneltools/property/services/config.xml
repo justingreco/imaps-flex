@@ -1,0 +1,128 @@
+<config>
+	<service
+		url="https://maps.raleighnc.gov/ArcGIS/rest/services/Services/ServicesIMaps/MapServer/identify" />
+	<categories>
+		<category title="Voting">
+			<service title="Precinct [PRECINCT] Polling Place"
+				labels="[POLL_PL.proper()];[ST_NUMBER] [ST_NAME.proper()], [CITY.proper()]"
+				layerId="1" category="Voting" urls="" />
+			<service title="State Senate District [DISTRICT]" labels="[NAME] ([PARTY])"
+				urls="[WEBSITE]" layerId="2" category="Voting" />
+			<service title="US House District [DISTRICT]" labels="[NAME] ([PARTY])"
+				urls="[WEBSITE]" layerId="3" category="Voting" />
+			<service title="State House District [DISTRICT]" labels="[NAME] ([PARTY])"
+				urls="[WEBSITE]" layerId="4" category="Voting" />
+			<service title="County Commissioners District [DISTRICT]"
+				urls="http://www.wakegov.com/commissioners/districts/Pages/district[DISTRICT].aspx"
+				labels="[NAME]" layerId="5" category="Voting" />
+			<service title="Board of Education District [DISTRICT]"
+				labels="[NAME]" urls="https://www.wcpss.net/about-us/our-leadership/board-of-education/bios.html"
+				layerId="6" category="Voting" />
+			<service title="Raleigh City Council District [DISTRICT]"
+				urls="http://www.raleighnc.gov/home/content/BoardsCommissions/Articles/CityCouncil.html"
+				labels="[NAME]" layerId="7" category="Voting" />
+			<service title="Cary Town Council District [DIST]"
+				urls="http://www.townofcary.org/Departments/Town_Clerk_s_Office/Cary_Town_Council.htm"
+				labels="[REP]" layerId="8" category="Voting" />
+		</category>
+		<category title="Planning">
+			<service title="Angier Zoning" labels="[CLASS]" urls=""
+				layerId="11" category="Planning" />
+			<service title="Apex Zoning" labels="[CLASS]" urls=""
+				layerId="12" category="Planning" />
+			<service title="Cary Zoning" labels="[NAME]" urls="" layerId="13"
+				category="Planning" />
+			<service title="County Zoning" labels="[Class]" urls=""
+				layerId="14" category="Planning" />
+			<service title="Fuquay-Varina Zoning" labels="[CLASS]" urls=""
+				layerId="15" category="Planning" />
+			<service title="Garner Zoning" labels="[CLASS]" urls=""
+				layerId="16" category="Planning" />
+			<service title="Holly Springs Zoning" labels="[CLASS]" urls=""
+				layerId="17" category="Planning" />
+			<service title="Knightdale Zoning" labels="[CLASS]" urls=""
+				layerId="18" category="Planning" />
+			<service title="Morrisville Zoning" labels="[CLASS]" urls=""
+				layerId="19" category="Planning" />
+			<service title="Rolesville Zoning" labels="[CLASS]" urls=""
+				layerId="20" category="Planning" />
+			<service title="Wake Forest Zoning" labels="[CLASS]" urls=""
+				layerId="21" category="Planning" />
+			<service title="Wendell Zoning" labels="[CLASS]" urls=""
+				layerId="22" category="Planning" />
+			<service title="Zebulon Zoning" labels="[CLASS]" urls=""
+				layerId="23" category="Planning" />
+			<service title="City Limit" labels="[LONG_NAME.proper()]"
+				urls="" layerId="24" category="Planning" />
+			<service title="Planning Jurisdiction (ETJ)" labels="[JURISDICTION.proper()]"
+				urls="" layerId="25" category="Planning" />
+			<service title="Raleigh Annexation Year" labels="[CASE_YEAR]"
+				urls="http://www.raleighnc.gov/services/content/PlanLongRange/Articles/AnnexationETJ.html"
+				layerId="27" category="Planning" />
+			<service title="Raleigh Future Landuse" labels="[LAND_USE]"
+				urls="" layerId="28" category="Planning" />
+			<service title="Subdivision" labels="[NAME.proper()]"
+				layerId="29" category="Planning" />
+			<service title="Development Plans" labels="File #: [CASE];Name: [FILE_NAME.proper()]"
+				urls=""
+				layerId="30" category="Planning" />
+		</category>
+		<category title="Solid Waste">
+			<service title="Collection Day"
+				labels="[TRASH_COLLECTION_DAY];Holiday Schedule"
+				urls="[URL];[HOLIDAY_URL]" layerId="32" category="Solid Waste" />
+			<service title="Collection Day"
+				labels="[Collection Day];Holiday Schedule"
+				urls="http://www.raleighnc.gov/services/content/SolidWaste/Articles/ServiceSchedule.html;http://www.raleighnc.gov/services/content/SolidWaste/Articles/ServiceSchedule.html#Section3"
+				layerId="33" category="Solid Waste" />
+			<service title="Garbage Collection Route"
+				labels="[Trash Route]"
+				urls="http://www.raleighnc.gov/services/content/Departments/Articles/SolidWasteServices.html#Section3"
+				layerId="33" category="Solid Waste" />
+			<service title="Yardwaste Collection Route"
+				labels="[Yardwaste Route]"
+				urls="http://www.raleighnc.gov/services/content/Departments/Articles/SolidWasteServices.html#Section4"
+				layerId="33" category="Solid Waste" />				
+			<service title="Bi-Weekly Recycling Collection"
+				labels="Route: [Recycling Route];Recycling Week: [Recycling Week]"
+				urls="http://www.raleighnc.gov/services/content/SolidWaste/Articles/RecyclePages.html;http://www.raleighnc.gov/content/SolidWaste/Documents/Calendars/[Collection Day][Recycling Week].pdf;"
+				layerId="33" category="Solid Waste" />
+		</category>
+		<category title="Public Safety">
+			<service title="Sheriff Zone" labels="[District]" urls=""
+				layerId="36" category='Public Safety' />
+			<service title="Raleigh Police Beat" labels="[Name]" layerId="36"
+				urls="" category="Public Safety" />
+			<service title="Garner Police Beat" labels="[Name]" urls=""
+				layerId="38" />
+			<service title="Fire Insurance District" labels="[District]"
+				urls="" layerId="39" category="Public Safety" />
+			<service title="County Fire Response District" labels="[District]"
+				urls="" layerId="40" category="Public Safety" />
+			<service title="Raleigh Fire Response District" labels="[District]"
+				urls="" layerId="41" category="Public Safety" />
+			<service title="EMS Franchise District" labels="[District.proper()]"
+				urls="" layerId="42" category="Public Safety" />
+			<service title="EMS Response District" labels="[District.proper()]"
+				urls="" layerId="43" category="Public Safety" />
+		</category>
+		<category title="Environmental">
+			<service title="Floodplain" labels="[ZONE_IMAPS]" urls=""
+				layerId="45" category="Environmental" />
+			<service title="Soils" labels="[NAME]" urls="" layerId="46"
+				category="Environmental" />
+			<service title="Hydrologic Unit" labels="[HUC_CODE]" urls=""
+				layerId="47" category="Environmental" />
+			<service title="Critical Watershed" labels="[PROPWS]" urls=""
+				layerId="48" category="Environmental" />
+			<service title="Raleigh Drainage Basin" labels="[BASINS]"
+				urls="" layerId="50" category="Environmental" />
+		</category>
+		<category title="City of Raleigh Assessments">
+			<service title="Assessment Liens"
+				labels="Account #: [Account];Type: [Type];Status: [Status];Confirmed: [Confirmed Date];"
+				urls="http://www.raleighnc.gov/home/content/Finance/Articles/OtherPaymentInformatio.html"
+				layerId="52" category="City of Raleigh Assessments" />
+		</category>
+	</categories>
+</config>

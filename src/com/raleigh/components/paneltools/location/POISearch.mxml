@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:location="com.raleigh.components.paneltools.location.*"
+						  xmlns:skins="com.raleigh.skins.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  width="100%" height="100%" initialize="initializeHandler(event)"
+						  creationComplete="creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.LayerEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.renderers.UniqueValueRenderer;
+			import com.esri.ags.renderers.supportClasses.UniqueValueInfo;
+			import com.raleigh.skins.IconDropDownSkin;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			
+			import spark.events.IndexChangeEvent;
+			private var fl:FeatureLayer;
+			
+	
+			
+			protected function initializeHandler(event:FlexEvent):void
+			{
+				
+
+
+			}
+			
+			protected function creationCompleteHandler(event:FlexEvent):void
+			{
+				fl = FeatureLayer(model.map.getLayer("poi"));
+				if (!fl.loaded)
+				{
+					fl.addEventListener(LayerEvent.LOAD, poiLayerLoaded);
+				}
+				else
+				{
+					getPlaceTypes()
+				}
+				if (model.place)
+				{
+					qt.url = fl.url;
+					qt.useAMF = true;
+					q.where = "NAME = '"+model.place+"'";
+					q.returnGeometry = true;
+					qt.execute(q, new AsyncResponder(placeQueryResult, null));					
+				}
+			}
+			
+			private function placeQueryResult(fs:FeatureSet, token:Object = null):void
+			{
+				if (fs.features.length > 0)
+				{
+					controller.addPointToMap(fs.features[0].geometry, 4800);	
+					placeInfo.title = fs.features[0].attributes.NAME;
+					placeInfo.photo = model.locationSearch.config.poiphotos.@url+fs.features[0].attributes.PHOTO;	
+					placeInfo.address = fs.features[0].attributes.ADDRESS;
+					placeInfo.address2 = fs.features[0].attributes.CITY+", NC "+fs.features[0].attributes.ZIP;		
+					placeInfo.phone = fs.features[0].attributes.TELEPHONE;	
+					placeInfo.url = fs.features[0].attributes.URL;
+				}
+			}
+			
+			private function poiLayerLoaded(event:LayerEvent):void
+			{
+				if (event.layer.loaded)
+				{
+					getPlaceTypes();
+				}
+			}
+			
+			private function getPlaceTypes():void
+			{
+
+				
+				
+				if (fl)
+				{
+					placeTypeDDL.dataProvider = new ArrayCollection();
+					for each (var info:UniqueValueInfo in UniqueValueRenderer(fl.layerDetails.drawingInfo.renderer).infos)
+					{
+						placeTypeDDL.dataProvider.addItem({label:info.label, icon:info.symbol.createSwatch(24,24)});
+					}					
+				}
+				else
+				{
+					Alert.show("Map does not contain places of interest feature layer");
+				}
+
+			}
+
+
+			protected function placeTypeDDL_changeHandler(event:IndexChangeEvent):void
+			{
+				qt.url = fl.url;
+				q.where = "ICON = '"+placeTypeDDL.selectedItem.label+"'";
+				qt.execute(q, new AsyncResponder(qt_executeCompleteHandler, null));
+			}
+
+
+			protected function qt_executeCompleteHandler(fs:FeatureSet, token:Object = null):void
+			{
+				var places:ArrayCollection = new ArrayCollection();
+				for each (var item:Graphic in fs.features)
+				{
+					places.addItem({NAME:item.attributes.NAME, ADDRESS:item.attributes.ADDRESS, CITY:item.attributes.CITY, TELEPHONE:item.attributes.TELEPHONE,
+						ZIP:item.attributes.ZIP, ICON:item.attributes.ICON, URL:item.attributes.URL,
+						PHOTO:item.attributes.PHOTO,POINT:item.geometry as MapPoint});
+				}
+				places.sort = new Sort();
+				places.sort.fields = [new SortField("NAME")];
+				places.refresh();
+				placeDDL.dataProvider= places;
+			}
+
+
+			protected function placeDDL_changeHandler(event:IndexChangeEvent):void
+			{
+				controller.addPointToMap(MapPoint(placeDDL.selectedItem.POINT), 38400);
+				placeInfo.title = placeDDL.selectedItem.NAME;	
+				placeInfo.photo = model.locationSearch.config.poiphotos.@url+placeDDL.selectedItem.PHOTO;	
+				placeInfo.address = placeDDL.selectedItem.ADDRESS;
+				placeInfo.address2 = placeDDL.selectedItem.CITY+", NC "+placeDDL.selectedItem.ZIP;		
+				placeInfo.phone = placeDDL.selectedItem.TELEPHONE;	
+				placeInfo.url = placeDDL.selectedItem.URL;	
+			}
+
+
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<esri:QueryTask id="qt" 
+						useAMF="true" showBusyCursor="false"/>
+		<esri:Query id="q"
+					outFields="['NAME','ADDRESS', 'CITY','TELEPHONE', 'ZIP', 'ICON', 'PHOTO', 'URL']"
+					returnGeometry="true"/>
+	</fx:Declarations>
+	<paneltools:layout>
+		<s:VerticalLayout paddingLeft="5"/>
+	</paneltools:layout>
+
+	<s:DropDownList id="placeTypeDDL" width="300" change="placeTypeDDL_changeHandler(event)"
+					labelField="label" prompt="Select Place Type..."
+					skinClass="com.raleigh.skins.IconDropDownSkin"/>
+
+	<s:DropDownList id="placeDDL" width="300" change="placeDDL_changeHandler(event)"
+					enabled="{placeTypeDDL.selectedIndex &gt; -1}" labelField="NAME"
+					prompt="Select Place..." skinClass="com.raleigh.skins.PlacesDropDownSkin">
+	</s:DropDownList>
+	<location:PlaceInfoRenderer id="placeInfo"/>
+</paneltools:BasePanelTool>

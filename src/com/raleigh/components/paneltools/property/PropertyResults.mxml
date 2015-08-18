@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:services="services.*"
+						  width="100%" height="100%">
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.QueryEvent;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.symbols.SimpleFillSymbol;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.scripts.PropertyFields;
+			import com.raleigh.scripts.RaleighFields;
+			
+			import flash.net.navigateToURL;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.utils.StringUtil;
+			
+			public var pin:String = "";
+			public var reid:String = "";
+			
+			private var selectType:String;
+			
+			protected function dataGrid_creationCompleteHandler(event:FlexEvent):void
+			{
+				addExportContextMenuItem();
+				addExportMailingListMenuItem();
+			}			
+			
+			
+			
+			protected function dataGrid_changeHandler(event:ListEvent):void
+			{
+				model.currentProperty = event.itemRenderer.data;
+				//sendSingleQuery(event.itemRenderer.data.pin, event.itemRenderer.data.reid, "list", event.itemRenderer.data.county);
+				
+				displayPropertyInfo(model.currentProperty, "list");
+			}
+			
+			
+			public function displayPropertyInfo(property:Object, type:String):void {
+				selectType = type;
+				var ac:ArrayCollection = new ArrayCollection();
+				var propertySearch:PropertySearch = model.propertySearch;
+				model.propertySearch.activatePropertyBar(true);
+				pin = property.pin.split(' ')[0];
+				for each (var item:Object in new PropertyFields())
+				{
+					if (StringUtil.trim(property[item.name]) != "" && property[item.name] != null)
+					{
+						if (item.type == 'Currency'){
+							ac.addItem({field:item.alias, value:currencyFormatter.format(property[item.name])});							
+						}else if (item.type == 'Date'){
+							ac.addItem({field:item.alias, value:dateFormatter.format(new Date(property[item.name]).toUTCString())});
+						}else{						
+							ac.addItem({field:item.alias, value:property[item.name]});							
+						}							
+					}					
+				}		
+				model.propertyInfo = ac;
+				model.propertySearch.propertyBar.selectedIndex = 1;
+				var query:Query = new Query();
+				query.returnGeometry = true;
+				query.where = "PIN_NUM = '"+pin+"'";
+				var fLayer:FeatureLayer = model.propertyFLayersSingle[0];
+				fLayer.selectFeatures(query, "new", new AsyncResponder(wakeQueryResultHandler, null, selectType));		
+				fLayer = model.propertyFLayersSingle[1];
+				fLayer.selectFeatures(query, "new", new AsyncResponder(durhamQueryResultHandler, null, selectType));					
+			}
+			
+			//handle when a single property is selected//
+			//function also accessed from SearchPanel and PropertySelect components//
+			public function sendSingleQuery(pinNum:String, reid:String, type:String, county:String):void{
+				selectType = type;
+				if(county == "Wake")
+				{
+					//getRealEstateDetails(reid);
+				}
+				else if (county == "Durham")
+				{
+					var query:Query = new Query();
+					query.returnGeometry = true;
+					query.where = "PIN_NUM = '"+pinNum+"'";
+					var fLayer:FeatureLayer = model.propertyFLayersSingle[1];
+					fLayer.selectFeatures(query, "new", new AsyncResponder(durhamQueryResultHandler, null, type));			
+				}
+				
+			}
+			
+
+			
+
+			private function wakeQueryResultHandler(features:Array, token:String):void{
+				if (features.length > 0)
+				{
+					var fs:FeatureSet = new FeatureSet(features);
+					var graphic:Graphic = fs.features[0] as Graphic;
+					model.selectedProperty = features[0];
+					graphic.symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_NULL, 0xFF0000,0, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, 0xFF0000, 1,3));
+					
+					if (token == "list"){
+						zoomToResult(graphic);
+					}		
+					sepQ.where = "PIN_NUM = '"+pin+"'";
+					//get count of septic points on property//
+					sepQt.executeForCount(sepQ);
+					model.propertySearch.wells(pin, "json");
+				}
+				
+			}
+			
+			private function durhamQueryResultHandler(features:Array, token:String):void{
+				if (features.length > 0){
+					var fs:FeatureSet = new FeatureSet(features);
+					model.selectedProperty = features[0];
+					pin = fs.features[0].attributes['PIN_NUM'];
+					reid = fs.features[0].attributes['REID'];				
+					model.propertySearch.activatePropertyBar(true);
+					var ac:ArrayCollection = new ArrayCollection();
+					for each(var item:Object in new RaleighFields()){
+						if (StringUtil.trim(fs.features[0].attributes[item.name]) != "" && fs.features[0].attributes[item.name] != null)
+						{
+							if (item.type == 'Currency'){
+								ac.addItem({field:item.alias, value:currencyFormatter.format(fs.features[0].attributes[item.name])});							
+							}else if (item.type == 'Date'){
+								ac.addItem({field:item.alias, value:dateFormatter.format(new Date(fs.features[0].attributes[item.name]).toUTCString())});
+							}else{						
+								ac.addItem({field:item.alias, value:fs.features[0].attributes[item.name]});							
+							}							
+						}
+						
+					}
+					model.propertyInfo = ac;
+					//model.currentProperty = fs.features[0].attributes;
+					model.propertySearch.propertyBar.selectedIndex = 1;
+					var graphic:Graphic = fs.features[0] as Graphic;
+					graphic.symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_NULL, 0xFF0000,0, new SimpleLineSymbol(SimpleLineSymbol.STYLE_SOLID, 0xFF0000, 1,3));
+					
+					if (token == "list"){
+						zoomToResult(graphic);
+					}					
+					sepQ.where = "PIN_NUM = '"+pin+"'";
+					//get count of septic points on property//
+					sepQt.executeForCount(sepQ);
+					model.propertySearch.wells(pin, "json");
+				}
+			}
+			
+			protected function sepQt_executeForCountCompleteHandler(event:QueryEvent):void
+			{
+				//if count is greater than 0, get septic permits and show button//
+				if (event.count > 0)
+				{
+					model.showSeptic = true;
+					model.propertySearch.septic(pin, "json");					
+				}
+				else
+				{
+					model.showSeptic = false;
+				}
+				model.propertySearch.infoPanel.setState();
+			}
+			
+			private function zoomToResult(graphic:Graphic):void{
+				map.extent = graphic.geometry.extent;
+				if (map.extent.height < graphic.geometry.extent.height || map.extent.width < graphic.geometry.extent.width){
+					map.level = map.level - 1;
+				}
+			}
+			
+			protected function addExportContextMenuItem():void
+			{
+				dataGrid.contextMenu = new ContextMenu();
+				dataGrid.contextMenu.hideBuiltInItems();	
+				var cmi:ContextMenuItem = new ContextMenuItem("Export Table");
+				cmi.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, exportTableSelect,false,0,true);
+				dataGrid.contextMenu.customItems.push(cmi);				
+			}
+			
+			
+			protected function addExportMailingListMenuItem():void
+			{
+
+				var cmi:ContextMenuItem = new ContextMenuItem("Export Mailing List");
+				cmi.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, exportMailingSelect,false,0,true);
+				dataGrid.contextMenu.customItems.push(cmi);				
+			}			
+
+			protected function exportMailingSelect(event:ContextMenuEvent):void
+			{
+				if (model.configuration.scripts.exportGridURL)
+				{				
+					var exportString:String = 'OWNER|ADDRESS1|ADDRESS2|ADDRESS3\r\n';
+					for each (var item:Object in dataGrid.dataProvider){
+						exportString += item.owner+"|";
+						if (item.mailAddress1){
+							exportString += item.mailAddress1+"|";
+						}
+						if (item.mailAddress2){						
+							exportString += item.mailAddress2+"|";
+						}
+						if (item.mailAddress3){		
+							exportString += item.mailAddress3;	
+						}
+						
+						exportString += "\r\n";					
+					}
+					var urlVars:URLVariables = new URLVariables();
+					urlVars.htmltable = exportString;
+					urlVars.filename = "iMapsMailingList.txt";
+					var req:URLRequest = new URLRequest(model.configuration.scripts.exportGridURL);
+					
+					req.data = urlVars;
+					req.method = URLRequestMethod.POST;
+					navigateToURL(req,"_blank");						
+				}else
+				{
+					Alert.show("Export script not set in config file");
+				}
+			}
+			
+			protected function exportTableSelect(event:ContextMenuEvent):void
+			{
+				if (model.configuration.scripts.exportGridURL)
+				{
+					var headers:Array = [];
+					var fields:Array = [];
+					for each (var column:DataGridColumn in dataGrid.columns)
+					{
+						headers.push(column.headerText);
+						fields.push(column.dataField);
+					}
+					
+					var exportString:String = headers.toString()+"\r\n";
+					
+					for each (var item:Object in dataGrid.dataProvider)
+					{
+						var values:Array = [];
+						for each (var field:String in fields)
+						{
+							if (String(item[field]).indexOf(",") > -1)
+							{
+								values.push('"'+item[field]+'"');
+							}
+							else if (String(item[field]).indexOf("0") == 0)
+							{
+								values.push('"=""'+item[field]+'"""');							
+							}
+							else
+							{
+								values.push(String(item[field]));
+							}
+							
+						}
+						exportString += values.toString()+"\r\n";
+					}				
+					var urlVars:URLVariables = new URLVariables();
+					urlVars.htmltable = exportString;
+					urlVars.filename = "iMaps_PropertyResults_Export.csv";
+					var req:URLRequest = new URLRequest(model.configuration.scripts.exportGridURL);
+				
+					req.data = urlVars;
+					req.method = URLRequestMethod.POST;
+					navigateToURL(req,"_blank");					
+				}
+				else
+				{
+					Alert.show("Export script not set in config file");
+				}
+
+			}		
+			
+			protected function fileReferenceIOError(event:IOErrorEvent):void
+			{
+				Alert.show("File could not be saved.  If overwriting a file, make sure it is not open or read only");
+			}	
+			
+			
+			
+		]]>
+	</fx:Script>	
+	<fx:Declarations>
+		<mx:CurrencyFormatter id="currencyFormatter" currencySymbol="$" precision="0"
+							  useThousandsSeparator="true"/>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>		
+		
+		
+		<esri:Query id="sepQ"/>
+		<esri:QueryTask id="sepQt"
+						executeForCountComplete="sepQt_executeForCountCompleteHandler(event)"
+						url="{model.propertySearch.config.septic.@url}"
+						useAMF="true" showBusyCursor="false"/>
+	</fx:Declarations>
+	<mx:DataGrid id="dataGrid" x="0" y="148" width="100%" height="100%"
+				 change="dataGrid_changeHandler(event)"
+				 creationComplete="dataGrid_creationCompleteHandler(event)"
+				 dataProvider="{model.propertySearch.searchPanel.RealEstateResult.lastResult.Accounts}"
+				 variableRowHeight="true" toolTip="Click to Select Property&#13;Right Click to Copy/Export">
+		<mx:columns>
+			<mx:DataGridColumn dataField="siteAddress" headerText="Address" wordWrap="true"/>
+			<mx:DataGridColumn dataField="owner" headerText="Owner" wordWrap="true"/>
+			<mx:DataGridColumn width="80" dataField="pin" headerText="PIN"/>
+			<mx:DataGridColumn width="30" dataField="pin_ext" headerText="Ext"/>
+		</mx:columns>
+	</mx:DataGrid>	
+	<s:Label text="{dataGrid.dataProvider.length+' properties found'}"/>
+</paneltools:BasePanelTool>

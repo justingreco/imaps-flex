@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<stormwater:SwuBasePanel xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 title="CCB Information"
+						 creationComplete="panel1_creationCompleteHandler(event)"
+						 currentState="{(toggleBtn.selected)?'Services':'NoServices'}" 
+						 xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*">
+	<stormwater:layout>
+		<s:VerticalLayout/>
+	</stormwater:layout>
+	<stormwater:states>
+		<s:State name="NoServices"/>
+		<s:State name="Services"/>
+	</stormwater:states>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+
+
+			protected function panel1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (stormwater.CCBNotAvailable){
+					this.title = "CCB Information is not available...";}
+				else {
+					this.title = "CCB Information";
+				}
+			}
+					
+		]]>
+	</fx:Script>			
+			
+	<fx:Declarations>
+		<mx:CurrencyFormatter id="currencyFormatter"  precision="2" 
+							  currencySymbol="$" decimalSeparatorFrom="."
+							  decimalSeparatorTo="." useNegativeSign="true" 
+							  useThousandsSeparator="true" alignSymbol="left"/>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+	</fx:Declarations>
+	<s:HGroup paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5" width="100%">
+		<mx:Form paddingLeft="0" paddingRight="0" paddingTop="0" paddingBottom="0">
+			<mx:FormItem label="Prem Id:" fontWeight="bold">
+				<s:Label text="{stormwater.ccbCIPrem.PREM_ID}" fontWeight="normal"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Account ID:" fontWeight="bold">
+				<s:Label text="{stormwater.ccbCIPrem.ACCT_ID}" fontWeight="normal" />				
+			</mx:FormItem>
+			<mx:FormItem label="Customer:" fontWeight="bold">
+				<s:Label text="{stormwater.ccbCIPrem.ENTITY_NAME}" fontWeight="normal" />				
+			</mx:FormItem>
+		</mx:Form>
+		<mx:Form paddingLeft="0" paddingRight="0" paddingTop="0" paddingBottom="0">
+			<mx:FormItem label="SFEU:" fontWeight="bold" >
+				<s:Label text="{stormwater.ccbCIPrem.SFEU}" fontWeight="normal" />				
+			</mx:FormItem>
+			<mx:FormItem label="Last Bill Date:" fontWeight="bold">
+				<s:Label text="{dateFormatter.format(stormwater.ccbBillData.COMPLETE_DTTM)}" fontWeight="normal" />				
+			</mx:FormItem>
+			<mx:FormItem label="Last Bill Amt:" fontWeight="bold">
+				<s:Label text="{currencyFormatter.format(stormwater.ccbBillData.TOT_AMT)}" fontWeight="normal"/>				
+			</mx:FormItem>
+		</mx:Form>		
+	</s:HGroup>	
+	
+	<s:ToggleButton id ="toggleBtn"
+					enabled="{Boolean(model.stormwater.ccbServices)}" selected="false"  			  
+					label.Services="Hide Services" 
+					label.NoServices="Show Services"/>
+	
+	<mx:DataGrid id="dataGrid" includeIn="Services"  dataProvider="{stormwater.ccbServices}"
+				 wordWrap="false" maxHeight="200" width="100%">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Account ID" dataField="SP_ID"/>
+			<mx:DataGridColumn headerText="Service Type" dataField="SP_TYPE_CD" />								
+			<mx:DataGridColumn headerText="Service Status" dataField="SP_STATUS_FLG" />								
+			<mx:DataGridColumn headerText="Service Src Status" dataField="SP_SRC_STATUS_FLG" />								
+			<mx:DataGridColumn headerText="Install Date" dataField="INSTALL_DT"/>
+		</mx:columns>
+	</mx:DataGrid>	
+</stormwater:SwuBasePanel>

@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolbarToggleButtonBase xmlns:fx="http://ns.adobe.com/mxml/2009"
+								 xmlns:s="library://ns.adobe.com/flex/spark"
+								 xmlns:mx="library://ns.adobe.com/flex/mx"
+								 xmlns:esri="http://www.esri.com/2008/ags"
+								 xmlns:toolbar="com.raleigh.components.toolbar.*"
+								 icon="@Embed(source='../assets/info.png')"
+									creationComplete="toolbartogglebuttonbase1_creationCompleteHandler(event)" 
+									change="togglebutton1_changeHandler(event)"
+									valueCommit="togglebutton1_valueCommitHandler(event)" >
+
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.events.IdentifyEvent;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.tasks.IdentifyTask;
+			import com.esri.ags.tasks.supportClasses.IdentifyParameters;
+			import com.esri.ags.tasks.supportClasses.IdentifyResult;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			
+			import spark.filters.DropShadowFilter;
+			
+			public var idTasks:ArrayCollection;
+			public var idResults:ArrayCollection;
+			private var idTaskLength:int = 0;
+			private var idTaskCount:int = 0;
+			private var gl:GraphicsLayer;
+			
+			protected function togglebutton1_changeHandler(event:Event):void
+			{
+				if (this.selected)
+				{
+					identifyClicked();
+					model.currentTool = "Identify";
+					model.map.panEnabled = true;
+					controller.setCursors();
+				}
+			}
+			
+			protected function togglebutton1_valueCommitHandler(event:FlexEvent):void
+			{
+				if (!selected)
+				{
+					map.removeEventListener(MapMouseEvent.MAP_CLICK, mapIdentifyClick);
+				}
+				else
+				{
+					map.addEventListener(MapMouseEvent.MAP_CLICK, mapIdentifyClick,false,0,true);	
+				}
+			}
+			
+			private var mapClick:MapPoint;
+			
+			public function identifyClicked():void{
+				idTasks = new ArrayCollection();
+				idResults = new ArrayCollection();
+				
+				for each (var layer:Object in model.configLayers){
+					if (map.getLayer(layer.id).loaded)
+					{
+						if (layer.hasOwnProperty("identifiable"))
+						{
+							if (layer.identifiable)
+							{
+								var it:IdentifyTask = new IdentifyTask(layer.url+"/Identify");
+								var ip:IdentifyParameters = new IdentifyParameters();
+								if (layer.identifiableLayers != "all"){
+									ip.layerIds = layer.identifiableLayers.split(",");				
+								}
+								ip.dpi = 96;
+								ip.layerOption = IdentifyParameters.LAYER_OPTION_VISIBLE;
+								ip.tolerance = 5;
+								ip.returnGeometry = true;
+								ip.spatialReference = map.spatialReference;
+								ip.height = map.height;
+								ip.width = map.width;
+								idTasks.addItem({task:it, params:ip, layerid:layer.id});
+								
+							}									
+						}
+				
+					}
+
+				} 
+
+								
+				
+
+			}
+			
+			public function mapIdentifyClick(event:MapMouseEvent):void{
+	
+				//map.cursorManager.setBusyCursor();
+				controller.showProgress("Identifying Layers...");
+				mapClick = event.mapPoint;
+				idTaskCount = 0;
+				idTaskLength = 0;
+				idResults = new ArrayCollection();
+				if (idTasks.length > 0)
+				{
+					for each (var task:Object in idTasks){
+						var layer:Layer = map.getLayer(task.layerid);
+						if (layer.visible)
+						{
+							IdentifyParameters(task.params).geometry = mapClick;
+							if (layer is ArcGISDynamicMapServiceLayer && !task.params.layerIds)
+							{
+								IdentifyParameters(task.params).layerIds = ArcGISDynamicMapServiceLayer(layer).visibleLayers.source;
+							}
+							//IdentifyParameters(task.params).mapExtent = new Extent(mapClick.x - 10,mapClick.y - 10, mapClick.x + 10,mapClick.y + 10);
+							IdentifyParameters(task.params).mapExtent = map.extent;
+							IdentifyTask(task.task).showBusyCursor = true;					
+							IdentifyTask(task.task).addEventListener(IdentifyEvent.EXECUTE_COMPLETE, identifyComplete,false,0,true);
+							IdentifyTask(task.task).addEventListener(FaultEvent.FAULT, identifyFault,false,0,true);		
+							IdentifyTask(task.task).execute(task.params);	
+							idTaskLength = idTaskLength + 1;
+						}
+					}					
+				}
+				else
+				{
+					controller.removeProgress();
+				}
+
+			}
+			
+			private function identifyComplete(event:IdentifyEvent):void{
+				
+				for each (var result:IdentifyResult in event.identifyResults){
+					idResults.addItem({name:result.layerName, feature:result.feature, display:result.displayFieldName, url:event.currentTarget.url.replace("/Identify", ""), id:result.layerId});		
+				}
+				idTaskCount = idTaskCount + 1;
+				if (idTaskCount == idTaskLength){
+					reportIdentifyResults();
+				}
+				map.cursorManager.removeBusyCursor();
+			}
+			
+			private function identifyFault(event:FaultEvent):void{
+				idTaskCount = idTaskCount + 1;
+				if (idTaskCount == idTaskLength){
+					reportIdentifyResults();
+				}	
+				map.cursorManager.removeBusyCursor();
+			}
+			
+			private function reportIdentifyResults():void{
+				idTaskCount = 0;
+				if (idResults.length>0)
+				{
+					var content:IdentifyContent = new IdentifyContent();
+					content.dataProvider = idResults;
+					content.index = 0;
+					for (var i:int = 0; i < idResults.length; i++){
+						if (idResults[i].name == "Property" || idResults[i].name == "Durham Property"){
+							content.index = i;
+						}
+					}
+					
+					map.infoWindow.content = content;
+					map.infoWindow.setStyle("color",0xFFFFFF);
+					map.infoWindow.setStyle("backgroundColor",0x333333);
+					map.infoWindow.setStyle("backgroundAlpha", 0.50);
+					map.infoWindow.show(mapClick);
+					map.infoWindow.addEventListener(Event.CLOSE, infoWindowCloseHandler,false,0,true);
+					map.infoWindow.addEventListener(MouseEvent.MOUSE_OVER, infoWindowMouseOver,false,0,true);
+					map.infoWindow.addEventListener(MouseEvent.MOUSE_OUT, infoWindowMouseOut,false,0,true);					
+					map.infoWindow.filters = [new spark.filters.DropShadowFilter()];
+										
+				}
+				//cursorManager.removeBusyCursor();
+				controller.removeProgress();
+			}			
+			
+			private function infoWindowCloseHandler(event:Event):void
+			{
+				if (gl)
+				{
+					gl.clear();					
+				}
+				controller.setCursors();
+				map.infoWindow.removeEventListener(MouseEvent.MOUSE_OVER, infoWindowMouseOver);
+				map.infoWindow.removeEventListener(MouseEvent.MOUSE_OUT, infoWindowMouseOut);	
+			}
+			
+			private function infoWindowMouseOver(event:MouseEvent):void
+			{
+				model.map.cursorManager.removeAllCursors();
+			}
+			
+			private function infoWindowMouseOut(event:MouseEvent):void
+			{
+				controller.setCursors();
+			}			
+
+
+
+			protected function toolbartogglebuttonbase1_creationCompleteHandler(event:FlexEvent):void
+			{
+				model.identifyTool = this;
+				gl = new GraphicsLayer();
+				gl.id = "IdentifyGraphicsLayer";
+				gl.name = "Identify Graphics Layer";
+				map.addLayer(gl);
+				
+			}
+
+		]]>
+	</fx:Script>
+</toolbar:ToolbarToggleButtonBase>

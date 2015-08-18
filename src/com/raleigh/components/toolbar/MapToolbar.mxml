@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:toolbar="com.raleigh.components.toolbar.*"
+		 creationComplete="group1_creationCompleteHandler(event)" currentState="Expanded">
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.classes.Toolbartool;
+			import com.raleigh.model.Model;
+			import com.raleigh.skins.ToolbarExpandSkin;
+		
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			
+			import spark.components.ToggleButton;
+			
+
+			
+			private var model:Model = Model.getInstance();
+			
+			protected function tool_changeHandler(event:Event):void
+			{
+				if (event.currentTarget.selected)
+				{
+					model.navToolBar.requireSelection = false;
+					model.navToolBar.selectedIndex = -1;
+					model.controller.resetButtonBars("");
+					var id:int = hgroup.getElementIndex(event.currentTarget as IVisualElement);
+					
+					for (var i:int = 0;i < hgroup.numElements;i++)
+					{
+						if (i != id)
+						{
+							if (hgroup.getElementAt(i) is ToggleButton)
+							{
+								ToggleButton(hgroup.getElementAt(i)).selected = false;
+							}
+						}
+					}					
+				}
+				else
+				{
+					event.currentTarget.selected = true;
+				}
+			}
+
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				callLater(setupToolbar);
+			}
+			
+			private function setupToolbar():void
+			{
+				model.toolBar = this;
+				for each (var tool:Toolbartool in model.configuration.toolbarTools)
+				{
+					if (tool.file)
+					{
+						var ClassReference:Class = getDefinitionByName(tool.file) as Class;
+						var factory:ClassFactory = new ClassFactory(ClassReference);
+						var comp:* = factory.newInstance();
+						if (comp is ToggleButton)
+						{
+							ToggleButton(comp).addEventListener(Event.CHANGE, tool_changeHandler);
+						}
+						comp.name = tool.name;
+						comp.toolTip = tool.toolTip;
+						hgroup.addElement(comp as IVisualElement);						
+					}
+				}
+				startWidth = hgroup.width;
+				
+				if (model.settingsSO)
+				{
+					if (model.settingsSO.size > 0)
+					{
+						callLater(setState,[model.settingsSO.data[model.SETTINGS+"_"+model.config].toolbar]);
+					}
+				}
+			}
+			
+			private function setState(value:Boolean):void
+			{
+				this.currentState = (value)?'Expanded':'Collapsed';
+			}
+			
+			[Bindable]
+			private var startWidth:int=0;
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="Expanded"/>
+		<s:State name="Collapsed"/>
+	</s:states>
+
+	<toolbar:ToolbarToggleButtonBase id="toolbarToggle" width="15"
+									 change="if(toolbarToggle.selected){this.currentState = 'Expanded'}else{this.currentState = 'Collapsed'}"
+									 skinClass="com.raleigh.skins.ToolbarExpandSkin"
+									 selected.Collapsed="false" toolTip.Collapsed="Expand Toolbar"
+									 selected.Expanded="true" toolTip.Expanded="Collapse Toolbar"/>	
+	<s:HGroup id="hgroup" includeIn="Expanded" x="20">
+
+	</s:HGroup>
+</s:Group>

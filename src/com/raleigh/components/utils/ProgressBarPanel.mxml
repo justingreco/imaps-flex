@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					  xmlns:s="library://ns.adobe.com/flex/spark" 
+					  xmlns:mx="library://ns.adobe.com/flex/mx" 
+					  width="300" height="100"
+					  backgroundColor="0x000000"
+					  backgroundAlpha="0.5"
+					  filters="{[new spark.filters.DropShadowFilter(4,45,0,.5)]}"
+					  skinClass="com.raleigh.skins.ProgressBarPanelSkin">
+	<s:layout>
+		<s:VerticalLayout verticalAlign="middle" horizontalAlign="center"
+						  paddingLeft="10"
+						  paddingRight="10"/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			
+			import spark.filters.DropShadowFilter;
+			
+
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<fx:String id="message"/>
+	</fx:Declarations>
+	<mx:ProgressBar id="progBar" label="{message}" indeterminate="true" width="100%" color="0xFFFFFF" fontWeight="bold"
+					trackHeight="20" indeterminateSkin="com.raleigh.skins.CustomProgressIndeterminateSkin"
+					barSkin="com.raleigh.skins.CustomProgressBarSkin"/>
+</s:SkinnableContainer>

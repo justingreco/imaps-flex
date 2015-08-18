@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:components="com.raleigh.components.*"
+		 xmlns:utils="com.raleigh.components.utils.*"
+		 addedToStage="group1_addedToStageHandler(event)"
+		 height.Single="0">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle"/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			protected function nextParcelButton_clickHandler(event:MouseEvent):void
+			{
+				var ac:ArrayCollection = model.propertySearch.resultsPanel.dataGrid.dataProvider as ArrayCollection;
+				var index:int = ac.getItemIndex(model.currentProperty);
+				if (index + 1 < ac.length)
+				{
+					model.currentProperty = ac.getItemAt(index+1);	
+					model.propertySearch.resultsPanel.dataGrid.selectedIndex = index+1;
+				}
+				else
+				{
+					model.currentProperty = ac.getItemAt(0);
+					model.propertySearch.resultsPanel.dataGrid.selectedIndex = 0;					
+				}
+				
+				model.propertySearch.resultsPanel.displayPropertyInfo(model.currentProperty, "list");
+				
+			}
+			
+			
+			protected function prevParcelButton_clickHandler(event:MouseEvent):void
+			{
+				var ac:ArrayCollection = model.propertySearch.resultsPanel.dataGrid.dataProvider as ArrayCollection;
+				var index:int = ac.getItemIndex(model.currentProperty);
+				if (index - 1 > -1)
+				{
+					model.currentProperty = ac.getItemAt(index-1);		
+					model.propertySearch.resultsPanel.dataGrid.selectedIndex = index-1;					
+				}
+				else
+				{
+					model.currentProperty = ac.getItemAt(ac.length - 1);
+					model.propertySearch.resultsPanel.dataGrid.selectedIndex = ac.length - 1;					
+				}
+				
+				//model.propertySearch.resultsPanel.sendSingleQuery(model.currentProperty.pin, model.currentProperty.reid, "list", model.currentProperty.county);
+				model.propertySearch.resultsPanel.displayPropertyInfo(model.currentProperty, "list");
+			}			
+
+
+
+			protected function group1_addedToStageHandler(event:Event):void
+			{
+				if (model.propertySearch.searchPanel.RealEstateResult.lastResult.Accounts.length == 1)
+				{
+					this.currentState = "Single";
+				}
+				else if (model.propertySearch.searchPanel.RealEstateResult.lastResult.Accounts.length > 1)
+				{
+					this.currentState = "Multiple";
+				}
+			}
+
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="Single"/>
+		<s:State name="Multiple"/>
+	</s:states>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<utils:ImageButton id="prevParcelButton" includeIn="Multiple"
+					   visible="{model.propertyResults.length &gt; 1}" width="30" height="30"
+					   click="prevParcelButton_clickHandler(event)"
+					   icon="@Embed(source='../../assets/back.png')"
+					   toolTip="Select Previous Property"/>	
+	<utils:ImageButton id="nextParcelButton" includeIn="Multiple"
+					   visible="{model.propertyResults.length &gt; 1}" width="30" height="30"
+					   label="Next" click="nextParcelButton_clickHandler(event)"
+					   icon="@Embed(source='../../assets/next.png')" toolTip="Select Next Property"/>		
+</s:Group>

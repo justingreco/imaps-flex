@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:VGroup xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  xmlns:services="services.*"
+		  paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.components.toolbar.ToolWindow;
+			import com.raleigh.model.Model;
+			
+			import mx.controls.Alert;
+			import mx.validators.Validator;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			protected function sendButton_clickHandler(event:MouseEvent):void
+			{
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length == 0)
+				{
+					sendEmail(emailInput.text, model.configuration.feedback.sendto, model.configuration.feedback.subject, messageInput.text);
+					ToolWindow(this.parentDocument.parent).close();
+					Alert.show("Feedback sent successfully");
+				}
+			}
+			
+			protected function sendEmail(from:String, to:String, subject:String, text:String):void
+			{
+				var params:Object = {};
+				params.from = "";
+				params.to = "";
+				params.fromEmail = from;
+				params.toEmail = to;
+				params.message = text;
+				params.subject = subject;
+				emailService.send(params);
+			}
+			
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<fx:Array id="validators">
+			<mx:StringValidator id="nameValid" minLength="4" property="text" required="true"
+								source="{nameInput}"/>
+			<mx:EmailValidator id="emailValid" property="text" required="true" source="{emailInput}"/>
+			<mx:StringValidator id="messValid" minLength="10" property="text" required="true"
+								source="{messageInput}"/>			
+		</fx:Array>
+		<!--<s:CallResponder id="SendEmailResult"/>
+		<services:EmailService id="emailService"
+							   fault="Alert.show(event.fault.faultString + '\n' + event.fault.faultDetail)"
+							   showBusyCursor="true"/>-->
+		<s:HTTPService id="emailService" url="http://maps.raleighnc.gov/php/mail.php"
+					   resultFormat="text" method="GET"/>
+
+	</fx:Declarations>
+	<s:HGroup>
+		<s:Label width="60" text="Name"/>
+		<s:TextInput id="nameInput" width="250"/>		
+	</s:HGroup>
+
+	<s:HGroup>
+		<s:Label width="60" text="Email"/>
+		<s:TextInput id="emailInput" width="250"/>		
+	</s:HGroup>
+	<s:HGroup>
+		<s:Label width="60" text="Message"/>
+		<s:TextArea id="messageInput" width="250"/>	
+	</s:HGroup>	
+
+	<s:Button id="sendButton" label="Send" click="sendButton_clickHandler(event)"/>
+</s:VGroup>

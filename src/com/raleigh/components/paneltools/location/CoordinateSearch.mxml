@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:components="com.raleigh.components.*"
+						  xmlns:utils="com.raleigh.components.utils.*"
+						  width="100%" height="100%"
+						  currentState="{unitDdl.selectedItem.label.replace(new RegExp(' ','g'),'')}">
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+	<paneltools:states>
+		<s:State name="DecimalDegrees"/>
+		<s:State name="StateplaneFeet"/>		
+	</paneltools:states>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.SpatialReference;
+			import com.esri.ags.geometry.MapPoint;
+			
+			import mx.controls.Alert;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.Fault;
+			import mx.validators.Validator;
+			protected function search():void
+			{
+/* 				xValidator.exceedsMaxError = "Must be between "+xValidator.minValue.toString()+" and "+xValidator.maxValue.toString();
+				yValidator.exceedsMaxError = "Must be between "+yValidator.minValue.toString()+" and "+yValidator.maxValue.toString();		
+				xValidator.lowerThanMinError = "Must be between "+xValidator.minValue.toString()+" and "+xValidator.maxValue.toString();
+				yValidator.lowerThanMinError = "Must be between "+yValidator.minValue.toString()+" and "+yValidator.maxValue.toString(); */					
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length == 0)
+				{
+					if (parseInt(unitDdl.selectedItem.wkid) == map.spatialReference.wkid)
+					{
+						controller.addPointToMap(new MapPoint(parseFloat(xInput.text), parseFloat(yInput.text),map.spatialReference),9600);
+					}
+					else
+					{
+						model.geomSrv.project([new MapPoint(parseFloat(xInput.text), parseFloat(yInput.text),new SpatialReference(unitDdl.selectedItem.wkid))],
+							map.spatialReference,
+							new AsyncResponder(projectCompleteHandler, onFault));
+					}					
+				}
+
+			}
+			
+			protected function projectCompleteHandler(result:Array, token:Object = null):void
+			{
+				controller.addPointToMap(result[0], 9600);		
+			}
+			
+			protected function onFault(fault:Fault):void
+			{
+				Alert.show(fault.message);
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+	
+		<fx:Array id="validators">
+			<mx:NumberValidator id="xValidator" property="text" source="{xInput}"
+								trigger="{searchBtn}"
+								maxValue.DecimalDegrees="-77.20" minValue.DecimalDegrees="-79.88"
+								maxValue.StateplaneFeet="{map.initialExtent.xmax}"
+								minValue.StateplaneFeet="{map.initialExtent.xmin}"/>
+			<mx:NumberValidator id="yValidator" property="text" source="{yInput}"
+								trigger="{searchBtn}"
+								maxValue.DecimalDegrees="36.60" minValue.DecimalDegrees="34.96"
+								maxValue.StateplaneFeet="{map.initialExtent.ymax}"
+								minValue.StateplaneFeet="{map.initialExtent.ymin}"/>
+		</fx:Array>
+	</fx:Declarations>
+	<s:DropDownList id="unitDdl" width="100%" selectedIndex="0">
+		<s:ArrayList>
+			<fx:Object label="Decimal Degrees" wkid="4326"/>
+			<fx:Object label="Stateplane Feet" wkid="2264"/>			
+		</s:ArrayList>
+	</s:DropDownList>
+	<s:HGroup width="100%">
+		<s:VGroup width="100%">
+			<s:Label text.DecimalDegrees="Latitude"
+					 text.StateplaneFeet="Northing"/>
+			<s:TextInput id="yInput" width="100%" enter="search()"
+						 prompt.DecimalDegrees="35.7804" restrict.DecimalDegrees="0-9\."
+						 prompt.StateplaneFeet="739161" restrict.StateplaneFeet="0-9."/>
+		</s:VGroup>
+		<s:VGroup width="100%">
+			<s:Label text.DecimalDegrees="Longitude"
+					 text.StateplaneFeet="Easting"/>
+			<s:TextInput id="xInput" width="100%" enter="search()"
+						 prompt.DecimalDegrees="-78.6391" restrict.DecimalDegrees="0-9\.\-"
+						 prompt.StateplaneFeet="2107039" restrict.StateplaneFeet="0-9."/>
+		</s:VGroup>
+		<utils:ImageButton id="searchBtn" width="24" height="24" label="Search" click="search()"
+						   icon="@Embed(source='../../assets/searchIcon.png')"/>
+		<utils:ImageButton id="clearBtn" width="24" height="24" label="Clear"
+						   click="{yInput.text = '';xInput.text=''}"
+						   icon="@Embed(source='../../assets/clear.png')"/>
+	</s:HGroup>
+</paneltools:BasePanelTool>

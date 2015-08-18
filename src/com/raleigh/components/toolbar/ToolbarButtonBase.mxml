@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Button xmlns:fx="http://ns.adobe.com/mxml/2009"
+		  xmlns:s="library://ns.adobe.com/flex/spark"
+		  xmlns:mx="library://ns.adobe.com/flex/mx"
+		  width="30" height="30" skinClass="com.raleigh.skins.ToolbarButtonSkin"
+		  useHandCursor="true"
+		  buttonMode="true">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Map;
+			import com.raleigh.model.Model;
+			import com.raleigh.view.MainView;
+			
+			import mx.core.IVisualElement;
+			import mx.managers.PopUpManager;
+			
+			private var window:ToolWindow;
+			
+			public var model:Model = Model.getInstance();
+			public var map:Map = model.map;
+			public var tool:IVisualElement;
+			public var title:String;
+			override protected function clickHandler(event:MouseEvent):void
+			{
+				ExternalInterface.call("_gaq.push(['_trackEvent', 'Toolbars', '"+this.name+"'])");
+				if (tool)
+				{
+					if (!window)
+					{
+						window = new ToolWindow();
+						window.title = title;
+						window.addElement(tool);
+					}
+					PopUpManager.removePopUp(window);
+					var mv:MainView = model.mainView;
+					PopUpManager.addPopUp(window, mv.popUpCanvas);
+					PopUpManager.centerPopUp(window);						
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<fx:Object id="icon"/>
+	</fx:Declarations>
+</s:Button>

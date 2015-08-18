@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<stormwater:SwuBasePanel xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 currentState="{(toggleBtn.selected)?'Journal':'NoJournal'}" 
+						 xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+						 xmlns:services="services.*"
+						 title="Journal">
+	<stormwater:layout>
+		<s:VerticalLayout/>
+	</stormwater:layout>
+	<stormwater:states>
+		<s:State name="NoJournal"/>
+		<s:State name="Journal"/>
+	</stormwater:states>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			
+
+
+			[Bindable]
+			public var detailsWin:SwuJournalEntryDetailsWindow;
+			[Bindable]
+			public var journal:Object;
+
+
+			protected function dataGrid_changeHandler(event:ListEvent):void
+			{				
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+				model.controller.showProgress("Retrieving Journal Entry...");
+				model.stormwater.searchPanel.getJournalEntries(event.itemRenderer.data.JOURNAL_ID);
+	
+				
+			}
+			
+			protected function journalEntriesRetrieved(event:ResultEvent):void{
+				model.controller.removeProgress();
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+				if (!detailsWin){
+					detailsWin = new SwuJournalEntryDetailsWindow();					
+				}
+				if (model.stormwater.journalEntries.length > 0){
+					PopUpManager.addPopUp(detailsWin, this.parentApplication as DisplayObject);
+					PopUpManager.centerPopUp(detailsWin);						
+				}
+			}
+
+			protected function addBtn_clickHandler(event:MouseEvent):void
+			{
+				var addPanel:SwuJournalEntryAdd = new SwuJournalEntryAdd();
+				PopUpManager.addPopUp(addPanel, this.parentApplication as DisplayObject, false);
+				PopUpManager.centerPopUp(addPanel);
+			}
+			
+			public function formatDate(item:Object, column:DataGridColumn):String
+			{
+				return dateFormatter.format(item.insertionDate);
+			}
+					
+		]]>
+	</fx:Script>			
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+		<s:DateTimeFormatter id="dateTimeFormatter" dateTimePattern="MM/DD/YYYY h:mi:ss a"/>		
+
+	</fx:Declarations>
+	<s:HGroup width="100%" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+		<s:ToggleButton id ="toggleBtn"
+						enabled="{Boolean(model.stormwater.currentAccount)}" selected="false"  			  
+						label.Journal="Hide Journal" 
+						label.NoJournal="Show Journal"/>
+		<s:Label width="227"/>				
+		<s:Button id="addBtn" label="Add" 			  
+				  enabled="{Boolean(model.stormwater.journalInsertPrivs)}"
+				  click="addBtn_clickHandler(event)"/>
+	</s:HGroup>
+		<mx:DataGrid id="dataGrid" width="100%" maxHeight="200"
+				 change="dataGrid_changeHandler(event)"
+				 includeIn="Journal"
+				 dataProvider="{model.stormwater.journalEntries}"
+				 wordWrap="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="JOURNAL_ID" headerText="Journal ID" textAlign="center"/>
+			<mx:DataGridColumn dataField="ENTRY_TYPE_CODE_DESC" headerText="Type Code" textAlign="center"/>
+			<mx:DataGridColumn dataField="JOURNAL_ENTRY" headerText="Entry" textAlign="center"/>
+			<mx:DataGridColumn dataField="INSERTION_USER_ID" headerText="Author" textAlign="center" />
+			<mx:DataGridColumn dataField="INSERTION_DATE" headerText="Entry Date" textAlign="center" labelFunction="formatDate"/>
+		</mx:columns>
+	</mx:DataGrid>	
+</stormwater:SwuBasePanel>

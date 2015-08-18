@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:components="com.raleigh.components.*"
+		 xmlns:utils="com.raleigh.components.utils.*"
+		 width="100%" height="100%">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.layers.supportClasses.DrawingInfo;
+			import com.esri.ags.layers.supportClasses.LayerDetails;
+			import com.esri.ags.renderers.SimpleRenderer;
+			import com.esri.ags.renderers.UniqueValueRenderer;
+			import com.esri.ags.renderers.supportClasses.UniqueValueInfo;
+			import com.esri.ags.utils.JSON;
+			
+			import mx.collections.ArrayCollection;
+			import mx.containers.ViewStack;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.http.HTTPService;
+			import mx.utils.Base64Decoder;
+			public var legendURL:String;		
+			public var lid:int;
+			[Bindable]
+			public var legendAC:ArrayCollection;
+			[Bindable]
+			public var legendHasChildren:Boolean;
+			[Bindable]
+			
+			public var legendLayers:Array = [];		
+			[Bindable]
+			public var backButtonVisible:Boolean = true;
+			public function getLegend():void
+			{
+				var url:String = legendURL;
+				var http:HTTPService = new HTTPService();
+				http.url = legendURL+"/legend/?f=json";
+				http.method = "GET";
+				http.resultFormat = "text";
+				http.useProxy = false;
+				http.addEventListener(ResultEvent.RESULT, httpResult,false,0,true);
+				http.addEventListener(FaultEvent.FAULT, httpFault,false,0,true);
+				http.send();
+			}
+			
+			private function httpResult(event:ResultEvent):void
+			{
+				legendAC = new ArrayCollection();
+				var json:Object = com.esri.ags.utils.JSON.decode(event.result.toString());
+				createLayerLegend(json);
+			}
+			
+			private function createServiceLegend(json:Object):void
+			{
+				
+			}
+			private function createLayerLegend(json:Object):void
+			{
+				legendAC = new ArrayCollection();
+				var layers:Array = [];
+				var legends:Array = [];
+				var layer:Object;
+				var legend:Object;
+				
+				if (legendHasChildren)
+				{
+					for each (layer in json.layers)
+					{
+						legends = [];
+						for each (legend in layer.legend)
+						{
+							legends.push({label:legend.label, symbol:createLegendSymbol(legend.imageData)});
+						}
+						layers.push({layerId:layer.layerId, layerName:layer.layerName, layerType:layer.layerType, maxScale:layer.maxScale, minScale:layer.minScale, legend:legends})
+					}
+				}
+				else
+				{
+					layer = json.layers[lid];
+					legends = [];
+					for each (legend in layer.legend)
+					{
+						legends.push({label:legend.label, symbol:createLegendSymbol(legend.imageData)});
+					}	
+					layers.push({layerId:layer.layerId, layerName:layer.layerName, layerType:layer.layerType, maxScale:layer.maxScale, minScale:layer.minScale, legend:legends})					
+				}
+				legendAC.addItem({layers:layers});		
+			}		
+			
+			private function createLegendSymbol(imageData:String):ByteArray
+			{
+				var byteArr:ByteArray;
+				var decoder:Base64Decoder = new Base64Decoder();
+				decoder.decode(imageData);
+				byteArr = decoder.toByteArray();
+				return byteArr;
+			}
+			
+			
+			
+			
+			private function httpFault(event:FaultEvent):void
+			{
+				
+				
+			}		
+			private function detailsResult(details:LayerDetails, token:Object = null):void
+			{
+				legendAC = new ArrayCollection();
+				if (DrawingInfo(details.drawingInfo) != null)
+				{
+					var renderer:Object = details.drawingInfo.renderer;
+					if (renderer is UniqueValueRenderer)
+					{
+						var uvr:UniqueValueRenderer = renderer as UniqueValueRenderer;
+						for each (var info:UniqueValueInfo in uvr.infos)
+						{
+					
+							legendAC.addItem({label:info.label, description:info.description, symbol:info.symbol.createSwatch(20,20)});
+						}
+					}
+					else if (renderer is SimpleRenderer)
+					{
+						var sr:SimpleRenderer = renderer as SimpleRenderer;
+						legendAC.addItem({label:sr.label, description:sr.description, symbol:sr.symbol.createSwatch(20,20)});
+					}
+				}
+			}
+			
+			protected function backButton_clickHandler(event:MouseEvent):void
+			{
+				ViewStack(this.owner.parent).selectedIndex = 0;
+			}
+
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	<utils:ImageButton id="backButton" visible="{backButtonVisible}" width="30" height="30"
+					   label="Return to Layer List" click="backButton_clickHandler(event)"
+					   icon="@Embed(source='../../assets/back.png')"/>
+
+	<s:Scroller id="scroller" width="100%" height="100%" horizontalScrollPolicy="off">
+		<s:DataGroup width="100%" dataProvider="{legendAC}"
+					 itemRenderer="com.raleigh.components.paneltools.layerlist.LegendRenderer">
+			<s:layout>
+				<s:VerticalLayout paddingBottom="2" paddingLeft="2" paddingRight="2" paddingTop="2"/>
+			</s:layout>
+		</s:DataGroup>		
+	</s:Scroller>
+
+
+</s:Group>

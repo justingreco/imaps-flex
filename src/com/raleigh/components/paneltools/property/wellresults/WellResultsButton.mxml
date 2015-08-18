@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolbarButtonBase xmlns:fx="http://ns.adobe.com/mxml/2009"
+						   xmlns:s="library://ns.adobe.com/flex/spark"
+						   xmlns:mx="library://ns.adobe.com/flex/mx"
+						   xmlns:toolbar="com.raleigh.components.toolbar.*"
+						   width="120" click="toolbarbuttonbase1_clickHandler(event)">
+
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.components.toolbar.ToolWindow;
+			
+			import mx.managers.PopUpManager;
+			private var window:ToolWindow;
+			protected function toolbarbuttonbase1_clickHandler(event:MouseEvent):void
+			{
+				if (!window)
+				{
+					window = new ToolWindow();
+					window.title = "Well Sampling Results";
+					window.addElement(new WellResultsContent());
+				}
+				PopUpManager.removePopUp(window);
+				PopUpManager.addPopUp(window, model.mainView.popUpCanvas);
+				PopUpManager.centerPopUp(window);
+			}
+		]]>
+	</fx:Script>
+
+</toolbar:ToolbarButtonBase>

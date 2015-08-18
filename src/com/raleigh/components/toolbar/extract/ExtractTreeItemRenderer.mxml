@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:MXTreeItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  initialize="mxtreeitemrenderer1_initializeHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Map;
+			import com.esri.ags.events.ZoomEvent;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.Layer;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.HSlider;
+			import mx.controls.Tree;
+			import mx.controls.treeClasses.TreeListData;
+			import mx.core.INavigatorContent;
+			import mx.events.FlexEvent;
+
+			private var model:Model = Model.getInstance();
+			
+			private var map:Map = model.map;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				if (data)
+				{
+ 					checkBox.selected = convertToBoolean(data.selected);
+
+					
+				}
+				
+			}
+			
+			override protected function createChildren():void
+			{
+				super.createChildren();	
+
+			}
+			
+			override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void
+			{
+				super.updateDisplayList(unscaledWidth, unscaledHeight);
+				if (data)
+				{
+ 					var tld:TreeListData = TreeListData(super.listData);
+					if (tld.depth == 1)
+					{
+						
+
+					}
+					else
+					{
+						
+					} 
+				}
+			}
+
+			private function convertToBoolean(value:String):Boolean
+			{
+				var retVal:Boolean = false;
+				if (value == "true")
+				{
+					retVal = true;
+				}
+				return retVal;
+			}
+
+
+			protected function checkBox_changeHandler(event:Event):void
+			{
+				if (data)
+				{
+					var tld:TreeListData = TreeListData(this.listData);
+
+					var node:XML = XML(tld.item);
+					node.@selected= event.currentTarget.selected;
+					var lyrSel:String = "";
+					switch (tld.depth)
+					{
+						case 1:
+							if (event.currentTarget.selected)
+							{
+
+								lyrSel = "true";
+
+							}
+							else
+							{
+
+								lyrSel  = "false";
+						
+							}
+							break;
+						case 2:
+							break;
+					}
+					for each (var lyr:XML in node.layer)
+					{
+						lyr.@selected  = lyrSel;
+					}						
+				}
+			}
+
+			protected function mxtreeitemrenderer1_initializeHandler(event:FlexEvent):void
+			{
+
+				this.disclosureGroup.useHandCursor = true;
+				this.disclosureGroup.buttonMode = true;
+				this.disclosureGroup.toolTip = "Expand Layer";
+			}
+			
+			override protected function disclosureGroup_clickHandler(event:MouseEvent):void{
+				if(Tree(this.automationOwner).isItemOpen(this.listData)){
+					this.disclosureGroup.toolTip = "Collapse Layer";					
+				}else{
+					this.disclosureGroup.toolTip = "Expand Layer";
+				}
+			}
+
+		]]>
+	</fx:Script>
+
+	<s:HGroup left="0" right="0" top="0" bottom="0" verticalAlign="middle">
+		<s:Rect id="indentationSpacer" width="{treeListData.indent}" alpha="0" percentHeight="100">
+			<s:fill>
+				<s:SolidColor color="0xFFFFFF"/>
+			</s:fill>
+		</s:Rect>
+		<s:Group id="disclosureGroup">
+			<s:BitmapImage visible="{treeListData.hasChildren}"
+						   source="{treeListData.disclosureIcon}"/>
+		</s:Group>
+		<s:CheckBox id="checkBox" buttonMode="true" change="checkBox_changeHandler(event)"
+					useHandCursor="true"/>
+		<s:Label id="labelField" paddingTop="2" text="{treeListData.label}"/>
+
+	</s:HGroup>
+</s:MXTreeItemRenderer>

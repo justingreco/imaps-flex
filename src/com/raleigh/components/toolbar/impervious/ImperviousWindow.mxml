@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					xmlns:s="library://ns.adobe.com/flex/spark" 
+					xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:toolbar="com.raleigh.components.toolbar.*" 
+					width="500" height="400"
+					title="Impervious Measurement Results"
+					currentState="{(bb.selectedIndex == 0)?'Table':'Chart'}"
+					stateChangeComplete="toolwindow1_stateChangeCompleteHandler(event)"
+					>
+	<fx:Script>
+		<![CDATA[
+			import mx.charts.events.ChartItemEvent;
+			import mx.collections.HierarchicalData;
+			import mx.collections.XMLListCollection;
+			import mx.events.CollectionEvent;
+			import mx.events.FlexEvent;
+			
+			import spark.events.IndexChangeEvent;
+			
+			//import valueObjects.ImperviousProperty;
+			
+
+			
+			protected function chartButton_changeHandler(event:Event):void
+			{
+				UpdateChart();
+			}
+			
+			protected function UpdateChart():void{
+				chartProvider = new ArrayCollection();
+				
+				if (chartButton.selected){
+					chartLabel.text = "Categories";
+					chartButton.label = "Show Property Chart";
+					for each (var item:Object in dataProvider[0].Categories){
+						chartProvider.addItem({label:item.Name,value:item.Area,categories:item.Categories});
+					}					
+					
+				}else{
+					chartButton.label = "Show Category Chart";
+					chartLabel.text = "Property";
+					chartProvider.addItem({label:"Impervious",value:dataProvider[0].Area});
+					chartProvider.addItem({label:"Non-Impervious",value:Number(dataProvider[0].PropertyArea)-Number(dataProvider[0].Area)});						
+				}
+			}
+			
+			private var lastProvider:ArrayCollection;
+			
+			protected function chart_itemClickHandler(event:ChartItemEvent):void
+			{
+					lastProvider = chartProvider;
+					if(event.hitData.item.categories){
+						if (event.hitData.item.categories.length > 0){
+							switch(chartLabel.text){
+								case "Categories":
+									backButton.visible = true;
+									chartLabel.text = "Sub-Categories";
+									break;
+								case "Sub-Categories":
+									chartLabel.text = "Sub-Types";						
+									break;
+							}
+							chartProvider = new ArrayCollection();
+							for each (var item:Object in event.hitData.item.categories){
+								chartProvider.addItem({label:item.Name,value:item.Area,categories:item.Categories});
+							}						
+						}						
+					}
+			}
+			
+
+			
+			protected function toolwindow1_stateChangeCompleteHandler(event:FlexEvent):void
+			{
+				if (currentState == 'Chart'){
+					UpdateChart();					
+				}
+			}
+			
+			protected function backButton_clickHandler(event:MouseEvent):void
+			{
+				if (lastProvider){
+					chartProvider = lastProvider;
+					switch(chartLabel.text){
+						case "Sub-Categories":
+							chartLabel.text = "Categories";
+							backButton.visible = false;
+							break;
+						case "Sub-Types":
+							chartLabel.text = "Sub-Categories";						
+							break;
+					}
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<s:ArrayCollection id="dataProvider"/>
+		<s:ArrayCollection id="chartProvider"/>
+	</fx:Declarations>
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+
+
+	<toolbar:states>
+		<s:State name="Table"/>
+		<s:State name="Chart"/>
+	</toolbar:states>
+	
+	<mx:AdvancedDataGrid id="adg" 
+						 width="100%" height="100%"
+						 displayItemsExpanded="true"
+						 includeIn="Table">
+		<mx:dataProvider>
+			<mx:HierarchicalData id="hp" source="{dataProvider}" childrenField="Categories"/>
+		</mx:dataProvider>
+	
+		<mx:columns>
+			<mx:AdvancedDataGridColumn id="itemCol" dataField="Name"/>
+			<mx:AdvancedDataGridColumn dataField="Area"/>			
+			<mx:AdvancedDataGridColumn dataField="Percent"/>
+		</mx:columns>	
+	</mx:AdvancedDataGrid>
+	<s:VGroup includeIn="Chart" width="100%" height="100%" paddingTop="5" paddingLeft="5" paddingRight="5" paddingBottom="5" >
+		<s:HGroup>
+			<s:Label id="chartLabel" fontSize="14" fontWeight="bold" text='Property'/>
+			<s:Button id="backButton" label="Back" click="backButton_clickHandler(event)"
+					  chromeColor="0x333333" color="white" visible="false"/>
+		</s:HGroup>
+		<mx:PieChart id="chart" width="100%" height="100%" dataProvider="{chartProvider}" showDataTips="true" itemClick="chart_itemClickHandler(event)">
+			<mx:series>
+				<mx:PieSeries id="series" nameField="label" field="value"/>
+			</mx:series>
+		</mx:PieChart>
+		<mx:Legend dataProvider="{chart}"/>
+		<s:ToggleButton id="chartButton" label="Show Categories" change="chartButton_changeHandler(event)" chromeColor="0x333333" color="white"/>
+		<!--<s:ButtonBar id="chartBb" selectedIndex="0"
+					 change="chartBb_changeHandler(event)">
+			<s:dataProvider>
+				<s:ArrayList>
+					<fx:String>Property</fx:String>
+					<fx:String>Category</fx:String>
+					<fx:String>Sub-Category</fx:String>
+					<fx:String>Sub-Type</fx:String>
+				</s:ArrayList>
+			</s:dataProvider>
+		</s:ButtonBar>-->
+	</s:VGroup>
+
+	<s:ButtonBar id="bb" selectedIndex="0"  chromeColor="0x333333" color="white">
+		<s:dataProvider>
+			<s:ArrayList>
+				<fx:String>Table</fx:String>
+				<fx:String>Chart</fx:String>				
+			</s:ArrayList>
+		</s:dataProvider>
+	</s:ButtonBar>
+	
+</toolbar:ToolWindow>

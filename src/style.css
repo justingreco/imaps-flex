@@ -1,0 +1,22 @@
+/* CSS file */
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+@namespace esri "http://www.esri.com/2008/ags";
+@namespace components "com.esri.ags.components.*";
+@namespace supportClasses "com.esri.ags.components.supportClasses.*";
+
+esri|Navigation
+{
+	skinClass: ClassReference("com.raleigh.components.zoomslider.ZoomSliderCustomSkin");
+	left: 10;
+	top: 50;
+}
+
+esri|ScaleBar
+{
+	left:100;	
+}
+
+global
+{
+}

@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   width="210" height="300" addedToStage="setBackgroundColors()" backgroundAlpha=".85"
+			   skinClass="com.raleigh.components.poi.PoiContentSkin" styleName="defaultTitleWindow">
+	
+	<fx:Style source="PoiContentStyles.css"/>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			import flash.net.navigateToURL;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			
+			import spark.filters.DropShadowFilter;
+			[Embed(source='../../assets/photoNA.png')]private var photoNA:Class;	
+			private function setBackgroundColors():void
+			{
+				if (container)
+				{
+						if (icon == "Airports" || icon == "Bus Stations" ||
+							icon == "Parking Lots" || icon == "Train Stations")
+						{
+							this.setStyle("styleName","transporationTitleWindow");						
+							container.setStyle("styleName","transporationContainer");						
+						}
+						else if (icon == "Cemeteries" || icon == "Parks" ||
+							icon == "Community Centers"){
+							this.setStyle("styleName","parksTitleWindow");							
+							container.setStyle("styleName","parksContainer");						
+						}
+						else if (icon == "Communities/Crossroads")
+						{
+							this.setStyle("styleName","communityTitleWindow");						
+							container.setStyle("styleName","communityContainer");															
+						}
+
+						else if (icon == "EMS Stations" || icon == "Hospitals" ||
+							icon == "Police Departments"){
+							this.setStyle("styleName","publicSafetyTitleWindow");				
+							container.setStyle("styleName","publicSafetyContainer");					
+						}
+						else if (icon == "Entertainment" || icon == "Museums" ||
+							icon == "Sports Facilities" || icon == "Shopping Centers"){
+							this.setStyle("styleName","entertainmentTitleWindow");							
+							container.setStyle("styleName","entertainmentContainer");								
+						}
+						else if (icon == "Fire Departments"){
+							this.setStyle("styleName","fireTitleWindow");								
+							container.setStyle("styleName","fireContainer");							
+						}
+						else if (icon == "Government Facilities" || icon == "Post Offices"){
+							this.setStyle("styleName","govTitleWindow");								
+							container.setStyle("styleName","govContainer");							
+						}
+						else if (icon == "Landfills" || icon == "Recycling Centers"){
+							this.setStyle("styleName","swTitleWindow");						
+							container.setStyle("styleName","swContainer");								
+						}
+						else if (icon == "Libraries" || icon == "Schools" ||
+							icon == "Universities/Colleges"){
+							this.setStyle("styleName","educationTitleWindow");							
+							container.setStyle("styleName","educationContainer");							
+						}
+						else{
+							this.setStyle("styleName","defaultTitleWindow");
+							container.setStyle("styleName","defaultContainer");	
+						}
+							
+					}					
+				}
+
+			protected function image1_ioErrorHandler(event:IOErrorEvent):void
+			{
+				event.currentTarget.source = photoNA;
+			}
+
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<fx:String id="address"/>
+		<fx:String id="address2"/>
+		<fx:String id="phone"/>
+		<fx:String id="site"/>
+		<fx:String id="photo"/>
+		<fx:String id="icon"/>
+	</fx:Declarations>
+	
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" paddingBottom="5" paddingLeft="5" paddingRight="5"
+						  paddingTop="5"/>
+	</s:layout>
+	
+	<s:SkinnableContainer id="container" width="100%" height="100%" backgroundAlpha="0.5"
+						  creationComplete="setBackgroundColors();"
+						  skinClass="com.raleigh.components.poi.PoiContainerSkin"
+						  styleName="defaultContainer">
+		<s:layout>
+			<s:VerticalLayout horizontalAlign="center" paddingBottom="5" paddingLeft="5"
+							  paddingRight="5" paddingTop="5" verticalAlign="middle"/>
+		</s:layout>		
+		<s:Label maxWidth="200" maxDisplayedLines="2" text="{address}" textAlign="center"/>
+		<s:Label text="{address2}"/>
+		<s:Label text="{phone}"/>		
+		<s:Label visible="{site != null}" buttonMode="true"
+				 click="navigateToURL(new URLRequest(site),'_blank')" color="blue"
+				 mouseChildren="false" text="Website" textDecoration="underline"
+				 toolTip="View Website" useHandCursor="true"/>
+	</s:SkinnableContainer>
+	
+	<mx:Image width="200" height="150" ioError="image1_ioErrorHandler(event)"
+			  source="{Model.getInstance().configuration.poiLayer.photos}{photo}"/>
+</s:TitleWindow>

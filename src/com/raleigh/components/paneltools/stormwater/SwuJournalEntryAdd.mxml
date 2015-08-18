@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					width="531" height="384" 
+					showCloseButton="false"
+					title="Add Journal Entry">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+
+			
+			protected function journalCodesDDL_creationCompleteHandler(event:FlexEvent):void
+			{				
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, journalCodesRetrieved);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'getjournalcodes',
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+				
+				this.journalCodesDDL.selectedIndex=0;
+			}
+
+			protected function btnClose_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+			protected function btnAdd_clickHandler(event:MouseEvent):void
+			{
+				if (journalEntry.text.toUpperCase()==""){
+					Alert.show("Please make a Journal entry to proceed...");	
+				}
+					else
+				{
+					AddJournals();
+				}
+			}
+			
+			
+			protected function journalCodesRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, journalCodesRetrieved);
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.journalCodes = data[0];
+						journalCodesDDL.dataProvider = new ArrayCollection(data);
+						this.journalCodesDDL.selectedIndex = 0;
+					}
+				}
+			}
+
+			
+			protected function AddJournals():void
+			{
+				if (validateInputs()){	
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, journalEntryAdded);
+					var adds:Object = {
+						journal_entry:journalEntry.text,
+						entry_type_code:this.journalCodesDDL.selectedItem.ENTRY_TYPE_CODE,
+						insertion_application_id:"SwuJournalEntryAdd"					
+					};
+					model.stormwater.searchPanel.swuService.send({
+						dbschema:model.stormwater.dbSchema,
+						'function':'addjournalentry',
+						acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+						adds:JSON.encode(adds),
+						connstr:JSON.encode(model.stormwater.connstr)
+					});
+				}
+			}
+			
+			protected function journalEntryAdded(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, journalEntryAdded);
+				if (event.result == 1){
+					Alert.show("Added Journal record...");	
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+					model.stormwater.searchPanel.getJournalEntries(0);
+					this.close();						
+				}
+			}
+			
+			protected function journalEntriesRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+				model.controller.removeProgress();
+				this.close();
+			}
+									
+
+			private function validateInputs():Boolean
+			{
+				var ret:Boolean = true;
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length > 0)
+				{
+					ret = false;
+				}
+				return ret;			
+			}
+
+		]]>
+	</fx:Script>
+	
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+	<fx:Declarations>
+		<fx:Array id="validators">
+			<mx:StringValidator id="entryValidate" minLength="1"  maxLength="300" property="text"
+								required="true" source="{journalEntry}"/>
+		</fx:Array>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY" />
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true"/>
+
+	</fx:Declarations>
+	<s:HGroup width="436" paddingBottom="5" paddingLeft="15" paddingRight="15" paddingTop="5">
+		<mx:Form width="413" height="86">
+			<mx:FormItem label="SWU Account:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{model.stormwater.currentAccount.SWU_ACCOUNT_ID}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Property  Address:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{model.stormwater.currentAccount.SITE_ADD}"/>				
+			</mx:FormItem>
+		</mx:Form>
+	</s:HGroup>
+	<s:HGroup width="495" height="129" paddingBottom="5" paddingLeft="20" paddingRight="15"
+			  paddingTop="5">
+	<mx:Form width="474" height="117">
+			<mx:FormItem width="100%" height="34" label="      Journal Codes:" fontWeight="bold"
+						 paddingBottom="5" paddingTop="5" paddingLeft="5" paddingRight="5">
+			<s:DropDownList id="journalCodesDDL" width="100%" selectedIndex="0"
+							creationComplete="journalCodesDDL_creationCompleteHandler(event)"
+						    labelField="ENTRY_TYPE_CODE_DESC" prompt="loading">
+			</s:DropDownList>
+		</mx:FormItem>	
+		<mx:FormItem width="100%" height="36" label="Journal Entry:" fontWeight="bold"
+					 paddingBottom="5" paddingTop="5" paddingLeft="5" paddingRight="5">
+			<mx:TextInput id="journalEntry" width="100%"  maxChars="300" />
+		</mx:FormItem>	
+	</mx:Form>
+	</s:HGroup>
+	<s:HGroup width="436" paddingBottom="5" paddingLeft="20" paddingRight="15" paddingTop="5">
+		<mx:Button id="btnClose" label="Cancel" click="btnClose_clickHandler(event)"/>
+		<mx:Label width="254" text=""/>
+		<mx:Button id="btnAdd" label="Add" 
+				   enabled="{Boolean(model.stormwater.journalInsertPrivs)}"
+				   visible="{Boolean(model.stormwater.journalInsertPrivs)}" 
+				   click="btnAdd_clickHandler(event)"/>
+	</s:HGroup>
+</toolbar:ToolWindow>

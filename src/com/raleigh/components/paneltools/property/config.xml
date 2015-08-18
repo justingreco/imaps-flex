@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>		
+<config>
+	<paths>
+		<path name="Building Photos" url="http://services.wakegov.com/realestate/photos/mvideo/"/>
+		<path name="BooksDoc" url="http://services.wakegov.com/booksweb/docview.aspx?docid="/>
+		<path name="BooksPdf" url="http://services.wakegov.com/booksweb/pdfview.aspx?docid="/>		
+		<path name="Real Estate" url="http://services.wakegov.com/realestate/Account.asp?id="/>	
+	</paths>
+	<septic url="http://maps.raleighnc.gov/ArcGIS/rest/services/Environmental/SepticTanks/MapServer/0"/>
+	<bufferquery url="http://maps.raleighnc.gov/ArcGIS/rest/services/Parcels/MapServer/0"/>
+	<emailscript url="http://maps.raleighnc.gov/PHP/email.php" subject="Property Search Failed"
+		from="Raleigh GIS" fromEmail="gis@raleighnc.gov" to="Raleigh GIS, iMAPS Help Desk" toEmail="gis@raleighnc.gov;iMAPSHelpDesk@wakegov.com"/>
+</config>

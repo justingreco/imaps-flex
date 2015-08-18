@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:utils="com.raleigh.components.utils.*"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:services="services.*"
+						  xmlns:soeservice="services.soeservice.*"
+						  width="100%" height="100%"
+						  addedToStage="basepaneltool1_addedToStageHandler(event)"
+						  currentState="{radiogroup1.selectedValue.replace(new RegExp(' ','g'),'')}"
+						  removedFromStage="basepaneltool1_removedFromStageHandler(event)">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.symbols.SimpleFillSymbol;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.BufferParameters;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.scripts.PropertyFields;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.Fault;
+			import mx.rpc.events.ResultEvent;
+			protected function search():void
+			{
+				if (currentState == "Custom")
+				{
+					if (destList.dataProvider)
+					{
+						if (destList.dataProvider.length > 0) {
+							buffer();
+						}
+						else
+						{
+							Alert.show("No fields selected, cannot preform search");
+						}
+					}
+					else
+					{
+						Alert.show("No fields selected, cannot preform search");
+					}
+				}
+				else
+				{
+					buffer();
+				}
+				
+
+			}
+			
+			private function buffer():void
+			{
+				var bp:BufferParameters = new BufferParameters();
+				bp.unit = unitDdl.selectedItem.value;
+				bp.distances = [distanceInput.text];
+				bp.geometries = [model.selectedProperty.geometry];
+				bp.outSpatialReference = map.spatialReference;
+				model.geomSrv.buffer(bp, new AsyncResponder(bufferResult, onFault, null));				
+			}
+			
+			private function bufferResult(geometries:Array, token:Object = null):void
+			{
+				model.geomSrv.simplify(geometries,new AsyncResponder(simplifyResult, onFault, null));
+			}
+			
+			private var queryTask:QueryTask;
+			private var wakePins:Array = [];
+			private var durPins:Array = [];
+			private var gl:GraphicsLayer;
+			
+			private function simplifyResult(geometries:Array, token:Object = null):void
+			{
+				queryTask = new QueryTask(model.propertySearch.config.bufferquery.@url);
+				queryTask.useAMF = true;
+				queryTask.showBusyCursor = false;
+				query.geometry = geometries[0];
+				queryTask.execute(query, new AsyncResponder(wakeQueryResult, onFault, null));
+				map.extent = query.geometry.extent;
+				if (map.extent.height < query.geometry.extent.height || map.extent.width < query.geometry.extent.width)
+				{
+					map.level -= 1;
+				}
+				if (!gl)
+				{
+					gl = new GraphicsLayer();
+					gl.id = "bufferGl";
+					gl.name = "Property Buffer Graphics Layer"
+					map.addLayer(gl);
+				}
+				gl.clear();
+				gl.add(new Graphic(query.geometry,new SimpleFillSymbol("solid", 0, 0.35, new SimpleLineSymbol("solid", 0, 1, 3))));
+				//queryTask.executeForIds(query, new AsyncResponder(wakeIdQueryResult, onFault, null));
+			}
+			
+/* 			private function wakeIdQueryResult(oids:Array, token:Object = null):void{
+				var pages:int = Math.round(oids.length/100);
+				pagesDg.dataProvider = new ArrayCollection();
+				for (var i:int = 1;i<pages+1;i++){
+					pagesDg.dataProvider.addItem(i);
+				}
+				query.geometry = null;
+				query.objectIds = oids.slice(0,100);
+				queryTask.useAMF = true;
+				queryTask.execute(query, new AsyncResponder(wakeQueryResult, onFault, null));
+			} */
+			private var outFields:String = "";
+			private function wakeQueryResult(fs:FeatureSet, token:Object = null):void
+			{
+				if (fs.features.length == 1000){
+					Alert.show("Maximum of 1000 properties returned, list will be incomplete, please specify a smaller distance.");
+				}
+				wakePins = [];
+				for each (var feature:Graphic in fs.features)
+				{
+					wakePins.push("'"+feature.attributes.PIN_NUM+"'");
+				}
+				
+				var where:String = "PIN_NUM in ("+wakePins.toString()+")";
+				outFields = "";
+				if (this.currentState == "MailingList"){
+					where += " ORDER BY OWNER";
+					outFields += "OWNER,ADDR1,ADDR2,ADDR3";
+				}else{
+					if (destList.dataProvider)
+					{
+						for (var i:int = 0;i < destList.dataProvider.length;i++){
+							if (i == 0){
+								where += " ORDER BY "+destList.dataProvider.getItemAt(i).gis;
+							}
+							if (i != destList.dataProvider.length -1){
+								outFields+= destList.dataProvider.getItemAt(i).gis+",";						
+							}else{
+								outFields+= destList.dataProvider.getItemAt(i).gis;
+							}
+							
+						}							
+					}
+				
+				}
+				if (outFields.split(",").length > 0)
+				{
+					//getMailingListInfo(where, outFields, "json");	
+					//realEstate("pin", "['"+wakePins.join("','")+"']", "json");
+					realEstate("pin", "["+wakePins+"]", "json");
+				}
+
+				//queryTask = new QueryTask('http://maps.raleighnc.gov/ArcGIS/rest/services/Parcels/MapServer/1');
+				//queryTask.useAMF = true;
+			}
+			
+			private function onFault(fault:Fault, token:Object = null):void
+			{
+				
+			}
+
+			
+			
+			protected function getMailingListInfo(where:String, outFields:String):void
+			{
+				//GetMailingListInfoResult.token = propertyService.GetMailingListInfo(where, outFields);
+			}
+			
+			protected function basepaneltool1_removedFromStageHandler(event:Event):void
+			{
+				if(gl)
+				{
+					gl.visible = false;
+				}
+			}
+			
+			protected function basepaneltool1_addedToStageHandler(event:Event):void
+			{
+				if(gl)
+				{
+					gl.visible = true;
+				}
+			}
+
+			protected function dataGroup_creationCompleteHandler(event:FlexEvent):void
+			{
+				dataGroup.contextMenu = new ContextMenu();
+				dataGroup.contextMenu.hideBuiltInItems();
+				var cmi:ContextMenuItem = new ContextMenuItem("Export");
+				cmi.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, exportSelect,false,0,true);
+				dataGroup.contextMenu.customItems.push(cmi);
+				var cmi1:ContextMenuItem = new ContextMenuItem("Copy Values");
+				cmi1.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, copySelect,false,0,true);
+				dataGroup.contextMenu.customItems.push(cmi1);
+			}
+			
+			protected function copySelect(event:ContextMenuEvent):void
+			{
+				System.setClipboard(createString());
+			}
+			
+
+			protected function exportSelect(event:ContextMenuEvent):void
+			{
+				if (model.configuration.scripts.exportGridURL)
+				{
+					var urlVars:URLVariables = new URLVariables();
+					urlVars.htmltable = createString();
+					urlVars.filename = "iMaps_PropertyBuffer_"+model.selectedProperty.attributes.PIN_NUM+"_Export.txt";
+					var req:URLRequest = new URLRequest(model.configuration.scripts.exportGridURL);
+					req.data = urlVars;
+					req.method = URLRequestMethod.POST;
+					navigateToURL(req,"_blank");					
+				}
+				else
+				{
+					Alert.show("Export script not set in config file");					
+				}
+
+			}
+			
+
+			
+			protected function createString():String
+			{
+				var str:String = "";
+				var items:Array = ArrayCollection(dataGroup.dataProvider).source;
+/* 				for each (var fld:String in outFields.split(","))
+				{
+					str+=fld+"\r\n";
+				}
+				str += "\r\n"; */
+				
+				for (var i:int = 0;i < items.length;i++)
+				{
+					str += items[i];
+/* 					var item:Object = items[i];
+					for each (var field:String in outFields.split(","))
+					{
+						if (item[field] != null)
+						{
+							str += item[field]+"\r\n";							
+						}
+					} */
+					str +="\r\n";
+				}			
+				return str;
+			}
+			
+			
+			protected function clearButton_clickHandler(event:MouseEvent):void
+			{
+
+				gl.clear();
+				dataGroup.dataProvider.removeAll();
+				if (destList){
+					destList.dataProvider =  null;					
+				}
+
+			}
+			
+			
+			protected function realEstate(type:String, values:Object, f:String):void
+			{
+				RealEstateResult.token = soeService.RealEstate(type, values, f);
+			}
+			
+			protected function RealEstateResult_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				var provider:ArrayCollection = new ArrayCollection();
+				for each (var item:Object in event.result.Accounts) {
+					if (this.currentState === "MailingList") {
+						provider.addItem(item.owner+'\r\n'+item.mailAddress1+'\r\n'+item.mailAddress2+'\r\n'+item.mailAddress3);	
+					} else {
+						if (destList.dataProvider) {
+							if (destList.dataProvider.length > 0) {
+								var content:String = "";
+								for each (var field:Object in destList.dataProvider) {
+									content += item[field.name] + '\r\n';
+								}
+								provider.addItem(content);
+							} else {
+								
+							}
+						}
+					}
+											
+				}
+					dataGroup.dataProvider = provider;
+
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+	<fx:Declarations>
+		<s:RadioButtonGroup id="radiogroup1"/>
+		<esri:Query id="query" outFields="['PIN_NUM']" returnGeometry="false"/>
+
+		<s:CallResponder id="RealEstateResult" result="RealEstateResult_resultHandler(event)"/>
+		<soeservice:SoeService id="soeService"
+							   fault="Alert.show(event.fault.faultString + '\n' + event.fault.faultDetail)"
+							   showBusyCursor="true"/>
+	</fx:Declarations>
+	<paneltools:states>
+		<s:State name="MailingList"/>
+		<s:State name="Custom"/>
+	</paneltools:states>
+	<s:HGroup>
+		<s:TextInput id="distanceInput" restrict="0-9." enter="search()"/>
+		<s:DropDownList id="unitDdl" selectedIndex="0">
+			<s:ArrayList>
+				<fx:Object label="Feet" value="9002"/>
+				<fx:Object label="Yards" value="9037"/>
+				<fx:Object label="Meters" value="9001"/>
+				<fx:Object label="Miles" value="9035"/>
+				<fx:Object label="Kilometers" value="9036"/>
+			</s:ArrayList>
+		</s:DropDownList>
+		<utils:ImageButton id="searchButton" width="24" height="24"
+						   click="search()"
+						   icon="@Embed(source='assets/searchIcon.png')"/>
+		<utils:ImageButton id="clearButton" width="24" height="24"
+						   icon="@Embed(source='assets/clear.png')"
+						   click="clearButton_clickHandler(event)"/>
+	</s:HGroup>
+	<s:HGroup>
+		<s:RadioButton label="Mailing List" groupName="radiogroup1" selected="true"/>
+		<s:RadioButton label="Custom" groupName="radiogroup1"/>		
+	</s:HGroup>
+	<s:VGroup includeIn="Custom" width="100%"  horizontalAlign="center">
+		<s:HGroup width="100%" height="150">
+			<s:List id="srcList" height="100%" dataProvider="{new PropertyFields()}" dragEnabled="true"
+					dragMoveEnabled="true" dropEnabled="true" labelField="alias"/>
+			<s:List id="destList" height="100%" dragEnabled="true" dragMoveEnabled="true"
+					dropEnabled="true" labelField="alias"/>
+		</s:HGroup>
+		<s:Label text="Drag fields from left list to right list"/>		
+	</s:VGroup>
+
+	<s:Scroller width="100%" height="100%">
+		<s:DataGroup id="dataGroup" width="100%" height="100%"
+					 itemRenderer="spark.skins.spark.DefaultItemRenderer"
+					 creationComplete="dataGroup_creationCompleteHandler(event)">
+			<s:layout>
+				<s:VerticalLayout/>
+			</s:layout>
+		</s:DataGroup>		
+	</s:Scroller>
+<!--	<s:DataGroup id="pagesDg"  itemRenderer="spark.skins.spark.DefaultItemRenderer">
+		<s:layout>
+			<s:HorizontalLayout/>
+		</s:layout>
+	</s:DataGroup>-->
+
+
+</paneltools:BasePanelTool>

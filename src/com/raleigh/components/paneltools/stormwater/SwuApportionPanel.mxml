@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<stormwater:SwuBasePanel xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:services="services.*"
+						 xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+						 creationComplete="panel1_creationCompleteHandler(event)"
+						 currentState="{(toggleBtn.selected)?'Details':'NoDetails'}"
+						 title="Apportionment Information">
+	
+	<stormwater:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</stormwater:layout>
+	<stormwater:states>
+		<s:State name="NoDetails"/>
+		<s:State name="Details"/>
+	</stormwater:states>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.events.ListEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.states.State;
+			
+			import spark.components.supportClasses.ItemRenderer;
+
+	
+			protected function panel1_creationCompleteHandler(event:FlexEvent):void
+			{
+				stormwater = model.stormwater;
+			}
+
+		    protected function dataGrid_changeHandler(event:ListEvent):void
+			{
+				model.stormwater.searchPanel.ccbService.addEventListener(ResultEvent.RESULT, premInfoRecieved);
+				model.controller.showProgress("Retrieving Apportionment...");
+				model.stormwater.searchPanel.ccbService.send({'function':'getpreminfo',
+					premid:event.itemRenderer.data.PREM_ID,
+					dbschema:model.stormwater.dbschemaCCB});
+				
+				
+			}	
+			private var detailsWin:SwuAcctApportionmentsDetailsWindow;
+			protected function premInfoRecieved(event:ResultEvent):void{
+				model.controller.removeProgress();
+				if (!detailsWin)
+				{
+					detailsWin = new SwuAcctApportionmentsDetailsWindow();
+				}
+				var data:Array = [];
+				if (event.result.length > 0){
+					data = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						detailsWin.currentState="Update";
+						PopUpManager.addPopUp(detailsWin, this.parentApplication as DisplayObject, true);
+						PopUpManager.centerPopUp(detailsWin);						
+					}
+				}
+			}
+
+
+			protected function addBtn_clickHandler(event:MouseEvent):void
+			{
+				if (stormwater.currentAccount.APPORTIONMENT_CODE=="NA") {
+					Alert.show("Apportionment type of NA does not allow for Apportionment Creation. Please set Apportionment Type and Number of Units...");		
+				}
+				else{				
+					if (stormwater.currentAccount.NBR_APPORTIONMENT_UNITS==0) {
+						Alert.show(" Please update the correct Number of Apportionment Units to continue...");		
+					}
+					else{
+						if (stormwater.currentAccount.NBR_APPORTIONMENT_UNITS==model.stormwater.apptCount) {
+							Alert.show(" Please increase the Number of Apportionment Units to continue.  All apportionments are in place based on count...");		
+						}
+						else{
+							if (!detailsWin)
+							{
+								detailsWin  = new SwuAcctApportionmentsDetailsWindow();
+							}
+							detailsWin.currentState="Add";
+							var addPanel:ApportionmentSearch = new ApportionmentSearch();
+							PopUpManager.addPopUp(addPanel, this.parentApplication as DisplayObject, true);
+							PopUpManager.centerPopUp(addPanel);
+						}
+					}
+				}
+			}
+			
+			
+						
+     		protected function dataGrid_creationCompleteHandler(event:FlexEvent):void
+			{
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, apportionmentsRecieved);
+				model.stormwater.searchPanel.swuService.send({'function':'getapportionments',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					apptid: 0,
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)});
+			}
+			
+			protected function apportionmentsRecieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, apportionmentsRecieved);
+				var data:Array = [];
+				if (event.result.length > 0){
+					data = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.apptAccount = data[0];					
+					}
+				}
+			}
+	
+			public function formatNumber(item:Object, column:DataGridColumn):String
+			{
+				return numFormatter.format(item.apportionmentPercentage);
+			}
+			
+			public function chkApptSettings():Boolean
+			{   var bolPrivs:Boolean=false;
+				if (model.stormwater.currentAccount.apportionment_code.toUpperCase()!="NA")
+				{
+					bolPrivs=false;
+				}
+					
+				return bolPrivs;
+			}
+			
+			private function updateApptType():void{
+				var UpdateTypePanel:SwuApportionmentTypeUpdate = new SwuApportionmentTypeUpdate();
+				PopUpManager.addPopUp(UpdateTypePanel, this.parentApplication as DisplayObject, true);
+				PopUpManager.centerPopUp(UpdateTypePanel);	
+			}
+
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true"/>	
+		</fx:Declarations>
+	<mx:Form width="403" paddingBottom="0" paddingLeft="0"
+			 paddingRight="0" paddingTop="0">
+		<mx:FormItem width="163" label="SWU Account:" fontWeight="bold" paddingBottom="5"
+					 paddingLeft="5" paddingRight="0" paddingTop="5"
+					 width.Details="165"
+					 width.NoDetails="298">
+			<s:Label width.Details="100%" fontWeight="normal" text="{model.stormwater.currentAccount.SWU_ACCOUNT_ID}"/>				
+		</mx:FormItem>
+		<mx:FormItem label="Apportionment Type:" fontWeight="bold"  paddingLeft="5"
+					 width="298">
+			<s:Button label="{stormwater.currentAccount.APPORTIONMENT_CODE}" click="updateApptType()"
+					  enabled="{model.stormwater.apptUpdatePrivs}"
+					  skinClass="com.raleigh.components.paneltools.stormwater.LinkButtonSkin"
+					  buttonMode="true"/>
+		</mx:FormItem>
+		<mx:FormItem label="Property  Address:" fontWeight="bold" paddingBottom="5" paddingLeft="5"
+					 paddingRight="5" paddingTop="5">
+				<s:Label fontWeight="normal"  
+					 text="{stormwater.currentAccount.SITE_ADD}"/>				
+			
+		</mx:FormItem>
+		<mx:FormItem label="Apportionment Units" fontWeight="bold" paddingBottom="5" paddingLeft="5"
+					 paddingRight="5" paddingTop="5">
+			<s:Label fontWeight="normal" text="{stormwater.currentAccount.NBR_APPORTIONMENT_UNITS}"/>				
+		</mx:FormItem>
+		</mx:Form>
+		<s:HGroup includeIn="Details" width="100%" paddingBottom="5" paddingLeft="5" paddingRight="5"
+				  paddingTop="5">
+		</s:HGroup>
+	<s:HGroup width="100%" paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5">
+		
+	<s:ToggleButton id="toggleBtn" enabled="{(model.stormwater.apportionments.length>0)?true:false}"
+					label.Details="Hide Apportionments"
+					label.NoDetails="Show Apportionments"/>	
+		
+	<s:Label width="177"/>				
+	<s:Button id="addBtn"  label="Add" 
+			  enabled="{Boolean(model.stormwater.apptAddPrivs)}"
+			  click="addBtn_clickHandler(event)"/>
+	</s:HGroup>
+	<mx:DataGrid id="dataGrid" includeIn="Details" width="100%" maxHeight="200"
+				 change="dataGrid_changeHandler(event)"
+				 creationComplete="dataGrid_creationCompleteHandler(event)"
+				 dataProvider="{model.stormwater.apportionments}"
+				 wordWrap="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="SWU_ACCOUNT_APPORTIONMENT_ID" headerText="Appt ID"/>
+			<mx:DataGridColumn dataField="PREM_ID" headerText="Premise ID"/>
+			<mx:DataGridColumn dataField="APPORTIONMENT_ADDRESS" headerText="Address"/>
+			<mx:DataGridColumn dataField="APPORTIONMENT_PERCENTAGE" headerText="Percentage" />
+	    </mx:columns>
+	</mx:DataGrid>	
+</stormwater:SwuBasePanel>

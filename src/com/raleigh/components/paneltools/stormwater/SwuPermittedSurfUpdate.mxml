@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					showCloseButton="false" title="Update Permitted Surface">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+
+				
+				[Bindable]
+			public var details:Object;
+				
+			[Bindable]
+			private var detailsWin:SwuPermittedSurfUpdate;
+
+ 		protected function UpdatePermSurf():void
+			{
+				var impSurfID:int = int(details.id);
+				var permSurfOrig:int = int(permitSurfOrig.text);
+				var permSurf:int = int(permittedSurf.text);
+				
+				if (permSurf==int(permitSurfOrig.text))
+				{  
+					Alert.show("Permitted Impervious surface amount has not been changed, update was not performed...");					
+				}
+				else
+				{
+					var updates:Object = {
+						permitted_imp_surface:permSurf,
+						prev_permitted_imp_surface:permSurfOrig
+					};
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, permSurfUpdated);
+					model.stormwater.searchPanel.swuService.send({
+						'function':'updatepermsurf',
+						acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+						impid:impSurfID,
+						updates:updates,
+						dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)
+					});
+				}
+ 			}
+			protected function permSurfUpdated(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, permSurfUpdated);
+				if (event.result == 1){
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, impSurfRetrieved);
+					model.stormwater.searchPanel.swuService.send({
+						'function':'getimpervioussurfaces',
+						acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+						dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)
+					});
+				}else{
+					Alert.show("Update of Permitted Impervious Surface amount has failed...")
+				}
+			}
+			
+			protected function impSurfRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, impSurfRetrieved);
+				if (event.result.length == 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length == 0){
+						Alert.show("Impervious surface records not found");
+					}else if(data.length > 0){
+						model.stormwater.imperviousSurfaces = new ArrayCollection(data);
+						model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+						model.stormwater.searchPanel.getJournalEntries(0);	
+					}
+				}
+			}
+			
+					
+
+			protected function journalEntriesRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+				this.close();
+			}
+
+
+				
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+			protected function btnUpdate_clickHandler(event:MouseEvent):void
+			{
+				UpdatePermSurf();
+			}
+							
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true"/>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+	</fx:Declarations>
+	<s:Form>
+		<s:Form>
+			<s:HGroup >
+				<s:Label text="Surface ID:" fontWeight="bold"/>
+				<s:Label id="impID" text="{details.id}"/>
+				<s:Label text="Current Permitted Amount" fontWeight="bold"/>
+				<s:Label id="permitSurfOrig" text="{numFormatter.format(details.permitted)}" />		
+			</s:HGroup>
+
+			<s:FormItem width="100%" label="Permitted Surface">
+				<s:TextInput id="permittedSurf" restrict="0-9" text="{numFormatter.format(details.permitted)}"/>
+			</s:FormItem>	
+			<s:HGroup>
+				<s:Button id="btnCancel" label="Cancel" click="btnCancel_clickHandler(event)"/>
+				<mx:Spacer width="103" height="20"/>
+				<s:Button id="btnUpdate" label="Update" click="btnUpdate_clickHandler(event)"/>
+			</s:HGroup>
+			
+		</s:Form>		
+	</s:Form>
+</toolbar:ToolWindow>

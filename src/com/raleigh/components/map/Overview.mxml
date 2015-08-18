@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  xmlns:esri="http://www.esri.com/2008/ags"
+					  creationComplete="init()"
+					  skinClass="com.raleigh.skins.OverviewMapSkin">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Map;
+			import com.esri.ags.events.ExtentEvent;
+			import com.esri.ags.events.LayerEvent;
+			import com.esri.ags.events.MapEvent;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.events.PanEvent;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.ArcGISTiledMapServiceLayer;
+			import com.esri.ags.layers.Layer;
+			import com.raleigh.model.Model;
+			
+			import mx.events.FlexEvent;
+			
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			
+			[Bindable]
+			public var mainMap:Map;
+			
+			private var xOff:Number;
+			private var yOff:Number;
+			private var newext:Extent;			
+
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;			
+			
+			protected function init():void
+			{
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/overview.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+				
+				removeEventListener(FlexEvent.CREATION_COMPLETE, init);
+				mainMap = model.map;
+				mainMap.addEventListener(ExtentEvent.EXTENT_CHANGE, mainMap_extentChangeHandler,false,0,true);
+				mainMap.addEventListener(PanEvent.PAN_UPDATE, mainMap_panUpdateHandler,false,0,true);
+
+			}
+			
+
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+				var layer:Layer = null;
+				try{
+					if (config.basemap){
+						if (config.basemap.@type == 'tiled'){
+							layer = new ArcGISTiledMapServiceLayer(config.basemap.@url);
+						}else if (config.basemap.@type == 'dynamic'){
+							layer = new ArcGISDynamicMapServiceLayer(config.basemap.@url);						
+						}
+					}
+					layer.addEventListener(LayerEvent.LOAD_ERROR, layerLoadError);
+					layer.addEventListener(LayerEvent.LOAD, layerLoaded);
+					ovMap.addEventListener(MapEvent.LOAD, mapLoaded);
+					ovMap.addLayer(layer);
+					
+
+
+				}catch(e:Error){
+					//Alert.show('Error loading overview map');
+				}
+			}			
+			
+			private function layerLoadError(event:LayerEvent):void{
+				//Alert.show('Error loading overview map');
+				event.currentTarget.removeEventListener(LayerEvent.LOAD, layerLoaded);
+				event.currentTarget.removeEventListener(LayerEvent.LOAD_ERROR, layerLoadError);
+			}
+			
+			private function layerLoaded(event:LayerEvent):void{
+				event.currentTarget.removeEventListener(LayerEvent.LOAD, layerLoaded);
+				event.currentTarget.removeEventListener(LayerEvent.LOAD_ERROR, layerLoadError);
+
+			}
+			
+			private function mapLoaded(event:MapEvent):void{
+				ovMap.removeEventListener(MapEvent.LOAD, mapLoaded);
+				var layer:Layer = null;
+				if (config.labels){
+					if (config.labels.@type == 'tiled'){
+						layer = new ArcGISTiledMapServiceLayer(config.labels.@url);
+						ovMap.addLayer(new ArcGISTiledMapServiceLayer(config.labels.@url));
+					}else if (config.labels.@type == 'dynamic'){
+						layer = new ArcGISDynamicMapServiceLayer(config.labels.@url);
+						ovMap.addLayer(new ArcGISDynamicMapServiceLayer(config.labels.@url));						
+					}
+				}	
+				layer.addEventListener(LayerEvent.LOAD_ERROR, layerLoadError);
+				layer.addEventListener(LayerEvent.LOAD, layerLoaded);
+				ovMap.addLayer(layer);
+				ovMap.addLayer(gl);
+			}
+			
+			private function mainMap_extentChangeHandler(event:ExtentEvent):void
+			{
+				ovMap.extent = event.extent;
+				if (event.currentTarget.level - 1 > 0){
+					ovMap.level = event.currentTarget.level - 1;					
+				}
+				else
+				{
+					ovMap.level = 0;
+				}
+				
+			}
+			
+			private function mainMap_panUpdateHandler(event:PanEvent):void
+			{
+				ovMap.centerAt(event.extent.center);
+			}
+			
+			protected function graphic_mouseDownHandler(event:MouseEvent):void
+			{
+				var ext:Extent = graphic.geometry as Extent;
+				var mp:MapPoint = ovMap.toMapFromStage(event.stageX, event.stageY);
+				xOff = ext.center.x - mp.x;
+				yOff = ext.center.y - mp.y;
+				ovMap.addEventListener(MouseEvent.MOUSE_MOVE,ovMap_mouseMoveHandler);
+			}
+			
+			protected function ovMap_mouseMoveHandler(event:MouseEvent):void
+			{
+				ovMap.addEventListener(MouseEvent.ROLL_OUT, mouseRollOutHandler,false,0,true);
+				var mp:MapPoint = ovMap.toMapFromStage(event.stageX, event.stageY);
+				var tempX:Number = mp.x + xOff;
+				var tempY:Number = mp.y + yOff;
+				var ext:Extent = graphic.geometry as Extent;
+				newext = new Extent(tempX - ext.width/2, tempY - ext.height/2,
+					tempX + ext.width/2, tempY + ext.height/2);
+				graphic.geometry = newext;
+				if (!event.buttonDown)
+				{
+					ovMap.addEventListener(MouseEvent.MOUSE_UP, ovMap_mouseUpHandler,false,0,true);
+				}			
+			}
+			
+			protected function ovMap_mouseUpHandler(event:MouseEvent):void
+			{
+				setMapExtent();
+				ovMap.removeEventListener(MouseEvent.MOUSE_MOVE, ovMap_mouseMoveHandler);
+			}	
+			protected function mouseRollOutHandler(event:MouseEvent):void
+			{
+				setMapExtent();
+				ovMap.removeEventListener(MouseEvent.MOUSE_UP, ovMap_mouseUpHandler);
+				graphic.removeEventListener(MouseEvent.MOUSE_DOWN, graphic_mouseDownHandler);
+				ovMap.removeEventListener(MouseEvent.ROLL_OUT, mouseRollOutHandler);
+				ovMap.removeEventListener(MouseEvent.MOUSE_MOVE, ovMap_mouseMoveHandler);
+			}				
+			protected function setMapExtent():void
+			{
+				mainMap.extent = newext;
+				ovMap.centerAt(newext.center);				
+			}
+
+			
+			protected function togglebutton1_clickHandler(event:MouseEvent):void
+			{
+				if (event.currentTarget.selected)
+				{
+					currentState = "Expanded";
+				}
+				else
+				{
+					currentState = "Collapsed";
+				}
+			}			
+			
+
+			protected function ovMap_mapClickHandler(event:MapMouseEvent):void
+			{
+				mainMap.centerAt(event.mapPoint);
+			}
+
+			protected function ovMap_loadHandler(event:MapEvent):void
+			{
+				ovMap.removeEventListener(MapEvent.LOAD, ovMap_loadHandler);
+				if (model.settingsSO)
+				{
+					if (model.settingsSO.size > 0)
+					{
+						callLater(setState,[model.settingsSO.data[model.SETTINGS+"_"+model.config].overview]);
+					}					
+				}
+			}
+			
+			protected function setState(value:Boolean):void
+			{
+				this.currentState = (value)?"Expanded":"Collapsed";
+			}
+			
+			protected function graphic_rollOverHandler(event:MouseEvent):void
+			{
+				graphic.addEventListener(MouseEvent.MOUSE_DOWN, graphic_mouseDownHandler);
+			}
+			
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="Expanded"/>
+		<s:State name="Collapsed"/>
+	</s:states>	
+
+	<fx:Declarations>
+		<esri:SimpleFillSymbol id="sfs" style="solid">
+			<esri:SimpleLineSymbol width="3" color="0xFFF000" style="solid"/> 
+		</esri:SimpleFillSymbol>
+		
+		<esri:GraphicsLayer id="gl">
+			<esri:Graphic id="graphic" buttonMode="true" geometry="{mainMap.extent}"
+						  rollOver="graphic_rollOverHandler(event)" symbol="{sfs}"
+						  toolTip="Drag/release to pan map" useHandCursor="true"/>
+		</esri:GraphicsLayer>		
+	</fx:Declarations>
+	
+	<s:layout>
+		<s:BasicLayout/>
+	</s:layout>
+	
+	<esri:Map id="ovMap" includeIn="Expanded" x="0" y="0" width="250" height="250"
+			  doubleClickEnabled="false" level="0" load="ovMap_loadHandler(event)"
+			  logoVisible="false" mapClick="ovMap_mapClickHandler(event)"
+			  mapNavigationEnabled="false" scaleBarVisible="false" zoomSliderVisible="false">
+
+
+	</esri:Map>	
+	
+	<s:ToggleButton id="toggleBtn" width="20" height="20" buttonMode="true"
+					click="togglebutton1_clickHandler(event)"
+					skinClass="com.raleigh.skins.OverviewButtonSkin" useHandCursor="true"
+					x.Collapsed="0" y.Collapsed="0" right.Collapsed="0" bottom.Collapsed="0"
+					selected.Collapsed="false" toolTip.Collapsed="Expand Overview Map"
+					selected.Expanded="true" toolTip.Expanded="Collapse Overview Map"/>	
+</s:SkinnableContainer>

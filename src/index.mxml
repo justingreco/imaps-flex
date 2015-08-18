@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx"  
+			   xmlns:view="com.raleigh.view.*" xmlns:control="com.raleigh.control.*"
+			   xmlns:components="com.raleigh.components.*"
+			   xmlns:header="com.raleigh.components.header.*"
+			   initialize="initializeHandler(event)" 
+			   preinitialize="application1_preinitializeHandler(event)"
+			   addedToStage="addedToStageHandler(event)"
+			   creationComplete="creationCompleteHandler(event)"
+			   currentState="unloaded"
+			   backgroundColor="0x555555"
+			   backgroundAlpha="0.30">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.utils.mousewheel.MouseWheelEnabler;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			
+			import mx.events.FlexEvent;
+
+			
+			private var model:Model = Model.getInstance();
+			
+			private var controller:Controller = Controller.getInstance();
+			
+			
+			
+			protected function initializeHandler(event:FlexEvent):void
+			{
+				
+			}
+			
+
+			
+			protected function creationCompleteHandler(event:FlexEvent):void
+			{
+				callLater(controller.checkDeepLinks);
+
+				
+			}
+			
+			private function addedToStageHandler(event:Event):void
+			{
+				com.adobe.utils.mousewheel.MouseWheelEnabler.init(stage);
+			}
+			
+			protected function application1_preinitializeHandler(event:FlexEvent):void
+			{
+				model.headerBar = this.headerBar;
+				model.controller = this.controller;
+				
+				
+				controller.getData();
+				controller.GetSettings();
+
+			}
+			
+		]]>
+	</fx:Script>
+	<s:states>
+		<s:State name="unloaded"/>
+		<s:State name="loaded"/>
+	</s:states>
+	<fx:Style source="style.css"/>
+
+	<s:controlBarLayout>
+		<s:HorizontalLayout/>
+	</s:controlBarLayout>
+	<s:controlBarContent>
+		<header:HeaderBar id="headerBar" includeIn="loaded"/>
+	</s:controlBarContent>
+	
+	<view:MainView includeIn="loaded"/>
+</s:Application>

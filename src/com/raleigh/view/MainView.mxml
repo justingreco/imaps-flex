@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:components="com.raleigh.components.*"
+		 xmlns:map="com.raleigh.components.map.*"
+		 xmlns:paneltools="com.raleigh.components.paneltools.*"
+		 width="100%" height="100%" initialize="init()">
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			[Bindable]
+			private var model:Model = Model.getInstance();			
+			private var controller:Controller;
+
+			protected function init():void
+			{
+				controller = model.controller;
+				model.mainView = this;
+				model.mapPanel = this.mapPanel;
+				model.rightPanel = this.rightPanel;
+				model.map = this.mapPanel.map;
+			}
+			
+
+			
+		]]>
+	</fx:Script>
+	<map:MapPanel id="mapPanel" right="{model.configuration.panelTools.width-20}"/>
+	<paneltools:RightPanel id="rightPanel" right="0"/>
+	<mx:Canvas id="popUpCanvas" width="100%" height="100%"/>
+</s:Group>

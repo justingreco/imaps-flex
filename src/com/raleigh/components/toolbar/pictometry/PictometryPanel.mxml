@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   xmlns:code="http://code.google.com/p/flex-iframe/"
+			   xmlns:pictometry="com.raleigh.components.toolbar.pictometry.*"
+			   xmlns:toolbar="com.raleigh.components.toolbar.*"
+			   xmlns:components="com.raleigh.components.*"
+			   xmlns:utils="com.raleigh.components.utils.*"
+			   y="{this.parentApplication.height - this.height}" left="0"
+			   addedToStage="titlewindow1_addedToStageHandler(event)"
+			   close="titlewindow1_closeHandler(event)"
+			   creationComplete="titlewindow1_creationCompleteHandler(event)"
+			   skinClass="com.raleigh.skins.ToolWindowSkin" title="Pictometry">
+
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			import com.raleigh.skins.ToolWindowSkin;
+			
+			import mx.events.CloseEvent;
+			import mx.events.FlexEvent;
+			import mx.events.ResizeEvent;
+			import mx.events.SliderEvent;
+			
+			import spark.components.Application;
+			import spark.components.Label;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			private var controller:Controller = Controller.getInstance();
+
+			protected function prevButton_clickHandler(event:MouseEvent):void
+			{
+				model.pictometryButton.getPreviousImage();
+			}
+
+
+			protected function nextButton_clickHandler(event:MouseEvent):void
+			{
+				model.pictometryButton.getNextImage();
+			}
+
+
+			protected function zoomSlider_changeHandler(event:SliderEvent):void
+			{
+				model.pictometryButton.changeScale(zoomSlider.value);
+			}
+
+			protected function fullButton_changeHandler(event:Event):void
+			{
+				if (fullButton.selected)
+				{
+					Application(this.parentApplication).addEventListener(ResizeEvent.RESIZE, applicationResizeHandler,false,0,true);		
+				}
+				else
+				{
+					Application(this.parentApplication).removeEventListener(ResizeEvent.RESIZE, applicationResizeHandler);
+				}
+				resizeElements(fullButton.selected);
+
+			}
+
+			protected function titlewindow1_closeHandler(event:CloseEvent):void
+			{
+				Application(this.parentApplication).removeEventListener( ResizeEvent.RESIZE, applicationResizeHandler);
+			}
+			
+			protected function windowResizeHandler(event:ResizeEvent):void
+			{
+				resizeElements(fullButton.selected);
+			}
+
+			protected function applicationResizeHandler(event:ResizeEvent):void
+			{
+				resizeElements(fullButton.selected);				
+			}
+
+			
+			protected function resizeElements(fullScreen:Boolean):void
+			{
+				if (fullScreen)
+				{
+					this.height = this.parentApplication.height;
+					this.width = this.parentApplication.width;
+					this.x = 0;
+					this.y = 0;		
+					iframe.width = this.width-1;
+					iframe.height = this.height - this.controlBarGroup.height - Label(this.titleDisplay).height;// - this.controlBar.height - this.getHeaderHeight();
+				}
+				else
+				{
+					this.height = origHeight;
+					this.width = origWidth;
+					iframe.width = origIFrameWidth;
+					iframe.height = origIFrameHeight;
+				}
+				model.pictometryButton.resizeDiv(iframe.width, iframe.height);
+
+			}
+
+			private var origWidth:int;
+			private var origHeight:int;
+			private var origIFrameWidth:int;
+			private var origIFrameHeight:int;
+
+			protected function titlewindow1_creationCompleteHandler(event:FlexEvent):void
+			{
+				//changed at Flex 4.5//
+				Label(this.titleDisplay).setStyle("color", uint(model.configuration.titleColors.text));
+				this.closeButton.setStyle("symbolColor", uint(model.configuration.titleColors.text));
+				
+				this.origHeight = this.height;
+				this.origWidth = this.width;
+				this.origIFrameHeight = iframe.height;
+				this.origIFrameWidth = iframe.width;
+				
+			}
+
+			protected function layerCheck_changeHandler(event:Event):void
+			{
+				model.pictometryButton.toggleLayerVisibility(layerCheck.selected);
+			}
+
+
+			protected function titlewindow1_addedToStageHandler(event:Event):void
+			{
+				this.isPopUp = false;
+			}
+
+		]]>
+	</fx:Script>
+	
+	<code:IFrame id="iframe" width="400" height="300" paddingBottom="0" paddingLeft="0"
+				 paddingRight="0" paddingTop="0"
+				 source="com/raleigh/components/toolbar/pictometry/pictometry.html">
+	</code:IFrame>			
+
+<s:controlBarContent>
+	<s:VGroup width="100%">
+		<s:HGroup width="100%">
+			<pictometry:PictometryCompass>
+			</pictometry:PictometryCompass>
+			<mx:HSlider id="zoomSlider" width="100%" change="zoomSlider_changeHandler(event)"
+						labels="['25%','50%','75%','100%','125%','150%','175%','200%']"
+						liveDragging="true" maximum="2" minimum="0.25" value="1">	
+			</mx:HSlider>	
+			
+		</s:HGroup>
+		
+		<s:HGroup>
+			<utils:ImageButton id="prevButton" width="24" height="24"
+							   click="prevButton_clickHandler(event)"
+							   icon="@Embed(source='assets/back.png')" toolTip="Previous Image"/>
+			<utils:ImageButton id="nextButton" width="24" height="24"
+							   click="nextButton_clickHandler(event)"
+							   icon="@Embed(source='assets/next.png')" toolTip="Next Image"/>
+			<toolbar:ToolbarToggleButtonBase id="fullButton" width="24" height="24"
+											 change="fullButton_changeHandler(event)"
+											 icon="@Embed(source='../assets/fullscreen.png')"
+											 selected="false" toolTip="Full Screen"/>				
+			<s:CheckBox id="layerCheck" label="Layers" change="layerCheck_changeHandler(event)"
+						selected="false"/>
+		</s:HGroup>
+	</s:VGroup>	
+</s:controlBarContent>
+
+</s:TitleWindow>

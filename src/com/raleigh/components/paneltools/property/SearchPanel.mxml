@@ -1,0 +1,628 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:getproperty="services.getproperty.*"
+		 xmlns:components="com.raleigh.components.*"
+		 xmlns:components1="org.flashcommander.components.*"
+		 xmlns:utils="com.raleigh.components.utils.*"
+		 xmlns:services="services.*"
+		 xmlns:soeservice="services.soeservice.*"
+		 width="100%" creationComplete="group1_creationCompleteHandler(event)"
+		 currentState="{ddl.selectedItem.value}">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.components.utils.AutoCompleteChangeEvent;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			
+			import flash.desktop.Clipboard;
+			import flash.desktop.ClipboardFormats;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.controls.Alert;
+			import mx.controls.ProgressBar;
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.Fault;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+			
+			import spark.events.IndexChangeEvent;
+			
+			import soeObjects.Accounts_type;
+			
+			[Bindable]
+			private var model:Model = Model.getInstance();			
+			private var controller:Controller = Controller.getInstance();
+			public var queryTask:QueryTask;
+			public var query:Query;
+			private var progBar:ProgressBar;
+			public var selectCount:int = 0;
+			private var searchType:String = "";
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (model.pins.length > 0)
+				{
+					//var where:String = "PIN_NUM in (";
+					var where:String = "";
+					var pinArray:Array = new Array();
+					for each (var pin:String in model.pins)
+					{
+						pinArray.push("'"+pin.replace(new RegExp("%20","g"),"")+"'");
+					}
+					where = where + pinArray.toString();
+					ddl.selectedIndex = 2;
+					currentState = "PIN";
+					searchType = "list";
+					realEstate("pin", new ArrayCollection(model.pins), "json");
+
+					
+				}
+			}
+			
+			protected function ddl_creationCompleteHandler(event:FlexEvent):void
+			{
+					
+			}
+			
+			protected function dropdownlist1_changeHandler(event:IndexChangeEvent):void
+			{
+				textInput.text = "";
+				textInput.prompt = event.currentTarget.selectedItem.sample;
+			}
+			
+			protected function search():void
+			{
+				
+				if (Validator.validateAll([stringValidator]).length == 0)
+				{
+					model.propertySearch.propertyBar.selectedIndex = 0;
+					
+					//searchProperties(setWhere());	
+					var params:Object = getSearchParams();
+					autoComplete(params.type, params.input, "json");
+				}
+				
+			}
+			
+			private function getSearchParams():Object {
+				var retVal:Object = {type: currentState.toLowerCase(), input: ""};
+				if (currentState == "Address") {
+					if (stNumInput.text.length>0){
+						retVal.input = stNumInput.text.toString() + " " + stNameInput.text;
+					} else {
+						retVal.type = "street name";
+						retVal.input = stNameInput.text;
+					}					
+				} else {
+					retVal.input = textInput.text;
+				}
+				return retVal;
+			}
+			
+			protected function autoComplete(type:String, input:String, f:String):void
+			{
+				controller.removeProgress();
+				controller.showProgress("Searching Wake Real Estate Accounts...");	
+				AutoCompleteResult.token = soeService.AutoComplete(type, input, 1000, f);
+			}
+			
+			private function getSearchType():String {
+				var retVal:String = currentState.toLowerCase();
+				if (currentState == "Address") {
+					if (stNumInput.text.length == 0){
+						retVal = "street name";
+					}				
+				}
+				return retVal;				
+			}
+			
+			protected function AutoCompleteResult_resultHandler(event:ResultEvent):void
+			{
+				controller.removeProgress();
+				searchType = "list";
+				var results:ArrayCollection = event.result.Results;
+				for(var i:int;i < results.length;i++) {
+					var result:String = results.getItemAt(i).toString();
+					if (result.search(new RegExp("'","g")) > -1) {
+						result = result.replace(new RegExp("'","g"), "");
+						results[i] = result;
+
+					}
+				}
+				realEstate(getSearchType(), results, "json");
+			}
+			
+			
+			protected function realEstate(type:String, values:Object, f:String):void
+			{
+				controller.removeProgress();
+				controller.showProgress("Searching Wake Real Estate Accounts...");				
+				RealEstateResult.token = soeService.RealEstate(type, "['"+values.source.join("','")+"']", f);
+			}
+			
+	
+
+			
+			private function setWhere():String
+			{
+				var retVal:String;
+				switch (currentState)
+				{
+					case "Address":
+						if (stNumInput.text.length>0){
+							//retVal =  "STNUM = "+stNumInput.text+" AND FULL_STREET_NAME = '"+stNameInput.text.toUpperCase()+"'";
+							retVal = "A.ST_NUM = "+stNumInput.text+" AND TRIM(TRIM(TRIM(A.DIR_PREFIX||' '||A.ST_NAME)||' '||A.ST_TYPE)||' '||A.DIR_SUFFIX) = '"+stNameInput.text.toUpperCase()+"'";
+						}else{
+							//retVal = "FULL_STREET_NAME = '"+stNameInput.text.toUpperCase()+"'";	
+							retVal = "TRIM(TRIM(TRIM(A.DIR_PREFIX||' '||A.ST_NAME)||' '||A.ST_TYPE)||' '||A.DIR_SUFFIX) = '"+stNameInput.text.toUpperCase()+"'"; 
+						} 
+						break;
+					case "Owner":
+						retVal = "OWNER LIKE '"+textInput.text.toUpperCase()+"%'";
+						break;
+					default:
+						retVal = ddl.selectedItem.field +" = '"+textInput.text+"'";
+						break;
+				}
+				return retVal;
+			}
+			
+			public function searchProperties(where:String):void
+			{
+				var order:String = setOrderField();
+				
+				//searchRealEstateAccounts(where, order, "list");
+			}
+			
+			private function setOrderField():String{
+				var retVal:String;
+				if (model.pins.length > 0)
+				{
+					retVal = "PIN_NUM, PIN_EXT";
+				}
+				else
+				{
+					switch (currentState)
+					{
+						case "Address":
+							retVal = "SITE_ADDRESS";
+							break;
+						case "Owner":
+							retVal = "OWNER";
+							break;
+						case "PIN":
+							retVal = "PIN_NUM, PIN_EXT";
+							break;
+						case "REID":
+							retVal = "REID";
+							break;
+					}					
+				}
+
+				return retVal;				
+			}		
+			
+
+			
+			public function searchRealEstateAccounts(where:ArrayCollection, orderField:String, type:String):void
+			{
+				controller.removeProgress();
+				controller.showProgress("Searching Wake Real Estate Accounts...");	
+				if (model.propertySearch)
+				{
+					model.propertySearch.propertyBar.selectedIndex = 0;
+					model.propertySearch.activatePropertyBar(false);					
+				}
+
+				searchType = type;
+				//whereClause = where;
+				if (type == 'click'){
+					//SearchRealEstateAccountsResult.token = propertyService.SearchRealEstateAccounts(where, orderField, type);		
+					searchType = "click";
+					whereClause = "PIN_NUM in ('"+where.source.join("','")+"')";
+					realEstate("pin", where, "json");
+				}else{
+					//SearchRealEstateAccountsResult.token = propertyService.SearchRealEstateAccounts(where, orderField, currentState);	
+					searchType = currentState;
+					realEstate("pin", where, "json");
+				}
+
+			}
+			
+			private var whereClause:String;
+			
+			protected function RealEstateResult_resultHandler(event:ResultEvent):void
+			{
+				controller.removeProgress();
+				var fLayer:FeatureLayer = null;
+				var pins:ArrayCollection = new ArrayCollection();
+				model.propertyInfo = new ArrayCollection();
+				model.propertyResults = event.result.Accounts;
+				for each(var account:Accounts_type in event.result.Accounts) {
+					if (!pins.contains("'"+account.pin+"'")) {
+						if (pins.length < 1000) {
+							pins.addItem("'"+account.pin+"'");
+						}
+					}
+				}
+				model.controller.removeProgress();
+				if (pins.source.length > 0) {
+					model.controller.showProgress("Searching Wake Properties...");
+					if (searchType == "list") {
+						var pinStr:String = "PIN_NUM in ("+pins.source.toString()+")";
+						var query:Query = new Query();
+						query.returnGeometry = true;
+						query.where = pinStr;
+						
+						selectCount = 0;
+						fLayer = model.propertyFLayers[0];
+						fLayer.clearSelection();
+						fLayer.useAMF = false;
+						fLayer.selectFeatures(query, "add", new AsyncResponder(wakeQueryResultHandler, queryFailed, {type:searchType, county:"Wake"}));	
+					}
+					else if (searchType == "click")
+					{
+						model.controller.removeProgress();
+						if (RealEstateResult.lastResult.Accounts.length == 1)
+						{
+							
+							var propertyResults:PropertyResults = model.propertySearch.resultsPanel;
+							//propertyResults.sendSingleQuery(SearchRealEstateAccountsResult.lastResult[0].pin, SearchRealEstateAccountsResult.lastResult[0].reid,
+								//searchType, SearchRealEstateAccountsResult.lastResult[0].county);	
+							propertyResults.displayPropertyInfo(event.result.Accounts[0], searchType);
+						}
+						searchDurham();
+					}
+				} else {
+					fLayer = model.propertyFLayers[0];
+					fLayer.clearSelection();					
+					searchDurham();
+				}
+			}			
+						
+			
+			
+
+			
+			
+			protected function wakeQueryResultHandler(features:Array, token:Object):void
+			{
+				model.rightPanel.accordion.selectedIndex = model.rightPanel.accordion.getElementIndex(this.parentDocument.hostComponent as IVisualElement);
+				var fs:FeatureSet = new FeatureSet(features);
+				if (features.length == 1000){
+					Alert.show("A maximum of 1,000 selected properties shown on map, please narrow search criteria");
+				}
+				model.controller.removeProgress();
+				model.controller.showProgress("Searching Durham Properties...");	
+				searchDurham();
+			}
+			
+			public function searchDurham():void
+			{
+				var query:Query = new Query();
+				query.returnGeometry = true;
+				query.where = whereClause;
+				model.controller.removeProgress();
+				if (searchType == "list")
+				{
+					query.where = setDurhamWhere();
+
+					
+				}
+/* 				else if (searchType == "click")
+				{
+					if (SearchRealEstateAccountsResult.lastResult.length == 1)
+					{
+						var propertyResults:PropertyResults = model.propertySearch.resultsPanel;
+						propertyResults.sendSingleQuery(SearchRealEstateAccountsResult.lastResult[0].pin, SearchRealEstateAccountsResult.lastResult[0].reid,
+							searchType, SearchRealEstateAccountsResult.lastResult[0].county);						
+					}
+				} */
+				model.controller.removeProgress();
+				model.controller.showProgress("Searching Properties");				
+				selectCount = 0;				
+				var fLayer:FeatureLayer = model.propertyFLayers[1];
+				fLayer.clearSelection();
+				fLayer.useAMF = false;
+				fLayer.selectFeatures(query, "add", new AsyncResponder(durhamQueryResultHandler, queryFailed, {type:searchType, county:"Durham"}));
+			}	
+			
+			private function queryFailed(event:FaultEvent, token:Object = null):void{
+				model.controller.removeProgress();
+			}
+			
+			private function setDurhamWhere():String
+			{
+				var retVal:String;
+				switch (currentState)
+				{
+					case "Address":
+						if (stNumInput.text.length>0){
+							retVal =  "STNUM = "+stNumInput.text+" AND FULL_STREET_NAME = '"+stNameInput.text.toUpperCase()+"'";							
+						}else{
+							retVal = "FULL_STREET_NAME = '"+stNameInput.text.toUpperCase()+"'";							
+						} 
+						break;
+					case "Owner":
+						retVal = ddl.selectedItem.field + " LIKE '" + textInput.text.toUpperCase() + "%'";
+						break;
+					default:
+						retVal = ddl.selectedItem.field +" = '"+textInput.text+"'";
+						break;
+				}
+				return retVal;
+			}
+			
+			protected function durhamQueryResultHandler(features:Array, token:Object):void
+			{
+				
+				model.rightPanel.accordion.selectedIndex = model.rightPanel.accordion.getElementIndex(this.parentDocument.hostComponent as IVisualElement);
+				var fs:FeatureSet = new FeatureSet(features);
+				if (features.length == 1000){
+					Alert.show("A maximum of 1,000 properties found, please narrow search criteria");
+				}
+				for each (var feature:Graphic in fs.features)
+				{
+					var accnt:Accounts_type = new Accounts_type();
+					accnt.siteAddress = feature.attributes.SITE_ADDRESS;
+					accnt.owner = feature.attributes.OWNER;
+					accnt.pin = feature.attributes.PIN_NUM;
+					accnt.mailAddress1 = feature.attributes.ADDR1;
+					accnt.mailAddress2 = feature.attributes.ADDR2;
+					accnt.mailAddress3 = feature.attributes.ADDR3;		
+					accnt.deedBook = feature.attributes.DEED_BOOK;
+					accnt.deedDate = feature.attributes.DEED_DATE;
+					accnt.deedPage = feature.attributes.DEED_PAGE;
+					accnt.deedAcres = feature.attributes.DEED_ACRES;
+					accnt.bldgVal = feature.attributes.BLDG_VAL;
+					accnt.landVal = feature.attributes.LAND_VAL;
+					accnt.totalVal = feature.attributes.TOTAL_VALUE_ASSD;
+					accnt.billClass = feature.attributes.BILLING_CLASS_DECODE;
+					accnt.propDesc = feature.attributes.PROPDESC;
+					accnt.heatArea = feature.attributes.HEATEDAREA;
+					accnt.city = feature.attributes.CITY_DECODE;
+					accnt.township = feature.attributes.TOWNSHIP_DECODE;
+					accnt.yearBuilt = feature.attributes.YEAR_BUILT;
+					accnt.salePrice = feature.attributes.TOTSALPRICE;
+					accnt.saleDate = feature.attributes.SALE_DATE;
+					accnt.typeUse = feature.attributes.TYPE_USE_DECODE;
+					accnt.designStyle = feature.attributes.DESIGN_STYLE_DECODE;
+					accnt.landClass = feature.attributes.LAND_CLASS_DECODE;
+					accnt.oldParcel = feature.attributes.OLD_PARCEL_NUMBER;
+					
+				
+					//accnt.county = "Durham";
+					//model.propertySearch.searchPanel.SearchRealEstateAccountsResult.lastResult.addItem(accnt);
+					model.propertySearch.searchPanel.RealEstateResult.lastResult.Accounts.addItem(accnt);
+				}
+				model.controller.removeProgress();
+				if (RealEstateResult.lastResult.Accounts.length == 1)
+				{
+					var propertyResults:PropertyResults = model.propertySearch.resultsPanel;
+					//propertyResults.sendSingleQuery(SearchRealEstateAccountsResult.lastResult[0].pin, SearchRealEstateAccountsResult.lastResult[0].reid,
+					propertyResults.displayPropertyInfo(RealEstateResult.lastResult.Accounts[0], token.type.toString());
+					//	token.type.toString(), SearchRealEstateAccountsResult.lastResult[0].county);
+					if (token.type == "list"){
+						zoomToFeatures();						
+					}				
+					
+				}
+				else if (RealEstateResult.lastResult.Accounts.length > 1)
+				{
+					if (token.type == "list")
+					{
+						zoomToFeatures();							
+					}
+					
+					model.propertySearch.propertyBar.selectedIndex = 0;
+					model.propertySearch.activatePropertyBar(false);
+				} else {
+					Alert.show("No properties found");
+				}
+			}
+
+			private function mergePropertyResults(array:Array):void{
+				
+				for each (var item:Object in array){
+					model.propertyResults.addItem(item);
+				}
+				if (model.propertyResults.length == 0)
+				{
+					Alert.show("No properties found");
+				}
+			}
+			
+
+			private function sortResults(array:Array):ArrayCollection{
+				var ac:ArrayCollection = new ArrayCollection(array);
+				ac.sort = new Sort();
+				ac.sort.fields = [new SortField(ddl.selectedItem.field)];
+				ac.refresh();
+				return ac;
+			}
+			
+			private function zoomToFeatures():void{
+				var extent:Extent;				
+				for each (var layer:FeatureLayer in model.propertyFLayers){
+					if (layer.selectedFeatures.length > 0){
+						extent = Graphic(layer.selectedFeatures[0]).geometry.extent;						
+					}			
+				}
+				
+				for (var i:int = 0;i < model.propertyFLayers.length;i++){
+					var fLayer:FeatureLayer = model.propertyFLayers[i];
+					
+					if (!extent){
+						if (fLayer.selectedFeatures.length > 0){
+							extent = Graphic(fLayer.selectedFeatures[0]).geometry.extent;							
+						}
+					}else{
+						for each (var graphic:Graphic in fLayer.selectedFeatures){
+							extent = extent.union(graphic.geometry.extent);
+						}
+					}
+				}
+				if (extent)
+				{
+					model.map.extent = extent;				
+					if (model.map.extent.height < extent.height || model.map.extent.width < extent.width){
+						model.map.level = model.map.level - 1;
+					}							
+				}
+				
+			}
+			
+			protected function clearBtn_clickHandler(event:MouseEvent):void
+			{
+				if (this.currentState == "Address")
+				{
+					stNumInput.text = "";
+					stNameInput.text = "";
+				}
+				else
+				{
+					textInput.text = "";					
+				}
+				
+			}
+			
+	
+			
+
+			protected function stNameInput_selectionchangedHandler(event:AutoCompleteChangeEvent):void
+			{
+				if (event.currentTarget.selectedValue != "")
+				{
+					search();
+				}
+			}			
+			
+			protected function pinInput_pasteHandler(event:Event):void
+			{
+				var pinOrig:String = Clipboard.generalClipboard.getData(ClipboardFormats.TEXT_FORMAT).toString();
+				if (pinOrig.length > 10)
+				{
+					var str1:String = "";
+					var space:RegExp = new RegExp(" ","g");
+					var carRet:RegExp = new RegExp("\n","g");
+					pinOrig = pinOrig.replace(carRet, "");
+					var split1:Array = pinOrig.split(space);
+					var split2:Array = new Array();
+					var pinNew:String = "";
+					if (split1[0].search(".") != -1 && split1.length == 4)
+					{
+						split2 = split1[0].split(".");
+						pinNew = split2[0]+split1[1]+split1[2];
+					}
+					else
+					{
+						pinNew = pinOrig;
+					}
+					if (pinNew.length > 10){
+						pinNew = pinNew.replace(new RegExp("-","g"),"");
+					}
+					event.currentTarget.text = pinNew;					
+				}
+				
+			}
+			
+			private function onFault(fault:Fault, token:Object):void
+			{
+				controller.removeProgress();
+			}
+			
+			/*protected function sendEmail(text:String):void
+			{
+				Alert.show('Search Failed, iMAPS helpdesk has been notified');
+				model.controller.removeProgress();
+				emailSrv.send({to:model.propertySearch.config.emailscript.@to, 
+					toEmail:model.propertySearch.config.emailscript.@toEmail, 
+					from:model.propertySearch.config.emailscript.@from, 
+					fromEmail:model.propertySearch.config.emailscript.@fromEmail,
+					subject:model.propertySearch.config.emailscript.@subject,
+					message:text});
+			}*/
+			
+			
+
+
+			
+		]]>
+	</fx:Script>
+	<s:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</s:layout>
+	<s:states>
+		<s:State name="Address"/>
+		<s:State name="Owner"/>
+		<s:State name="PIN"/>
+		<s:State name="REID"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<mx:StringValidator id="stringValidator" property="text" required="true"
+							trigger="{searchBtn}"
+							source.Address="{stNameInput.input}"
+							minLength.Owner="3" source.Owner="{textInput}"
+							minLength.PIN="10" source.PIN="{textInput}"
+							minLength.REID="7" source.REID="{textInput}"/>
+		<s:CallResponder id="AutoCompleteResult" result="AutoCompleteResult_resultHandler(event)"/>
+		<soeservice:SoeService id="soeService"
+							   fault="Alert.show(event.fault.faultString + '\n' + event.fault.faultDetail);controller.removeProgress();"
+							   showBusyCursor="false"/>
+		<s:CallResponder id="RealEstateResult" result="RealEstateResult_resultHandler(event)"/>
+		
+		<!--<s:HTTPService id="emailSrv" url="{model.propertySearch.config.emailscript.@url}" method="POST" useProxy="false"/>	-->	
+	</fx:Declarations>
+	
+	<s:HGroup x="0" y="0" width="100%" verticalAlign="middle">
+		<s:Label text="Search By"/>
+		<s:DropDownList id="ddl" width="100%" change="dropdownlist1_changeHandler(event)"
+						creationComplete="ddl_creationCompleteHandler(event)" labelField="label"
+						selectedIndex="0">
+			<s:ArrayList>
+				<fx:Object label="Property Address" field="SITE_ADDRESS" sample="222|W HARGETT ST"
+						   value="Address"/>
+				<fx:Object label="Owner Name" field="OWNER" sample="Smith, John" value="Owner"/>
+				<fx:Object label="PIN" field="PIN_NUM" sample="1703680600" value="PIN"/>
+				<fx:Object label="Real Estate ID" field="REID" sample="0101804" value="REID"/>
+			</s:ArrayList>
+		</s:DropDownList>
+	</s:HGroup>	
+	<s:HGroup width="100%">
+		<s:TextInput id="textInput" includeIn="Owner,PIN,REID" width="100%" enter="search()"
+					 prompt="{ddl.selectedItem.sample}"
+					 maxChars.PIN="10" paste.PIN="pinInput_pasteHandler(event)" restrict.PIN="0-9"
+					 maxChars.REID="7" restrict.REID="0-9"/>
+		<s:HGroup includeIn="Address" width="100%">
+			<s:TextInput id="stNumInput" width="50" enter="search()" maxChars="7" prompt="222"
+						 restrict="0-9"/>
+			
+			<utils:AutoComplete id="stNameInput" width="180"
+								dataProvider="{model.propertyStreets}" displayField="N"
+								filterFields="{['N', 'A1', 'A2']}" minChars="3"
+								prompt="W HARGETT ST"
+								selectionchanged="stNameInput_selectionchangedHandler(event)"/>
+			
+		</s:HGroup>
+		<utils:ImageButton id="searchBtn" width="24" height="24" label="Search" click="search()"
+						   icon="@Embed(source='assets/searchIcon.png')"/>
+		<utils:ImageButton id="clearBtn" width="24" height="24" label="Clear"
+						   click="clearBtn_clickHandler(event)"
+						   icon="@Embed(source='assets/clear.png')"/>
+	</s:HGroup>	
+</s:Group>

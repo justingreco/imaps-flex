@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 xmlns:toolbar="com.raleigh.components.toolbar.*"
+		 xmlns:utils="com.raleigh.components.utils.*"
+		 creationComplete="group1_creationCompleteHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.geometry.Extent;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			private var ext:Extent;
+
+			
+			protected function extButton_clickHandler(event:MouseEvent):void
+			{
+				ext = model.map.extent;
+			}
+			
+			protected function saveButton_clickHandler(event:MouseEvent):void
+			{
+				
+				var obj:Object = {
+					
+					"overview":overviewCb.selected,
+					"panel":panelCb.selected,
+					"toolbar":toolCb.selected,
+					"paneltool":(panelDdl.selectedIndex > -1)?panelDdl.selectedItem[panelDdl.labelField]:null,
+					"maptype":(mapDdl.selectedIndex > -1)?mapDdl.selectedItem[mapDdl.labelField]:null,
+					"basemap":(baseDdl.selectedIndex > -1)?baseDdl.selectedItem[baseDdl.labelField]:null,
+					"extent":(ext != null)?ext:null
+				};
+				model.settingsSO.clear();
+				model.settingsSO.data[model.SETTINGS+"_"+model.config] = obj;
+				model.settingsSO.flush();
+				Alert.show("Start up settings saved and will take effect next time the application is loaded");
+			}
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				callLater(checkSettings);
+			}
+			
+			private function checkSettings():void
+			{
+				if (model.settingsSO)
+				{
+					if (model.settingsSO.size > 0)
+					{
+						var settings:Object = model.settingsSO.data[model.SETTINGS+"_"+model.config];
+						overviewCb.selected = settings.overview;
+						panelCb.selected = settings.panel;
+						toolCb.selected = settings.toolbar;
+						if (settings.paneltool != null)
+						{
+							callLater(setDropDownLists,[settings.paneltool, panelDdl]);
+						}
+						if (settings.maptype != null)
+						{
+							callLater(setDropDownLists,[settings.maptype, mapDdl]);
+						}
+						if (settings.basemap != null)
+						{
+							callLater(setDropDownLists,[settings.basemap, baseDdl]);
+						}
+					}
+				}
+			}
+			
+			private function setDropDownLists(value:String, ddl:DropDownList):void
+			{
+				for (var i:int = 0;i<ddl.dataProvider.length;i++)
+				{
+					if (Object(ddl.dataProvider).source[i][ddl.labelField] == value)
+					{
+						ddl.selectedIndex = i;
+						break;
+					}
+				}
+			}
+			
+		]]>
+	</fx:Script>
+
+	<s:layout>
+		<s:VerticalLayout paddingBottom="10"/>
+	</s:layout>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+
+
+	<s:Form>
+		<s:layout>
+			<s:FormLayout gap="0" paddingLeft="0"/>
+		</s:layout>
+		<s:FormItem width="100%" label="Expand/Collapse Panels">
+			<s:CheckBox id="overviewCb" label="Overview Map Expanded" selected="true"/>
+			<s:CheckBox id="panelCb" label="Right Panel Expanded" selected="true"/>
+			<s:CheckBox id="toolCb" label="Toolbar Expanded" selected="true"/>			
+		</s:FormItem>
+		<s:FormItem label="Start Panel">
+			<s:DropDownList id="panelDdl" width="200"
+							dataProvider="{model.configuration.panelTools}"
+							labelField="name" prompt="Select Start Panel..."></s:DropDownList>		
+		</s:FormItem>
+		<s:FormItem label="Start Map Type">
+			<s:DropDownList id="mapDdl" width="200"
+							dataProvider="{model.mapToggle.buttonBar.dataProvider}"
+							labelField="label" prompt="Select Start Map Type..."></s:DropDownList>			
+		</s:FormItem>
+		<s:FormItem label="Start Base Map">
+			<s:DropDownList id="baseDdl" width="200"
+							dataProvider="{model.configuration.baseLayers}"
+							labelField="name" prompt="Select Start Base Map..."></s:DropDownList>			
+		</s:FormItem>
+		<s:FormItem label="Start Extent">
+			<s:Button id="extButton" label="Set as Current Extent"
+					  click="extButton_clickHandler(event)"/>			
+		</s:FormItem>
+	</s:Form>
+	<s:HGroup paddingLeft="20">
+		<utils:ImageButton id="saveButton" width="24" height="24"
+						   click="saveButton_clickHandler(event)"
+						   icon="@Embed(source='../assets/save.png')" toolTip="Save Settings"/>
+		<utils:ImageButton id="clearButton" width="24" height="24" click="model.settingsSO.clear()"
+						   icon="@Embed(source='../assets/clear.png')" toolTip="Clear Settings"/>	
+	</s:HGroup>
+
+
+</s:Group>

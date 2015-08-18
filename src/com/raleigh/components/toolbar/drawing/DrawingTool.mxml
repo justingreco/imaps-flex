@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:BaseToolbarTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:utils="com.raleigh.components.utils.*"
+						 xmlns:esri="http://www.esri.com/2008/ags"
+						 xmlns:flash="flash.text.*"
+						 xmlns:toolbar="com.raleigh.components.toolbar.*"
+						 creationComplete="group1_creationCompleteHandler(event)"
+						 removedFromStage="group1_removedFromStageHandler(event)"
+						 currentState="{drawingBar.selectedItem.label}">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.DrawEvent;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.geometry.Polygon;
+			import com.esri.ags.geometry.Polyline;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.esri.ags.symbols.TextSymbol;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.utils.StringUtil;
+			
+			import spark.events.IndexChangeEvent;
+			
+			private var graphic:Graphic;
+			private var currentGraphic:Graphic;
+			private var lastEditGraphic:Graphic;
+			private var lastActiveEditTypes:String;
+			
+			
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				model.drawingTool = this;
+				
+				map.addLayer(graphicsLayer);
+				map.addEventListener(MapMouseEvent.MAP_MOUSE_DOWN, mapMouseDownHandler,false,0,true);
+			}	
+			
+			private var lastClick:MapPoint;
+			private function mapMouseDownHandler(event:MapMouseEvent):void
+			{
+				event.currentTarget.addEventListener(MouseEvent.MOUSE_MOVE, map_mouseMoveHandler,false,0,true);
+				event.currentTarget.addEventListener(MouseEvent.MOUSE_UP, map_mouseUpHandler,false,0,true);
+				lastClick = event.mapPoint;
+			}			
+			
+			private function map_mouseMoveHandler(event:MouseEvent):void
+			{
+				event.currentTarget.removeEventListener(MouseEvent.MOUSE_MOVE, map_mouseMoveHandler);
+				event.currentTarget.removeEventListener(MouseEvent.MOUSE_UP, map_mouseUpHandler);
+/* 				if (graphic)
+				{
+					this.removeEventListener(KeyboardEvent.KEY_UP, graphicKeyUpHandler);					
+				} */
+
+			}
+			private function map_mouseUpHandler(event:MouseEvent):void
+			{
+				event.currentTarget.removeEventListener(MouseEvent.MOUSE_MOVE, map_mouseMoveHandler);
+				event.currentTarget.removeEventListener(MouseEvent.MOUSE_UP, map_mouseUpHandler);
+
+				if ((event.target is Graphic || event.target.parent is Graphic || event.target is GraphicsLayer) && 
+					(graphicsLayer.graphicProvider.contains(event.target) ||graphicsLayer.graphicProvider.contains(event.target.parent) || event.target == graphicsLayer))
+				{
+					if (event.target is Graphic)
+					{
+						graphic = Graphic(event.target);						
+					}
+					else if (event.target.parent is Graphic)
+					{
+						graphic = Graphic(event.target.parent);							
+					}
+					else if (event.target is GraphicsLayer)
+					{
+						for each (var g:Graphic in GraphicsLayer(event.target).graphicProvider)
+						{
+						
+							var ext:Extent = new Extent(lastClick.x-5, lastClick.y-5,lastClick.x+5, lastClick.y+5);
+							if (ext.intersects(g.geometry) || ext.contains(g.geometry))
+							{
+								graphic = g;
+								break;
+							}
+						}
+					}					
+					model.map.addEventListener(KeyboardEvent.KEY_UP, graphicKeyUpHandler,false,0,true);
+					if (graphic && graphic != currentGraphic)
+					{
+						if (lastEditGraphic != graphic)
+						{
+							lastEditGraphic = graphic;
+							lastActiveEditTypes = "moveRotateScale";
+						}
+						if (graphic.geometry is Polyline || graphic.geometry is Polygon)
+						{
+							if (lastActiveEditTypes == "moveEditVertices")
+							{
+								lastActiveEditTypes == "moveRotateScale";
+								edit.activate(EditTool.MOVE | EditTool.SCALE | EditTool.ROTATE, [ graphic ]);
+							}
+							else
+							{
+								lastActiveEditTypes = "moveEditVertices";
+								edit.activate(EditTool.MOVE | EditTool.EDIT_VERTICES, [ graphic ]);
+							}
+						}
+						else if (graphic.geometry is Extent)
+						{
+							edit.activate(EditTool.MOVE | EditTool.SCALE, [ graphic ]);
+						}
+						else if (graphic.graphicsLayer == graphicsLayer)
+						{
+							edit.activate(EditTool.MOVE | EditTool.EDIT_VERTICES, [ graphic ]);
+						}						
+					}
+
+				}
+				else
+				{
+					edit.deactivate();
+					lastActiveEditTypes = "moveRotateScale";
+				}
+			}
+			
+			private function graphicKeyUpHandler(event:KeyboardEvent):void
+			{
+				if (event.keyCode == Keyboard.DELETE)
+				{
+					graphicsLayer.remove(graphic);
+					model.map.removeEventListener(KeyboardEvent.KEY_UP, graphicKeyUpHandler);
+					graphic = null;
+				}
+			}
+			
+			protected function draw_drawEndHandler(event:DrawEvent):void
+			{
+				
+				
+				if (drawingBar.selectedItem.label == "Label")
+				{
+					if (StringUtil.trim(textArea.text).length > 0)
+					{
+						event.graphic.attributes = {"label":textArea.text};						
+					}
+					else
+					{
+						this.graphicsLayer.remove(event.graphic);
+						Alert.show("Text required, label not added to map");
+					}
+					this.currentState = "Point";
+				}
+				if (!lockCheck.selected)
+				{
+					draw.deactivate();
+					drawingBar.selectedIndex = -1;					
+				}
+				if (currentState == "Polygon" || currentState == "Ellipse" || currentState == "Circle" || currentState == "Extent")
+				{
+					if (fillCheck.selected)
+					{
+						currentGraphic.symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_BACKWARD_DIAGONAL, 0xFF0000, 1, sls);
+						currentGraphic.attributes = {FILLED:'Yes'};
+						
+					}
+					else
+					{
+						currentGraphic.symbol = new SimpleFillSymbol(SimpleFillSymbol.STYLE_NULL, 0, 0, sls);	
+						currentGraphic.attributes = {FILLED:'No'};
+					}
+				}
+				//currentGraphic = null;
+
+			}
+			
+			protected function draw_drawStartHandler(event:DrawEvent):void
+			{
+				currentGraphic = event.graphic;
+
+			}
+
+			protected function drawingBar_changeHandler(event:IndexChangeEvent):void
+			{
+/* 				if (drawingBar.selectedIndex > -1)
+				{
+					switch(drawingBar.selectedItem.label)
+					{
+						case "Polygon":
+							this.currentState = "Freehand";
+							break;
+						case "Line":
+							this.currentState = "Freehand";
+							break;
+						case "Label":
+							this.currentState = "Label";
+							break;
+						default:
+							this.currentState = "Default";
+					}					
+				}
+				else
+				{
+					this.currentState = "Default";
+				} */
+
+			}
+			
+			protected function group1_removedFromStageHandler(event:Event):void
+			{
+				draw.deactivate();
+				drawingBar.selectedIndex = -1;
+			}
+			
+		]]>
+	</fx:Script>
+	<toolbar:states>
+		<s:State name="Point"/>
+		<s:State name="Polygon"/>
+		<s:State name="Line"/>
+		<s:State name="Circle"/>
+		<s:State name="Extent"/>
+		<s:State name="Ellipse"/>
+		<s:State name="Label"/>
+	</toolbar:states>
+	<fx:Declarations>
+		<esri:DrawTool id="draw" drawEnd="draw_drawEndHandler(event)"
+					   drawStart="draw_drawStartHandler(event)" 
+					   graphicsLayer="{graphicsLayer}" lineSymbol="{sls}" map="{model.map}"
+					   fillSymbol="{sfs}"
+					   markerSymbol.Point="{sms}"
+					   markerSymbol.Label="{ts}"/>
+		<esri:EditTool id="edit" map="{model.map}"/>
+		<esri:GraphicsLayer id="graphicsLayer" name="Drawing Graphics Layer"
+							spatialReference="{model.map.spatialReference}"/>		
+		<esri:SimpleFillSymbol id="sfs" outline="{sls}" style="{(fillCheck.selected)?SimpleFillSymbol.STYLE_BACKWARD_DIAGONAL:SimpleFillSymbol.STYLE_NULL}"
+							   color="0xFF0000"/>
+		<esri:SimpleLineSymbol id="sls" width="3" alpha="1" color="0xFF0000" style="solid"/>
+		<esri:SimpleMarkerSymbol id="sms" color="0xFF0000" size="12" style="circle"/>
+		<esri:TextSymbol id="ts" color="0xFF0000" placement="start" textAttribute="label">
+			<flash:TextFormat font="Verdana" size="12"/>
+		</esri:TextSymbol>
+
+	</fx:Declarations>
+	<toolbar:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</toolbar:layout>
+	<s:HGroup>
+		<utils:DrawButtonBar id="drawingBar" width="100%" buttonMode="true"
+							 change="drawingBar_changeHandler(event)" drawtool="{draw}"
+							 hideGraphics="false" name="Drawing Toolbar"
+							 skinClass="com.raleigh.skins.CustomButtonBarSkin"
+							 toolTip="Select Drawing Type" useHandCursor="true">
+			<utils:layout>
+				<s:HorizontalLayout gap="3"/>
+			</utils:layout>
+			<s:ArrayList>
+				<fx:Object label="Point" icon="@Embed(source='assets/i_draw_point.png')"
+						   tool="{DrawTool.MAPPOINT}"/>
+				<fx:Object label="Line" icon="@Embed(source='assets/i_draw_line.png')"
+						   tool="{(freehandCheck.selected)?DrawTool.FREEHAND_POLYLINE:DrawTool.POLYLINE}"/>
+				<fx:Object label="Polygon" icon="@Embed(source='assets/i_draw_poly.png')"
+						   tool="{(freehandCheck.selected)?DrawTool.FREEHAND_POLYGON:DrawTool.POLYGON}"/>
+				<fx:Object label="Extent" icon="@Embed(source='assets/i_draw_rect.png')"
+						   tool="{DrawTool.EXTENT}"/>
+				<fx:Object label="Circle" icon="@Embed(source='assets/i_draw_circle.png')"
+						   tool="{DrawTool.CIRCLE}"/>
+				<fx:Object label="Ellipse" icon="@Embed(source='assets/i_draw_ellipse.png')"
+						   tool="{DrawTool.ELLIPSE}"/>
+				<fx:Object label="Label" icon="@Embed(source='assets/i_draw_text.png')"
+						   tool="{DrawTool.MAPPOINT}"/>
+			</s:ArrayList>
+		</utils:DrawButtonBar>	
+		<s:CheckBox id="freehandCheck" includeIn="Polygon,Line" label="Freehand"
+					change="drawingBar.activateDrawTool()" selected="true"/>
+	</s:HGroup>
+	<s:TextArea id="textArea" includeIn="Label" width="100%"/>
+	<s:Label text="{(drawingBar.selectedIndex == -1)?'No drawing tool enabled':drawingBar.selectedItem.label+' drawing tool enabled'}"/>
+	<s:CheckBox id="fillCheck" label="Filled" selected="false" includeIn="Circle,Ellipse,Extent,Polygon"/>
+	<s:CheckBox id="lockCheck" label="Draw Tool Locked"
+				change="if(!lockCheck.selected){draw.deactivate();drawingBar.selectedIndex = -1}"
+				selected="false"/>
+</toolbar:BaseToolbarTool>

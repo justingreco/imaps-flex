@@ -1,0 +1,4 @@
+<configuration>
+	<taskurl>http://giststweb1:4443/ArcGIS/rest/services/ExtractData/GPServer/Extract Data Task</taskurl>
+	<excludedlayers>Labels</excludedlayers>
+	<maxlayers>100</maxlayers></configuration>

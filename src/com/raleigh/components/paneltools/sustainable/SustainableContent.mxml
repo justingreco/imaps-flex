@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   xmlns:location="com.raleigh.components.paneltools.location.*"
+			   width="230" addedToStage="setBackgroundColors()" backgroundAlpha=".85"
+			   filters="{[new spark.filters.DropShadowFilter()]}"
+			   skinClass="com.raleigh.components.paneltools.sustainable.SustainableContentSkin"
+			   styleName="defaultTitleWindow">
+	
+	<fx:Style source="SustainableContentStyles.css"/>
+	
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			import flash.net.navigateToURL;
+			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			
+			import spark.filters.DropShadowFilter;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			
+			[Embed(source='assets/sustainable.jpg')]private var photoNA:Class;	
+			private function setBackgroundColors():void
+			{
+				if (container)
+				{
+						if (icon == "Electric Vehicle Charging Stations" || icon == "Green Roofs")
+						{
+							this.setStyle("styleName","greenTitleWindow");						
+							container.setStyle("styleName","greenContainer");						
+						}
+						else if (icon == "LED Projects" || icon == "Solar Photovoltaic Projects"){
+							this.setStyle("styleName","orangeTitleWindow");							
+							container.setStyle("styleName","orangeContainer");						
+						}
+						else if (icon == "LEED Certified Buildings")
+						{
+							this.setStyle("styleName","blueTitleWindow");						
+							container.setStyle("styleName","blueContainer");															
+						}
+
+						else if (icon == "Rainwater Harvesting" || icon == "Solar Water Heaters"){
+							this.setStyle("styleName","defaultTitleWindow");				
+							container.setStyle("styleName","defaultContainer");					
+						}
+						else{
+							this.setStyle("styleName","defaultTitleWindow");
+							container.setStyle("styleName","defaultContainer");	
+						}
+							
+					}					
+				}
+
+			protected function image1_ioErrorHandler(event:IOErrorEvent):void
+			{
+				event.currentTarget.source = photoNA;
+			}
+
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<fx:String id="address"/>
+		<fx:String id="address2"/>
+		<fx:String id="phone"/>
+		<fx:String id="site"/>
+		<fx:String id="photo"/>
+		<fx:String id="icon"/>
+		<s:ArrayCollection id="dp"/>
+	</fx:Declarations>
+	
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" paddingBottom="5" paddingLeft="5" paddingRight="5"
+						  paddingTop="5"/>
+	</s:layout>
+
+		<s:SkinnableContainer id="container" width="100%" height="100%" backgroundAlpha="0.5"
+							  creationComplete="setBackgroundColors();"
+							  skinClass="com.raleigh.components.paneltools.sustainable.SustainableContainerSkin"
+							  styleName="defaultContainer">
+			<s:layout>
+				<s:VerticalLayout horizontalAlign="left" paddingBottom="0" paddingLeft="0"
+								  paddingRight="0" paddingTop="0" verticalAlign="middle"/>
+			</s:layout>		
+			
+			<mx:Form maxWidth="210" paddingBottom="3" paddingLeft="3" paddingRight="3" paddingTop="3"
+					 verticalGap="0">
+				<s:DataGroup maxWidth="210" dataProvider="{dp}"
+							 itemRenderer="com.raleigh.components.paneltools.sustainable.SustainableContentRenderer">
+					<s:layout>
+						<s:VerticalLayout gap="0" paddingBottom="0" paddingLeft="0" paddingRight="0"
+										  paddingTop="0"/>
+					</s:layout>
+				</s:DataGroup>
+			</mx:Form>
+			
+			
+		</s:SkinnableContainer>
+		<mx:Image width="200" height="150" ioError="image1_ioErrorHandler(event)"
+				  source="{model.sustainableSearch.config.photos.@url}{photo}"/>		
+
+
+</s:TitleWindow>

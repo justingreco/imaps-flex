@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					xmlns:services="services.*"
+					width="300" height="244"
+					showCloseButton="false" title="Login">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.hurlant.crypto.Crypto;
+			import com.hurlant.crypto.hash.IHash;
+			import com.hurlant.crypto.hash.SHA1;
+			import com.hurlant.util.Hex;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+						
+			private function login():void
+			{
+				if (passwordInput.text.length>0&&userInput.text.length>0)
+				{
+					model.stormwater.connstr = {
+						user:userInput.text, 
+						password:passwordInput.text,
+						server:dbDdl.selectedItem.value
+					};
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, credentialsChecked);
+					model.controller.showProgress('Checking Login Credentials...');
+					this.enabled = false;
+					model.stormwater.searchPanel.swuService.send({'function':'checklogincredentials',connstr:JSON.encode(model.stormwater.connstr),
+						dbschema:model.stormwater.dbSchema});
+				
+				}
+				else if (passwordInput.text.length==0&&userInput.text.length==0)
+				{
+					Alert.show("Please enter a value for user name and password...");
+					userInput.setFocus();
+				}
+				else if (passwordInput.text.length>0){
+					Alert.show("Please enter a value for user name...");
+					userInput.setFocus();
+				}
+				else if (userInput.text.length>0){
+					Alert.show("Please enter a value for the password...");
+					passwordInput.setFocus();
+				}
+			}
+			
+	/* 		private function validateInputs():Boolean
+			{
+				var ret:Boolean = true;
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length > 0)
+				{
+					ret = false;
+				}
+				return ret;			
+			}
+ */			
+	
+			protected function credentialsChecked(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, credentialsChecked);
+				model.controller.removeProgress();
+				this.enabled = true;
+				if (event.result == "Succeeded")
+				{
+					model.stormwater.user = userInput.text;
+					model.stormwater.connString = 'jdbc:oracle:oci:'+userInput.text+'/'+passwordInput.text+'@'+dbDdl.selectedItem.value;
+					
+					var token:AsyncToken;
+					var responder:AsyncResponder;
+					
+					//swuService.addEventListener(ResultEvent.RESULT, accountStatusReceived);
+					//model.controller.showProgress("Loading Street Names...");
+					token = swuService.send({'function':'getaccountstatus',dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)});
+					responder = new AsyncResponder(accountStatusReceived, null);
+					token.addResponder(responder);
+					
+					/*token = swuService.send({'function':'getdistinctstreets',dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)});
+					responder = new AsyncResponder(streetsRetrieved, null);
+					token.addResponder(responder);*/					
+					
+					PopUpManager.removePopUp(this);		
+					
+				}
+				else{
+					Alert.show("Invalid user name or password");
+					this.passwordInput.text="";
+					this.userInput.setFocus();
+				}					
+			}
+			
+			
+			protected function accountStatusReceived(event:ResultEvent, token:AsyncToken):void{
+				swuService.removeEventListener(ResultEvent.RESULT, accountStatusReceived);
+				if (event.result.length > 0){
+					var data:Array =  JSON.decode(event.result.toString());
+					model.stormwater.searchPanel.statusDdl.dataProvider = new ArrayCollection(data);
+					
+					model.stormwater.acctStatus = data[0];
+				}	
+				model.stormwater.searchPanel.statusDdl.selectedIndex = model.stormwater.searchPanel.statusDdl.dataProvider.getItemIndex(model.stormwater.acctStatus);	
+				if (model.stormwater.searchPanel.statusDdl.selectedIndex == -1){
+					
+					model.stormwater.searchPanel.statusDdl.selectedIndex = 0;
+				}
+			}
+			
+			protected function streetsRetrieved(event:ResultEvent, token:AsyncToken):void{10632
+				swuService.removeEventListener(ResultEvent.RESULT, streetsRetrieved);
+				model.controller.removeProgress();
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.street = data[0];
+						model.stormwater.streets = new ArrayCollection(data);
+
+					}
+				}
+				
+			}
+			
+
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+	<!--	<fx:Array id="validators">
+			<mx:StringValidator id="userInputValidate" property="text" required="true"
+								source="{userInput}"/>
+			<mx:StringValidator id="passwordInputValidate" property="text" required="true"
+								source="{passwordInput}"/>	
+		</fx:Array>
+-->		
+
+		<s:HTTPService id="swuService" url="{config.swuservice.@url}" showBusyCursor="false" fault="model.controller.removeProgress()"/>
+		<fx:XML id="config" source="config.xml"/>
+	</fx:Declarations>
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+	<s:Form defaultButton="{submitBtn}">
+		<s:FormItem label="User">
+			<s:TextInput id="userInput" enter="login()" focusEnabled="true"/>
+		</s:FormItem>
+		<s:FormItem label="Password">
+			<s:TextInput id="passwordInput" displayAsPassword="true" enter="login()"/>
+		</s:FormItem>
+		<s:FormItem label="Database">
+			<s:DropDownList id="dbDdl" selectedIndex="0">
+				<s:ArrayList>
+					<fx:Object label="Production" value="irisprd"/>
+					<fx:Object label="Test" value="iristst"/>
+				</s:ArrayList>
+			</s:DropDownList>
+		</s:FormItem>
+		<s:FormItem width="227">
+			<s:Button id="submitBtn" label="Submit" click="login()"/>
+		</s:FormItem>
+	</s:Form>
+</toolbar:ToolWindow>

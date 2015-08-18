@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolbarToggleButtonBase xmlns:fx="http://ns.adobe.com/mxml/2009"
+								 xmlns:s="library://ns.adobe.com/flex/spark"
+								 xmlns:mx="library://ns.adobe.com/flex/mx"
+								 xmlns:toolbar="com.raleigh.components.toolbar.*"
+								 xmlns:esri="http://www.esri.com/2008/ags"
+								 xmlns:imperviousservice="services.imperviousservice.*"
+								 change="toolbartogglebuttonbase1_changeHandler()"
+								 valueCommit="toolbartogglebuttonbase1_changeHandler()"
+								 creationComplete="init()"
+								 icon="@Embed(source='../assets/impervious.png')">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.Graphic;
+			import com.esri.ags.components.supportClasses.DoubleField;
+			import com.esri.ags.events.MapMouseEvent;
+			import com.esri.ags.geometry.Geometry;
+			import com.esri.ags.geometry.Polygon;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.layers.supportClasses.LayerInfo;
+			import com.esri.ags.tasks.GeometryService;
+			import com.esri.ags.tasks.QueryTask;
+			import com.esri.ags.tasks.supportClasses.AreasAndLengthsParameters;
+			import com.esri.ags.tasks.supportClasses.AreasAndLengthsResult;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.esri.ags.utils.JSON;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.HierarchicalData;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.graphics.GradientBase;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.Fault;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.rpc.http.HTTPService;
+			import mx.rpc.http.Operation;
+			
+			//import valueObjects.Category;
+			//import valueObjects.GetImperviousArea;
+			//import valueObjects.ImperviousProperty;
+			//import valueObjects.SubCategory;
+			//import valueObjects.SubType;
+			
+			[Bindable]
+			public var xml:XML;
+			
+			private var property:XML;
+			
+			
+			
+			private var propertyGeom:Geometry;
+			private var tempGl:GraphicsLayer;
+			
+			private var imperviousWindow:ImperviousWindow;
+			
+			private var propertyArea:int;
+			
+			[Bindable]
+			private var config:XML;
+			private var loader:URLLoader;
+			
+			private function init():void
+			{
+				model.imperviousButton = this;
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+				removeEventListener(FlexEvent.CREATION_COMPLETE,init);
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}			
+
+			
+			protected function toolbartogglebuttonbase1_changeHandler():void
+			{
+				if (selected)
+				{
+					tempGl = new GraphicsLayer();
+					map.addLayer(tempGl);
+					map.addEventListener(MapMouseEvent.MAP_CLICK, imperviousMapClickHandler);
+				}else{
+					map.removeEventListener(MapMouseEvent.MAP_CLICK, imperviousMapClickHandler);
+					map.removeLayer(tempGl);
+				}
+	
+			}
+			private function imperviousMapClickHandler(event:MapMouseEvent):void
+			{
+ 				if (!imperviousWindow){
+					imperviousWindow = new ImperviousWindow();
+
+				} 
+				tempGl.clear();
+				PopUpManager.addPopUp(imperviousWindow, this.parentApplication as DisplayObject, false);
+				PopUpManager.centerPopUp(imperviousWindow);
+				//totalArea = 0;
+		
+				controller.showProgress("Measuring Impervious Surface...");
+				var qt:QueryTask = new QueryTask(config.parcels.@url);
+				qt.useAMF = true;
+				qt.showBusyCursor = false;
+				var q:Query = new Query();
+				q.geometry = event.mapPoint;
+				q.returnGeometry = true;
+				q.outFields = ['PIN_NUM'];
+				q.spatialRelationship = Query.SPATIAL_REL_INTERSECTS;
+				qt.execute(q, new AsyncResponder(queryComplete, onFault));
+			}
+			
+			
+			private function onFault(fault:Fault, token:Object = null):void
+			{
+				Alert.show(fault.message);
+				controller.removeProgress();
+			}
+			
+			private function queryComplete(fs:FeatureSet, token:Object = null):void
+			{
+				if (fs.features.length > 0)
+				{
+					var feature:Graphic = fs.features[0];
+					var params:Object = new Object();
+				 	params.geometry = JSON.encode(feature.geometry);
+					params.f = "json";
+		
+					imperviousSOE.send(params);
+					//getImperviousArea(fs.features[0].attributes.PIN_NUM, "2010");
+					
+					//ws.GetImperviousArea(fs.features[0].attributes.PIN_NUM, "2010");
+ 					/*xml = new XML("<root></root>");
+					property = new XML("<property name='"+fs.features[0].attributes.PIN_NUM+"' area='0'></property>");
+					xml.appendChild(property);
+					propertyGeom = Graphic(fs.features[0]).geometry;
+					var impLayer:ArcGISDynamicMapServiceLayer = map.getLayer("impLayer") as ArcGISDynamicMapServiceLayer;
+					if (impLayer)
+					{
+						if (impLayer.loaded){
+							for each (var layerInfo:LayerInfo in impLayer.layerInfos)
+							{
+								var qt:QueryTask = new QueryTask(impLayer.url+"/"+layerInfo.id);
+								var q:Query = new Query();
+								q.geometry = propertyGeom;
+								q.returnGeometry = true;
+								q.outFields = ['DESCRIPTION','SUBTYPE'];
+								q.where = "IMPERVIOUS = 'YES' ORDER BY DESCRIPTION, SUBTYPE";
+								q.outSpatialReference = map.spatialReference;
+								q.spatialRelationship = Query.SPATIAL_REL_INTERSECTS;
+								qt.execute(q, new AsyncResponder(impQueryComplete, onFault, layerInfo.name));
+							}								
+						}
+				
+					}
+					else
+					{
+						Alert.show("Impervious Layer not Found");
+					}		*/		
+				}
+
+
+			}
+			
+		/*
+			
+			private function impQueryComplete(fs:FeatureSet, layerName:String):void
+			{
+				
+				var geoms:Array = [];
+				var layerXML:XML;
+				var descXML:XML;
+				var subTypeXML:XML;
+				var lastDesc:String = "";
+				var lastSubType:String = "";
+				if (fs.features.length > 0)
+				{
+					//for each (var feat:Graphic in fs.features)
+					layerXML = new XML("<layer name='"+layerName+"' area='0'/>");
+					property.appendChild(layerXML);
+					for (var i:int = 0;i < fs.features.length;i++)
+					{
+						
+						
+						var feat:Graphic = fs.features[i];
+						if (lastDesc != feat.attributes.DESCRIPTION){
+							lastSubType = "";
+							descXML = new XML("<desc name='"+feat.attributes.DESCRIPTION+"' area='0'/>");
+							layerXML.appendChild(descXML);
+						}
+						if (lastSubType != feat.attributes.SUBTYPE){
+							lastSubType = feat.attributes.SUBTYPE;
+							subTypeXML = new XML("<subtype name='"+feat.attributes.SUBTYPE+"' area='0'/>");
+							descXML.appendChild(subTypeXML);
+						}
+						if (lastDesc == feat.attributes.DESCRIPTION && lastSubType == feat.attributes.SUBTYPE){
+							geoms.push(feat.geometry);							
+						}else{
+							
+							if (geoms.length > 0){
+								startIntersection(geoms, propertyGeom, layerName, lastDesc, lastSubType);									
+							}
+							geoms = [];
+							geoms.push(feat.geometry);
+						}
+
+						lastDesc = feat.attributes.DESCRIPTION;
+						lastSubType = feat.attributes.SUBTYPE;
+						if (i == fs.features.length-1){
+							if (geoms.length > 0){
+								startIntersection(geoms, propertyGeom, layerName, lastDesc, lastSubType);
+							}							
+						}
+					}
+				
+				}else{
+					if (geoms.length > 0){
+						startIntersection(geoms, propertyGeom, layerName, lastDesc, lastSubType);								
+					}
+				}
+
+			}
+			
+
+			
+			private var areasCountTotal:int = 0;
+			private var areasCount:int = 0;
+			
+			private function intersectComplete(features:Array, token:Object):void
+			{
+				controller.removeProgress();
+				for each (var feat:Polygon in features){
+					tempGl.add(new Graphic(feat));
+				}
+				var geom:GeometryService = new GeometryService(model.configuration.geometryUrl);
+				var ap:AreasAndLengthsParameters = new AreasAndLengthsParameters();
+				ap.areaUnit = GeometryService.UNIT_SQUARE_FEET;
+				ap.polygons = features;
+				//controller.showProgress("Calculating area for "+token.layerName+"/"+token.desc+"/"+token.subType+"...");
+				areasCountTotal+=1;
+				geom.areasAndLengths(ap, new AsyncResponder(areaComplete, onFault, token));
+			}
+			
+
+			
+			private function areaComplete(results:AreasAndLengthsResult, token:Object):void
+			{
+				areasCount+=1;
+				controller.removeProgress();
+				var sum:Number = 0;
+				for each (var area:Number in results.areas){
+					sum += area;
+					totalArea+=area;
+				}
+				xml.property.@area = Math.round(Number(xml.property.@area)+sum);
+				xml.property.layer.(@name==token.layerName).@area = Math.round(Number(xml.property.layer.(@name==token.layerName).@area) + sum);
+				xml.property.layer.(@name==token.layerName).desc.(@name==token.desc).@area = Math.round(Number(xml.property.layer.(@name==token.layerName).desc.(@name==token.desc).@area)+sum);
+				xml.property.layer.(@name==token.layerName).desc.(@name==token.desc).subtype.(@name==token.subType).@area = Math.round(Number(xml.property.layer.(@name==token.layerName).desc.(@name==token.desc).subtype.(@name==token.subType).@area)+sum);				
+				//var obj:Object = {layerName:token.layerName, desc:token.desc, subType:token.subType, area:sum};
+				//xml.property.item.(@layerName=='Buildings').@area = sum;
+				if(areasCount == areasCountTotal){
+					imperviousWindow.adg.dataProvider = new HierarchicalData(xml.property);
+					controller.removeProgress();
+					areasCountTotal = 0;
+					areasCount = 0;
+				}
+			}
+			
+			private var totalArea:Number = 0;
+			
+			private function onFault(fault:Fault, token:Object = null):void
+			{
+				Alert.show(fault.message);
+				controller.removeProgress();
+			}
+			
+			protected function getImperviousArea(pin:String, year:String):void
+			{
+				controller.showProgress("Measuring impervious surface...");
+				GetImperviousAreaResult.token = imperviousService.GetImperviousArea(pin, year);
+			}
+			
+			protected function GetImperviousAreaResult_resultHandler(event:ResultEvent):void
+			{
+				var property:ImperviousProperty = ArrayCollection(event.result).getItemAt(0) as ImperviousProperty;
+				var catArray:Array = [];
+				var subCatArray:Array = [];
+				var subTypeArray:Array = [];
+				var dpHeirarchy:ArrayCollection = new ArrayCollection([{Item:"Property", Area:property.Area,
+					Impervious:property._Surface.Area, Percent:property._Surface.Percent,
+					categories:catArray}]);				
+				for each(var cat:Category in property._Surface.Category){
+					subCatArray = [];					
+					catArray.push({Item:cat.Name, Impervious:cat.Area,
+						Percent:cat.Percent, categories:subCatArray});
+					
+					for each (var subCat:SubCategory in cat.SubCategory){
+						subTypeArray = [];						
+						subCatArray.push({Item:subCat.Name,
+							Impervious:subCat.Area, Percent:subCat.Percent,
+							categories:subTypeArray});
+						
+						for each (var subType:SubType in subCat.SubType){
+							subTypeArray.push({Item:subType.Name,
+								Impervious:subType.Area, Percent:subType.Percent});
+						}
+					}
+				}
+				
+				if (!imperviousWindow){
+					imperviousWindow = new ImperviousWindow();
+					PopUpManager.addPopUp(imperviousWindow, this.parentApplication as DisplayObject, false);
+					PopUpManager.centerPopUp(imperviousWindow);
+				}
+				imperviousWindow.dataProvider = dpHeirarchy;
+				controller.removeProgress();
+
+			}
+			
+
+			
+			protected function GetImperviousArea_resultHandler(event:ResultEvent):void
+			{
+				var propArea:int = event.result[0].Area;
+				var impArea:int = event.result[0].Surface.Area;
+				var impPerc:Number = event.result[0].Surface.Percent;
+				var categories:ArrayCollection = event.result[0].Surface.Category;
+				
+				var catArray:Array = [];
+				var subCatArray:Array = [];
+				var subTypeArray:Array = [];
+				
+				var dpHeirarchy:ArrayCollection = new ArrayCollection([{Item:"Property", Area:propArea,
+					Impervious:impArea, Percent:impPerc,
+					categories:catArray}]);		
+				
+				for each(var category:Object in categories){
+					subCatArray=[];
+					catArray.push({Item:category.Name,Impervious:category.Area, Percent:category.Percent, categories:subCatArray});
+					for each (var subCategory:Object in category.SubCategory){
+						subTypeArray = [];
+						subCatArray.push({Item:subCategory.Name,Impervious:subCategory.Area, Percent:subCategory.Percent, categories:subTypeArray});
+						for each(var subType:Object in subCategory.SubType){
+							subTypeArray.push({Item:subType.Name,Impervious:subType.Area, Percent:subType.Percent});
+						}
+					}
+				}
+				
+				if (!imperviousWindow){
+					imperviousWindow = new ImperviousWindow();
+					PopUpManager.addPopUp(imperviousWindow, this.parentApplication as DisplayObject, false);
+					PopUpManager.centerPopUp(imperviousWindow);
+				}
+				imperviousWindow.dataProvider = dpHeirarchy;
+				controller.removeProgress();				
+
+			}
+			*/
+			
+			protected function imperviousSOE_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				var jsonStr:String = event.result.toString();
+				jsonStr = jsonStr.replace(new RegExp("Layers","g"),"Categories");
+				jsonStr = jsonStr.replace(new RegExp("Descriptions","g"),"Categories");
+				jsonStr = jsonStr.toString().replace(new RegExp("SubTypes","g"),"Categories");
+				var impervious:Object = JSON.decode(jsonStr);
+				
+				if (!imperviousWindow){
+					imperviousWindow = new ImperviousWindow();
+					PopUpManager.addPopUp(imperviousWindow, this.parentApplication as DisplayObject, false);
+					PopUpManager.centerPopUp(imperviousWindow);
+				}
+				
+				
+				
+				var dpHeirarchy:ArrayCollection = new ArrayCollection([{Name:"Property", PropertyArea:impervious.Property.Area,
+					Area:impervious.Property.Impervious.Area, Percent:impervious.Property.Impervious.Percent,
+					Categories:impervious.Property.Impervious.Categories}]);	
+				imperviousWindow.dataProvider = dpHeirarchy;
+				controller.removeProgress();		
+			}
+			
+			protected function imperviousSOE_faultHandler(event:FaultEvent):void
+			{
+				// TODO Auto-generated method stub
+				
+			}
+			
+
+			
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<s:HTTPService id="imperviousSOE" url="http://gisdevarc1:6080/arcgis/rest/services/ImperviousSurface/MapServer/exts/ImperviousSOE/MeasureImpervious"
+					   resultFormat="object" result="imperviousSOE_resultHandler(event)" fault="imperviousSOE_faultHandler(event)"/>
+
+	</fx:Declarations>
+</toolbar:ToolbarToggleButtonBase>

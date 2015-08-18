@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="350" initialize="init()">
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			import flash.utils.getQualifiedClassName;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+
+	</fx:Declarations>
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" paddingBottom="10" paddingLeft="10" paddingTop="10" paddingRight="10"/>
+	</s:layout>
+	<s:Scroller width="100%" height="100%">
+		<s:Group width="100%" height="100%">
+			<s:SkinnableDataContainer dataProvider="{model.propertySearch.SepticResult.lastResult.SepticPermits}"
+									  itemRenderer="com.raleigh.components.paneltools.property.septic.SepticPermitRenderer"
+									  width="100%" height="100%">
+				<s:layout>
+					<s:VerticalLayout horizontalAlign="center"/>
+				</s:layout>
+			</s:SkinnableDataContainer>				
+		</s:Group>
+	</s:Scroller>
+	<s:Label width="100%" text="{config.contact}"
+			 paddingBottom="10"/>
+	<s:Label width="100%" text="{config.disclaimer}"/>
+
+</s:Group>

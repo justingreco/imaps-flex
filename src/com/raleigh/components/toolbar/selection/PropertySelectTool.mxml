@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ButtonBar xmlns:fx="http://ns.adobe.com/mxml/2009"
+			 xmlns:s="library://ns.adobe.com/flex/spark"
+			 xmlns:mx="library://ns.adobe.com/flex/mx"
+			 xmlns:esri="http://www.esri.com/2008/ags"
+			 visible="{(model.toolBar.currentState == 'Expanded')?true:false}"
+			 change="buttonbar1_changeHandler(event)"
+			 creationComplete="buttonbar1_creationCompleteHandler(event)">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.DrawEvent;
+			import com.esri.ags.events.GeometryServiceEvent;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.raleigh.components.paneltools.property.PropertySearch;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.Fault;
+			
+			import spark.components.Group;
+			import spark.events.IndexChangeEvent;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			private var drawIsActive:Boolean;
+			public var drawType:String = "";
+			private var pinList:Array = [];
+			private var pins:ArrayCollection = new ArrayCollection();
+			protected function buttonbar1_changeHandler(event:IndexChangeEvent):void
+			{
+				drawIsActive = true;
+				switch (event.newIndex){
+					case 0:
+						drawTool.activate(DrawTool.MAPPOINT, true);
+						drawType = DrawTool.MAPPOINT;							
+						break;
+					case 1:
+						drawTool.activate(DrawTool.MULTIPOINT, true);
+						drawType = DrawTool.MULTIPOINT;						
+						break;
+					case 2:
+						drawTool.activate(DrawTool.FREEHAND_POLYLINE, true);
+						drawType = DrawTool.FREEHAND_POLYLINE;						
+						break;
+					case 3:
+						drawTool.activate(DrawTool.FREEHAND_POLYGON, true);
+						drawType = DrawTool.FREEHAND_POLYGON;
+						break;
+				}				
+				Group(this.parent).removeElement(this as IVisualElement);
+			}
+
+
+			protected function buttonbar1_creationCompleteHandler(event:FlexEvent):void
+			{
+				model.propertySelectTool = this;
+				model.toolbars.push(event.currentTarget as ButtonBar);
+			}
+
+
+
+			protected function drawTool_drawEndHandler(event:DrawEvent):void
+			{
+					geom.simplify([event.graphic.geometry]);
+			}
+			
+			protected function geom_simplifyCompleteHandler(event:GeometryServiceEvent):void
+			{
+
+				if (model.propertySearch)
+				{
+					var query:Query = new Query();
+					query.returnGeometry = true;
+					query.geometry = event.result[0];
+					model.propertySearch.searchPanel.selectCount = 0;					
+					for each (var fLayer:FeatureLayer in model.propertyFLayers){
+						fLayer.clearSelection();
+						fLayer.selectFeatures(query, "add", new AsyncResponder(queryResultHandler, onFault, "click"));
+					}			
+					
+				}					
+			}
+			
+			private var selectCount:int = 0;
+			
+			private function queryResultHandler(features:Array, token:Object):void
+			{
+				var propertySearch:PropertySearch = model.propertySearch;
+				propertySearch.propertyBar.selectedIndex = 0;
+				propertySearch.activatePropertyBar(false);
+				
+				if (selectCount == 0)
+				{
+					pins = new ArrayCollection();
+				}
+				for each (var feature:Graphic in features)
+				{
+					pinList.push("'"+feature.attributes.PIN_NUM+"'");
+					pins.addItem(feature.attributes.PIN_NUM);
+				}
+				
+				if (selectCount == 1)
+				{
+					if (pinList.length > 0)
+					{
+						//propertySearch.searchPanel.searchRealEstateAccounts("PIN_NUM in ("+pinList.toString()+")", "SITE_ADDRESS", "click");		
+						propertySearch.searchPanel.searchRealEstateAccounts(pins, "SITE_ADDRESS", "click");
+					}
+					var featCnt:int = 0;
+					for each (var fLayer:FeatureLayer in model.propertyFLayers)
+					{
+						featCnt += fLayer.selectedFeatures.length;
+					}
+					if (featCnt < 1)
+					{
+						ArrayCollection(model.propertySearch.resultsPanel.dataGrid.dataProvider).removeAll();
+						Alert.show("No properties found, please select a property");
+					}
+					selectCount = 0;
+				}
+				else
+				{
+					selectCount += 1;
+				}
+				
+			}
+			
+			private function onFault(fault:Fault, token:Object = null):void
+			{
+				Alert.show(fault.faultDetail);
+			}
+			
+			public function deactivateDrawToolbar():void{
+				if (drawIsActive){
+					drawIsActive = false;
+					drawTool.deactivate();
+					if (model.navAction.toLowerCase() != "pan"){
+						model.map.panEnabled = false;						
+					}
+				}
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<esri:DrawTool id="drawTool" drawEnd="drawTool_drawEndHandler(event)" map="{model.map}"/>
+		<esri:SimpleFillSymbol id="sfs" style="null">
+			<esri:SimpleLineSymbol width="3" color="0xFFF600" style="solid"/>
+		</esri:SimpleFillSymbol>
+		<esri:GeometryService id="geom" simplifyComplete="geom_simplifyCompleteHandler(event)"
+							  url="{model.configuration.geometryUrl}"/>
+	</fx:Declarations>
+	
+	<s:ArrayList>
+		<fx:String>Point</fx:String>
+		<fx:String>Multi-Point</fx:String>
+		<fx:String>Line</fx:String>
+		<fx:String>Polygon</fx:String>		
+	</s:ArrayList>
+</s:ButtonBar>

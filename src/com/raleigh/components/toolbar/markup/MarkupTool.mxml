@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" 
+			   xmlns:esri="http://www.esri.com/2008/ags"
+			   xmlns:toolbar="com.raleigh.components.toolbar.*"
+			   width="400" 
+			   creationComplete="group1_creationCompleteHandler(event)">
+	<s:layout>
+		<s:VerticalLayout horizontalAlign="center" paddingLeft="5" paddingRight="5" paddingTop="5" paddingBottom="5"/>
+	</s:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Map;
+			import com.esri.ags.events.LayerEvent;
+			import com.raleigh.model.Model;
+			
+			import mx.events.FlexEvent;
+
+			[Bindable]
+			private var model:Model = Model.getInstance();			
+			
+			private var map:Map;		
+
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				featureLayer.url = config.featurelayers.featurelayer.(@config==model.config).@url;
+				featureLayer.outFields = String(config.featurelayers.featurelayer.(@config==model.config).@outfields).split(",");
+				editor.featureLayers = [featureLayer];
+			}
+
+
+			protected function featureLayer_loadHandler(event:LayerEvent):void
+			{
+				model.map.addLayer(featureLayer);
+			}
+
+		]]>
+	</fx:Script>
+
+	<fx:Declarations>
+		<fx:XML id="config" source="config.xml"/>
+		<esri:FeatureLayer id="featureLayer"
+			mode="snapshot" load="featureLayer_loadHandler(event)"
+			visible="{check.selected}"
+			/>
+		<esri:GeometryService id="geomService"
+			url="{config.geomservice.@url}"/>
+							 
+	</fx:Declarations>
+	<s:CheckBox id="check" label="Show Markups" selected="true"/>
+	<esri:Editor id="editor"
+				 width="100%" height="200"
+				 geometryService="{geomService}"
+				 map="{model.map}"
+				 enabled="{check.selected}"/>
+			 
+
+</s:Group>

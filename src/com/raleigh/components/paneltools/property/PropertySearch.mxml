@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:property="com.raleigh.components.paneltools.property.*"
+						  xmlns:propertysearch="services.propertysearch.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:services="services.*"
+						  xmlns:soeservice="services.soeservice.*"
+						  width="100%" height="100%" label="Property Search"
+						  creationComplete="init()" currentState="Results">
+	<fx:Script>
+		<![CDATA[
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			
+			import spark.components.ButtonBarButton;
+			import spark.events.IndexChangeEvent;
+
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;
+			private function init():void
+			{
+				model.propertySearch = this;
+				
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));
+			}
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}
+
+
+			protected function propertyBar_creationCompleteHandler(event:FlexEvent):void
+			{
+				activatePropertyBar(false);				
+			}
+			
+			protected function propertyBar_valueCommitHandler(event:FlexEvent):void
+			{
+				this.currentState = propertyBar.dataGroup.dataProvider.getItemAt(propertyBar.selectedIndex).name;
+			}
+
+
+			protected function propertyBar_changeHandler(event:IndexChangeEvent):void
+			{
+				this.currentState = propertyBar.dataGroup.dataProvider.getItemAt(event.newIndex).name;
+				var reid:String = model.selectedProperty.attributes.REID;
+				switch (this.currentState.toString()){
+					case "Photos":
+						if (photoPanel.lastREID != reid){
+							photos(reid, "json");	
+							photoPanel.lastREID =  reid;
+						}
+						break;
+					case "Deeds":
+						if (deedPanel.lastREID != reid){
+							deeds(reid, "json");
+							deedPanel.lastREID =  reid;
+						}
+						break;
+					case "RealEstate":
+
+						navigateToURL(new URLRequest(config.paths.path.(@name=="Real Estate").@url+
+							reid),"_blank");
+						break;
+					case "Addresses":
+						//controller.getRaleighAddresses(propertyResults.pin);
+						break;
+				}
+				
+				ExternalInterface.call("_gaq.push(['_trackEvent', 'Property Bar', '"+this.currentState+"'])");
+			}
+			
+			public function activatePropertyBar(activate:Boolean):void{
+				for (var i:int = 1;i < propertyBar.dataGroup.dataProvider.length;i++){
+					if (activate){
+						ButtonBarButton(propertyBar.dataGroup.getElementAt(i)).enabled = true;						
+					}else{
+						ButtonBarButton(propertyBar.dataGroup.getElementAt(i)).enabled = false;							
+					}
+				} 				
+			}			
+			
+			public function clearProperties():void
+			{
+				if (propertyBar){
+					activatePropertyBar(false);
+					propertyBar.selectedIndex = 0;
+					if (model.propertyInfo)
+					{
+						model.propertyInfo.removeAll();
+					}
+					if (searchPanel.RealEstateResult.lastResult.Accounts)
+					{
+						searchPanel.RealEstateResult.lastResult.Accounts = null;
+					}
+					for (var i:int = 0;i < 2;i++)
+					{
+						model.propertyFLayers[i].clearSelection();
+						model.propertyFLayersSingle[i].clearSelection();
+					}
+				}
+			}
+			
+			
+
+
+
+
+
+			
+			protected function photos(reid:String, f:String):void
+			{
+				PhotosResult.token = soeService.Photos(reid, f);
+			}
+			
+			
+			protected function deeds(reid:String, f:String):void
+			{
+				DeedsResult.token = soeService.Deeds(reid, f);
+			}
+			
+			
+			public function septic(pin:String, f:String):void
+			{
+				SepticResult.token = soeService.Septic(pin, f);
+			}
+			
+			
+			public function wells(pin:String, f:String):void
+			{
+				WellsResult.token = soeService.Wells(pin, f);
+			}
+			
+		]]>
+	</fx:Script>
+	<paneltools:states>
+		<s:State name="Results"/>
+		<s:State name="Info"/>
+		<s:State name="Photos"/>
+		<s:State name="Deeds"/>
+		<s:State name="RealEstate"/>
+		<s:State name="Buffer"/>
+		<s:State name="Services"/>
+		<s:State name="Addresses"/>
+	</paneltools:states>
+	<fx:Declarations>
+		<s:CallResponder id="PhotosResult"/>
+		<soeservice:SoeService id="soeService"
+							   fault="Alert.show(event.fault.faultString + '\n' + event.fault.faultDetail)"
+							   showBusyCursor="true"/>
+		<s:CallResponder id="DeedsResult"/>
+		<s:CallResponder id="SepticResult"/>
+		<s:CallResponder id="WellsResult"/>
+
+	</fx:Declarations>
+	<paneltools:layout>
+		<s:VerticalLayout/>		
+	</paneltools:layout>
+
+
+		<property:SearchPanel id="searchPanel"/>
+		<property:PropertyResults id="resultsPanel" includeIn="Results"/>
+		<property:PropertyInfo id="infoPanel" includeIn="Info"/>
+		<property:PropertyPhotos id="photoPanel" includeIn="Photos"/>
+		<property:PropertyDeeds id="deedPanel" includeIn="Deeds"/>
+		<property:PropertyRealEstate includeIn="RealEstate"/>	
+		<property:PropertyBuffer includeIn="Buffer"/>
+		<property:PropertyServices includeIn="Services"/>
+		<property:PropertyAddresses id="propertyAddresses" includeIn="Addresses"/>
+		
+		
+		<s:ButtonBar id="propertyBar" width="100%" buttonMode="true"
+					 change="propertyBar_changeHandler(event)"
+					 creationComplete="propertyBar_creationCompleteHandler(event)"
+					 requireSelection="true" selectedIndex="0"
+					 skinClass="com.raleigh.components.paneltools.property.PropertyControlBarSkin"
+					 useHandCursor="true" valueCommit="propertyBar_valueCommitHandler(event)">
+			<s:ArrayList>
+				<fx:Object enabled="true" icon="@Embed('assets/i_table24.png')" name="Results"/>
+				<fx:Object enabled="false" icon="@Embed('assets/i_info24.png')" name="Info"/>
+				<fx:Object enabled="false" icon="@Embed('assets/i_camera24.png')" name="Photos"/>
+				<fx:Object enabled="false" icon="@Embed('assets/i_bookmark2.png')" name="Deeds"/>
+				<fx:Object enabled="false" icon="@Embed('assets/dollarSign24.png')" name="RealEstate"/>
+				<fx:Object enabled="false" icon="@Embed('assets/buffer24.png')" name="Buffer"/>
+				<fx:Object enabled="false" icon="@Embed('assets/raleigh24.png')" name="Services"/>
+				<fx:Object enabled="false" icon="@Embed('assets/i_home24.png')" name="Addresses"/>				
+			</s:ArrayList>
+		</s:ButtonBar>			
+
+
+</paneltools:BasePanelTool>

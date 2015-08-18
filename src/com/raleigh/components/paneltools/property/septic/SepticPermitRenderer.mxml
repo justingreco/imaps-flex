@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009" 
+				xmlns:s="library://ns.adobe.com/flex/spark" 
+				xmlns:mx="library://ns.adobe.com/flex/mx" 
+				autoDrawBackground="true" xmlns:toolbar="com.raleigh.components.toolbar.*"
+				minWidth="200">
+	<s:layout>
+		<s:HorizontalLayout verticalAlign="middle"/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import flash.net.navigateToURL;
+			
+			import spark.components.SkinnableDataContainer;
+			
+			override protected function get hovered():Boolean
+			{
+				return false;
+			}
+
+		]]>
+	</fx:Script>
+	<s:Label text="{data.permitNumber}"/>
+	<toolbar:ToolbarButtonBase width="50" label="View"
+							   click="navigateToURL(new URLRequest(SkinnableDataContainer(this.owner).document.config.path+data.permitNumber),'_blank')"/>
+</s:ItemRenderer>

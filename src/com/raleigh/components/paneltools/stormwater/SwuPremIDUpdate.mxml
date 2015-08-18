@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					creationComplete="toolbar1_creationCompleteHandler(event)"
+					showCloseButton="false" title="Update Premise ID">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.stormwater.SwuAccountPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;
+
+
+
+				
+			protected function toolbar1_creationCompleteHandler(event:FlexEvent):void
+			{
+				premID.text=model.stormwater.currentAccount.prem_id;
+			}
+			
+			protected function btnUpdate_clickHandler(event:MouseEvent):void
+			{
+				if (premID.text==""&&model.stormwater.currentAccount.prem_id==null)
+				{  
+					Alert.show("Premise ID has not been changed, update was not performed...");					
+				}
+				else if (model.stormwater.currentAccount.prem_id!=null) {
+					if (premID.text==model.stormwater.currentAccount.prem_id)
+					{  
+						Alert.show("Premise ID has not been changed, update was not performed...");					
+					}
+					else	{
+						if (premID.text.length==0||premID.text==null){
+							UpdatePremID();
+						}
+						else {
+							ValidatePremID();
+						}
+					}
+				}
+				else if (premID.text.length>0&&premID.text.length<10){
+					Alert.show("Premise ID entered is not the right length.  Premise IDs are 10 characters long...");					
+				}
+				else	{
+					if (premID.text.length==0||premID.text==null){
+						UpdatePremID();
+					}
+					else {
+						ValidatePremID();
+					}
+				}
+			}
+			
+			protected function UpdatePremID():void
+			{	var premIDPass:String = "";
+				var prevPremIDPass:String = "";
+					if (premID.text==null||premID.text.length==0){
+					premIDPass ="9999";
+				}
+				else{
+					premIDPass =premID.text;
+				}
+				
+				prevPremIDPass =model.stormwater.currentAccount.prem_id;
+				
+				if (isNaN(Number(prevPremIDPass))){
+					prevPremIDPass =model.stormwater.currentAccount.prem_id;
+				}
+				else{
+					prevPremIDPass ="9999";
+				}
+			
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, premIdUpdated);
+				
+				var updates:Object = {
+					prem_id:premIDPass,
+					prev_prem_id:premIDPass
+				};
+				
+				model.stormwater.searchPanel.swuService.send({
+					'function':'updatepremid',
+					apptid:model.stormwater.currentAccount.swu_account_id,
+					updates:JSON.encode(updates),
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)});
+			}
+			
+			protected function premIdUpdated(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, premIdUpdated);
+				var type:String = "";
+				var values:Array = [];
+				if (event.result>0){
+					model.stormwater.accountPanel.currentState=("NoProperty");
+					model.stormwater.journalPanel.currentState=("NoJournal");
+					model.stormwater.creditsPanel.currentState=("NoCredits");
+					model.stormwater.ccbPanel.currentState=("NoServices");
+					type = "Account";
+					model.controller.showProgress("Searching for Stormwater Account...");
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, accountRetrieved);
+					model.stormwater.searchPanel.swuService..send({'function':'getstormwateraccount',
+						status:model.stormwater.currentAccount.account_status,
+						acctid:model.stormwater.currentAccount.swu_account_id});	
+					PopUpManager.removePopUp(this);						
+				}
+				else{
+					Alert.show("Premise ID entered is invalid, please check input...")
+				}				
+			}
+			
+			
+			protected function accountRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, accountRetrieved);
+				model.controller.removeProgress();
+				if (event.result.length == 0){
+					var data:Array =  JSON.decode(event.result.toString());
+					if (data.length == 1){
+						model.stormwater.currentAccount = data[0];
+						
+						model.controller.showProgress("Searching for Journal Entries...");
+						
+
+						
+						model.stormwater.searchPanel.getJournalEntries(0);
+
+						
+						model.controller.showProgress("Searching for CCB Premise Information...");
+						
+						model.stormwater.searchPanel.ccbService.addEventListener(ResultEvent.RESULT, premInfoReceived);
+						model.stormwater.searchPanel.ccbService.send({'function':'getpreminfo',
+							premid:model.stormwater.currentAccount.PREM_ID, 
+							dbschema:model.stormwater.dbschemaCCB});
+					
+					}else if (data.length == 0){
+						Alert.show("Account not found");
+					}
+				
+				}
+				
+			}			
+			
+			protected function journalEntriesRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+				model.controller.removeProgress();
+				PopUpManager.removePopUp(this);
+			}
+			
+			protected function premInfoReceived(event:ResultEvent):void{
+				model.stormwater.searchPanel.ccbService.removeEventListener(ResultEvent.RESULT, premInfoReceived);
+				model.controller.removeProgress();
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.ccbCIPrem = data[0];
+						model.stormwater.searchPanel.ccbService.addEventListener(ResultEvent.RESULT, servicesRetrieved);
+						model.controller.showProgress("Searching for CCB Service Information...");
+						model.stormwater.searchPanel.ccbService.send({
+							'function':'getservices',
+							acctid:model.stormwater.ccbCIPrem.ACCT_ID, 
+							dbschema:model.stormwater.dbschemaCCB});						
+					}else{
+						Alert.show("CCB Account not found..."+model.stormwater.currentAccount.prem_id);
+					}
+				}
+			}
+			
+			protected function servicesRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.ccbService.removeEventListener(ResultEvent.RESULT, servicesRetrieved);
+				model.controller.removeProgress();
+				if (event.result.length > 0){
+					var data:Object =  JSON.decode(event.result.toString());
+					model.stormwater.ccbServices = data;	
+					model.stormwater.searchPanel.ccbService.addEventListener(ResultEvent.RESULT, ccbBillRetreived);
+					model.controller.showProgress("Searching for CCB Bill Information...");
+					model.stormwater.searchPanel.ccbService.send({'function':'getlastbill',
+						acctid:model.stormwater.ccbCIPrem.ACCT_ID, 
+						dbschema:model.stormwater.dbschemaCCB})					
+				}	
+			}
+			
+			protected function ccbBillRetreived(event:ResultEvent):void{
+				model.stormwater.searchPanel.ccbService.removeEventListener(ResultEvent.RESULT, ccbBillRetreived);
+				model.controller.removeProgress();
+				if (event.result.length > 0){
+					var data:Object =  JSON.decode(event.result.toString());
+					model.stormwater.ccbBillData = data[0];			
+				}						
+			}
+
+			protected function ValidatePremID():void{
+				model.stormwater.searchPanel.ccbService.addEventListener(ResultEvent.RESULT, premIdValidated);
+				model.stormwater.searchPanel.ccbService.send({
+					'function':'validatepremid',
+					prem_id:premID.text,
+					dbschema:model.stormwater.dbschemaCCB
+				});
+			}
+			
+			protected function premIdValidated(event:ResultEvent):void{
+				model.stormwater.searchPanel.ccbService.removeEventListener(ResultEvent.RESULT, premIdValidated);
+				if (event.result=="Y"){
+					ChkDupPremID();
+				}
+				else{
+					Alert.show("Invalid Premise. Premise not in CCB, please recheck data and try again...");					
+				}				
+			}
+			
+
+			protected function ChkDupPremID():void{
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, dupPremIdChecked);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'chkduppremid',
+					premid:premID.text,
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+			
+			protected function dupPremIdChecked(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, dupPremIdChecked);			
+				if (event.result=="N"){
+					UpdatePremID();
+				}
+				else{
+					Alert.show("Duplicate Premise.  Premise ID already attached to another account, please recheck data and try again...");						
+				}				
+			}		
+			
+
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				PopUpManager.removePopUp(this);					
+			}
+
+		]]>
+	</fx:Script>
+
+	<s:Form>
+		<s:Form>
+			<s:FormItem width="100%" label="Premise ID">
+				<s:TextInput id="premID" restrict="0-9" maxChars="10"/>
+			</s:FormItem>	
+			<s:HGroup>
+				<s:Button id="btnCancel" label="Cancel" click="btnCancel_clickHandler(event)"/>
+				<mx:Spacer width="103" height="20"/>
+				<s:Button id="btnUpdate" label="Update" click="btnUpdate_clickHandler(event)"/>
+			</s:HGroup>
+			
+		</s:Form>		
+	</s:Form>
+</toolbar:ToolWindow>

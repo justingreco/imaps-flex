@@ -1,0 +1,11 @@
+<config>
+	<featurelayers>
+		<featurelayer url="http://maps.raleighnc.gov/ArcGIS/rest/services/PublicUtility/Markups/FeatureServer/0"
+		outfields="LAYER,DESCRIPTION,NAME,EMAIL,PHONE,ADD_DATE"
+		config="config"/>
+		<featurelayer url="http://maps.raleighnc.gov/ArcGIS/rest/services/PublicUtility/Markups/FeatureServer/0"
+		outfields="LAYER,DESCRIPTION,NAME,EMAIL,PHONE,ADD_DATE"
+		config="publicutility"/>		
+	</featurelayers>
+	<geomservice url="http://maps.raleighnc.gov/ArcGIS/rest/services/Geometry/GeometryServer"/>
+</config>

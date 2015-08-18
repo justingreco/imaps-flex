@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					creationComplete="toolbar1_creationCompleteHandler(event)"
+					title="Add Impervous Surface Amounts">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+
+			
+			[Bindable]
+			public var totalImp:Number;
+			
+			[Bindable]
+			public var currentImpervious:Object;
+				
+			protected function toolbar1_creationCompleteHandler(event:FlexEvent):void
+			{
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, currentSurfRetrieved);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'getcurrentsurface',
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					dbschema:model.stormwater.dbSchema,
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+			
+			protected function currentSurfRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, currentSurfRetrieved);
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						currentImpervious = data[0];	
+						totalImp=Number(this.bldgImpSurface.text) + 
+							Number(this.miscSurface.text) + 
+							Number(this.otherSurface.text) +
+							Number(this.recreationSurface.text) +
+							Number(this.roadsTrailsImpSurface.text) +
+							Number(this.parkingmpSurface.text) +
+							Number(this.permSurface.text);
+					}else {
+						Alert.show("Current Impervious Surface record not found...");						
+					}
+				}
+			}
+			
+
+			
+		protected function cancelBth_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+			protected function addBth_clickHandler(event:MouseEvent):void
+			{
+				if (this.effDate.text.length>0){
+					if (this.methodDate.text.length>0){
+						AddImpervious();
+					}
+					else {
+						Alert.show("Method Date must be entered.");
+					}
+				}
+				else {
+						Alert.show("Effective Date must be entered.");
+					}
+			}
+
+			protected function AddImpervious():void
+			{
+				var impStatus:String = "P";
+				var methodType:String = "";
+				var values:Array = [];
+				
+				if (this.chkMethod.selected){
+					methodType="MANUAL";
+				}
+				else {
+					methodType="USERENTRY";
+				}
+				totalImp=Number(this.bldgImpSurface.text) + 
+					Number(this.miscSurface.text) + 
+					Number(this.otherSurface.text) +
+					Number(this.recreationSurface.text) +
+					Number(this.roadsTrailsImpSurface.text) +
+					Number(this.parkingmpSurface.text) +
+					Number(this.permSurface.text);
+				
+				var adds:Object = {
+					parcel_imp_surface_total:totalImp,
+					building_imp_surface:this.bldgImpSurface.text, 
+					misc_imp_surface:this.miscSurface.text,
+					other_imp_surface:this.otherSurface.text,
+					rec_imp_surface:this.recreationSurface.text,
+					rd_trail_imp_surface:this.roadsTrailsImpSurface.text,
+					parking_imp_surface:this.parkingmpSurface.text,
+					permitted_imp_surface:this.permSurface.text,
+					method_used:methodType,
+					date_of_method:this.methodDate.text,
+					effective_date:this.effDate.text,
+					impervious_status:impStatus
+				};
+				
+				model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, imperviousSurfAdded);
+				model.stormwater.searchPanel.swuService.send({
+					'function':'addimpsurface',
+					dbschema:model.stormwater.dbSchema,
+					acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					adds:JSON.encode(adds),
+					connstr:JSON.encode(model.stormwater.connstr)
+				});
+			}
+			
+			protected function imperviousSurfAdded(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, imperviousSurfAdded);
+				if (event.result == 1){
+					Alert.show("Impervious Surface record has been added...");	
+					//model.stormwater.imperviousPanel.currentState=("NoDetails");
+					//model.stormwater.journalPanel.currentState=("NoJournal");
+					
+					model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, impSurfRetrieved);
+					model.stormwater.searchPanel.swuService.send({
+						'function':'getimpervioussurfaces',
+						acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+						dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)
+					});
+					PopUpManager.removePopUp(this);	
+				}else{
+					Alert.show("Impervious Surface record insert has failed...");	
+				}
+			}
+			
+			
+			protected function impSurfRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, impSurfRetrieved);
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length == 0){
+						Alert.show("Impervious surface records not found");
+					}else if(data.length > 0){
+						model.stormwater.impervious = data[0];
+						if (model.stormwater.imperviousPanel.detailsWin){
+							model.stormwater.imperviousPanel.detailsWin.details = data[0]
+						}
+						model.stormwater.imperviousSurfaces = new ArrayCollection(data);
+						model.stormwater.searchPanel.swuService.addEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+						model.stormwater.searchPanel.getJournalEntries(0);
+					}
+				}
+			}
+			
+
+			protected function journalEntriesRetrieved(event:ResultEvent):void{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, journalEntriesRetrieved);
+				this.close();
+			}			
+			
+
+			
+
+			
+			protected function total_focusOutHandler():void
+			{
+				totalImp= Number(this.bldgImpSurface.text) + 
+					Number(this.miscSurface.text) + 
+					Number(this.otherSurface.text) +
+					Number(this.recreationSurface.text) +
+					Number(this.roadsTrailsImpSurface.text) +
+					Number(this.parkingmpSurface.text) +
+					Number(this.permSurface.text);
+			}
+				
+		]]>
+	</fx:Script>
+	
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+	<fx:Declarations>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="false"/>
+	</fx:Declarations>
+	<s:Form width="100%">
+		<s:FormItem width="100%" label="Effective Date" required="true">
+			<mx:DateField id="effDate"/>
+		</s:FormItem>
+		<s:FormItem width="100%" label="Method Date" required="true">
+			<mx:DateField id="methodDate"/>
+		</s:FormItem>		
+		<s:FormItem width="100%" label="Buildings">
+			<s:TextInput id="bldgImpSurface"
+						 focusOut="total_focusOutHandler()" restrict="0-9"
+						 text="{numFormatter.format(currentImpervious.BUILDING_IMP_SURFACE)}"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Parking">
+			<s:TextInput id="parkingmpSurface" focusOut="total_focusOutHandler()" restrict="0-9"
+						 text="{numFormatter.format(currentImpervious.PARKING_IMP_SURFACE)}"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Roads and Trails">
+			<s:TextInput id="roadsTrailsImpSurface" focusOut="total_focusOutHandler()" restrict="0-9"
+						 text="{numFormatter.format(currentImpervious.RD_TRAIL_IMP_SURFACE)}"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Recreation">
+			<s:TextInput id="recreationSurface" focusOut="total_focusOutHandler()" restrict="0-9"
+						 text="{numFormatter.format(currentImpervious.REC_IMP_SURFACE)}"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Miscellaneous">
+			<s:TextInput id="miscSurface" focusOut="total_focusOutHandler()" restrict="0-9" 
+						 text="{numFormatter.format(currentImpervious.MISC_IMP_SURFACE)}"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Other">
+			<s:TextInput id="otherSurface" focusOut="total_focusOutHandler()" restrict="0-9" 
+						 text="{numFormatter.format(currentImpervious.OTHER_IMP_SURFACE)}"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Permitted">
+			<s:TextInput id="permSurface" focusOut="total_focusOutHandler()" restrict="0-9" 
+						 text="{numFormatter.format(currentImpervious.PERMITTED_IMP_SURFACE)}"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Estimated Total">
+			<s:TextInput id="totalSurface" enabled="false" restrict="0-9"
+						 text="{numFormatter.format(totalImp)}"/>
+		</s:FormItem>	
+	</s:Form>
+	<s:HGroup>
+		<s:Button id="cancelBth" label="Cancel" click="cancelBth_clickHandler(event)"/>
+		<s:CheckBox id="chkMethod" label="Allow Update with Next Scan"/>
+		<s:Button id="addBth" visible="{Boolean(model.stormwater.ImpInsertPrivs)}" label="Add"
+				  click="addBth_clickHandler(event)"
+				  enabled="{Boolean(model.stormwater.ImpInsertPrivs)}"/>
+	</s:HGroup>
+</toolbar:ToolWindow>

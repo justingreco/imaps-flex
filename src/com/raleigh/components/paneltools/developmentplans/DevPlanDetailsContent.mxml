@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Group xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		 xmlns:s="library://ns.adobe.com/flex/spark" 
+		 xmlns:mx="library://ns.adobe.com/flex/mx" width="310" height="100%"
+		 xmlns:components="com.raleigh.components.*" 
+		 xmlns:utils="com.raleigh.components.utils.*">
+	<s:layout>
+		<s:VerticalLayout/>
+	</s:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			
+			import spark.filters.DropShadowFilter;
+			
+			[Bindable]
+			public var details:Object;
+			//public var details:DevPlanDetails;
+			[Bindable]
+			private var model:Model = Model.getInstance();
+
+			protected function backButton_clickHandler(event:MouseEvent):void
+			{
+				DevelopmentPlanSearch(this.owner).currentState = "List";
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:PhoneFormatter id="phoneFormatter"/>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+
+	</fx:Declarations>
+	<utils:ImageButton id="backButton" click="backButton_clickHandler(event)"
+					   width="24" height="24"
+					   icon="@Embed(source='../../assets/back.png')"/>
+	<s:Scroller width="100%" height="100%">
+		<s:VGroup width="100%" height="100%">
+			<mx:Form width="100%"
+					 paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="3">
+				<mx:FormItem label="File Number:" >
+					<s:Label text="{details.planNum}" maxWidth="200"/>
+				</mx:FormItem>
+				<mx:FormItem label="Plan Type:" >
+					<s:Label text="{details.planType}" maxWidth="200"/>
+				</mx:FormItem>
+				<mx:FormItem label="File Name:" >
+					<s:Label text="{details.planName}" maxWidth="200"/>
+				</mx:FormItem>
+				<mx:FormItem label="Major Street:" >
+					<s:Label text="{details.street}" maxWidth="200"/>
+				</mx:FormItem>		
+			</mx:Form>
+			<s:BorderContainer  backgroundColor="{model.developmentPlanSearch.config.colors.@formback}"
+								backgroundAlpha="1"
+							   color="{model.developmentPlanSearch.config.colors.@formtext}"
+							   width="100%"
+							   borderVisible="false"
+							   filters="{[new spark.filters.DropShadowFilter()]}"
+							   skinClass="com.raleigh.components.paneltools.developmentplans.DevPlanContentBorderSkin"
+							   >
+				<s:layout>
+					<s:VerticalLayout 
+						paddingBottom="3" paddingLeft="3"
+						paddingRight="3" paddingTop="3"/>
+				</s:layout>
+				<mx:Form width="100%"
+						 paddingBottom="3" paddingLeft="3" paddingRight="3" paddingTop="3">
+					<mx:FormItem label="File Number:" >
+						<s:Label text="{details.planNum}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Plan Type:" >
+						<s:Label text="{details.planType}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="File Name:" >
+						<s:Label text="{details.planName}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Major Street:" >
+						<s:Label text="{details.street}" maxWidth="200"/>
+					</mx:FormItem>		
+				</mx:Form>				
+			</s:BorderContainer>
+			<s:BorderContainer cornerRadius="10"
+							   backgroundColor="{model.developmentPlanSearch.config.colors.@formback}"
+							   color="{model.developmentPlanSearch.config.colors.@formtext}"
+							   width="100%"
+							   borderVisible="false"
+							   filters="{[new spark.filters.DropShadowFilter()]}"
+							   skinClass="com.raleigh.components.paneltools.developmentplans.DevPlanContentBorderSkin">
+				<mx:Form width="100%"
+						 paddingBottom="3" paddingLeft="3" paddingRight="3" paddingTop="3">
+					<mx:FormItem label="Acres:" >
+						<s:Label text="{details.acreage}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Lots Requested:" >
+						<s:Label text="{details.lots}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Units Requested:" >
+						<s:Label text="{details.units}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Square Feet:" >
+						<s:Label text="{details.sqft}" maxWidth="200"/>
+					</mx:FormItem>		
+				</mx:Form>
+			</s:BorderContainer>
+			<s:BorderContainer cornerRadius="10"
+							   backgroundColor="{model.developmentPlanSearch.config.colors.@formback}"
+							   color="{model.developmentPlanSearch.config.colors.@formtext}"
+							   width="100%"
+							   borderVisible="false"
+							   filters="{[new spark.filters.DropShadowFilter()]}"
+							   skinClass="com.raleigh.components.paneltools.developmentplans.DevPlanContentBorderSkin">			
+				<mx:Form width="100%"
+						 paddingBottom="3" paddingLeft="3" paddingRight="3" paddingTop="3">
+					<mx:FormItem label="Zoning:" >
+						<s:Label text="{details.zoning}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Planning District:" >
+						<s:Label text="{details.planDist}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="CAC District:" >
+						<s:Label text="{details.cac}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Map Number:" >
+						<s:Label text="{details.mapSheet}" maxWidth="200"/>
+					</mx:FormItem>		
+				</mx:Form>
+			</s:BorderContainer>	
+			<s:BorderContainer cornerRadius="10"
+							   backgroundColor="{model.developmentPlanSearch.config.colors.@formback}"
+							   color="{model.developmentPlanSearch.config.colors.@formtext}"
+							   width="100%"
+							   borderVisible="false"
+							   filters="{[new spark.filters.DropShadowFilter()]}"
+							   skinClass="com.raleigh.components.paneltools.developmentplans.DevPlanContentBorderSkin">		
+				<mx:Form width="100%"
+						 paddingBottom="3" paddingLeft="3" paddingRight="3" paddingTop="3">
+					<mx:FormItem label="Developer:" >
+						<s:Label text="{details.owner}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Phone:" >
+						<s:Label text="{phoneFormatter.format(details.ownerPhone)}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Plan Preparer:" >
+						<s:Label text="{details.engineer}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Phone:" >
+						<s:Label text="{phoneFormatter.format(details.engineerPhone)}" maxWidth="200"/>
+					</mx:FormItem>		
+				</mx:Form>
+				
+			</s:BorderContainer>		
+			<s:BorderContainer cornerRadius="10"
+							   backgroundColor="{model.developmentPlanSearch.config.colors.@formback}"
+							   color="{model.developmentPlanSearch.config.colors.@formtext}"
+							   width="100%"
+							   borderVisible="false"
+							   filters="{[new spark.filters.DropShadowFilter()]}"
+							   skinClass="com.raleigh.components.paneltools.developmentplans.DevPlanContentBorderSkin">				
+				<mx:Form width="100%"
+						 paddingBottom="3" paddingLeft="3" paddingRight="3" paddingTop="3">
+					<mx:FormItem label="Submittal Date:" >
+						<s:Label text="{dateFormatter.format(details.submitDate)}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Action Date:" >
+						<s:Label text="{dateFormatter.format(details.approvalDate)}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Action Taken:" >
+						<s:Label text="{details.status}" maxWidth="200"/>
+					</mx:FormItem>
+					<mx:FormItem label="Approved By:" >
+						<s:Label text="{details.approvedBy}" maxWidth="200"/>
+					</mx:FormItem>		
+				</mx:Form>	
+			</s:BorderContainer>
+		
+				<mx:Form width="100%"
+						 paddingBottom="0" paddingLeft="0" paddingRight="0" paddingTop="0">
+					<mx:FormItem label="Coordinating Planner:" >
+						<s:Label text="{details.employee}" maxWidth="200"/>
+					</mx:FormItem>
+				</mx:Form>	
+		
+		</s:VGroup>		
+	</s:Scroller>
+
+</s:Group>

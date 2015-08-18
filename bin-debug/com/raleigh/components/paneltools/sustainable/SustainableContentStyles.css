@@ -1,0 +1,57 @@
+/* CSS file */
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/mx";
+
+.defaultTitleWindow
+{
+	background-color: #60aef0;
+	chrome-color:#60aef0;	
+	color:#000000;
+}
+.orangeTitleWindow
+{
+	background-color: #f6bb17;
+	chrome-color:#f6bb17;
+	color:#FFFFFF;	
+	
+}
+.blueTitleWindow
+{
+	background-color: #6093f0;
+	chrome-color:#6093f0;	
+	color:#FFFFFF;				
+}	
+.greenTitleWindow
+{
+	background-color: #82ab31;
+	chrome-color:#82ab31;	
+	color:#FFFFFF;				
+}	
+
+
+
+
+
+
+
+
+.defaultContainer
+{
+	background-color: #bfdff6;		
+	color:#000000;
+}
+.orangeContainer
+{
+	background-color: #f7e76d;
+	color:#FFFFFF;				
+}
+.blueContainer
+{
+	background-color: #83b6e5;
+	color:#FFFFFF;				
+}	
+.greenContainer
+{
+	background-color: #cdde6b;
+	color:#FFFFFF;				
+}	

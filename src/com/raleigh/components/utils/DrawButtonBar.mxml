@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:ButtonBar xmlns:fx="http://ns.adobe.com/mxml/2009"
+			 xmlns:s="library://ns.adobe.com/flex/spark"
+			 xmlns:mx="library://ns.adobe.com/flex/mx"
+			 change="buttonbar1_changeHandler()"
+			 creationComplete="buttonbar1_creationCompleteHandler(event)"
+			 valueCommit="buttonbar1_changeHandler()">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.tools.DrawTool;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			
+			import mx.events.FlexEvent;
+			private var model:Model = Model.getInstance();
+			private var controller:Controller = Controller.getInstance();
+			public var drawtool:DrawTool;
+			private var isDrawActive:Boolean = false;
+			public var hideGraphics:Boolean = true;
+		
+			protected function buttonbar1_creationCompleteHandler(event:FlexEvent):void
+			{
+				
+				model.toolbars.push(this);
+			}
+			
+			protected function buttonbar1_changeHandler():void
+			{
+				if (this.selectedIndex > -1)
+				{
+					model.currentTool = this.name;
+					controller.resetButtonBars(this.name);
+					controller.resetMapToolbar();
+					model.controller.setCursors();
+					activateDrawTool();
+				}
+				else
+				{
+					deactivateDraw();
+				}
+			}
+			
+			public function activateDrawTool():void
+			{
+				//if (!isDrawActive)
+				//{
+				if (this.selectedIndex > -1)
+				{
+					drawtool.activate(this.selectedItem.tool);
+					isDrawActive = true;
+					if (drawtool.graphicsLayer)
+					{
+						drawtool.graphicsLayer.visible = true;							
+					}
+				
+				}
+
+				//}				
+			}
+			
+			
+			private function deactivateDraw():void
+			{
+				if (isDrawActive){
+					isDrawActive = false;
+					drawtool.deactivate();
+					if(hideGraphics && drawtool.graphicsLayer)
+					{
+						drawtool.graphicsLayer.visible = false;						
+					}
+
+					if (model.navAction.toLowerCase() != "pan"){
+						model.map.panEnabled = false;						
+					}
+				}
+			}
+			
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+</s:ButtonBar>

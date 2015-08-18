@@ -1,0 +1,625 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:UIComponent xmlns:fx="http://ns.adobe.com/mxml/2009"
+				xmlns:s="library://ns.adobe.com/flex/spark"
+				xmlns:mx="library://ns.adobe.com/flex/mx"
+				xmlns:config="services.config.*"
+				xmlns:getproperties="services.getproperties.*"
+				xmlns:getproperty="services.getproperty.*"
+				xmlns:esri="http://www.esri.com/2008/ags"
+				xmlns:property="services.property.*"
+				xmlns:propertyphotos="services.propertyphotos.*"
+				xmlns:services="services.*"
+				xmlns:propertystreets="services.propertystreets.*"
+				xmlns:streets="services.streets.*"
+				xmlns:geocodestreets="services.geocodestreets.*">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.GraphicEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.symbols.PictureMarkerSymbol;
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.classes.Config;
+			import com.raleigh.classes.Maplayers;
+			import com.raleigh.components.paneltools.location.LocationSearch;
+			import com.raleigh.components.paneltools.property.PropertySearch;
+			import com.raleigh.components.utils.ProgressBarPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.core.FlexGlobals;
+			import mx.effects.Move;
+			import mx.effects.easing.Bounce;
+			import mx.events.CloseEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.components.ButtonBar;
+			import spark.components.ToggleButton;
+			
+			//import valueObjects.Configuration;
+
+			private var model:Model = Model.getInstance();
+			
+			public var layers:Maplayers;
+			public var bookmark:ArrayCollection;
+			//[Bindable]
+			//public var configuration:com.raleigh.classes.Config;
+			private var loader:URLLoader;
+			
+			
+			//public var configuration:Configuration;
+			[Bindable]
+			public var title:String;
+			private var progBar:ProgressBarPanel;//:ProgressBar;
+			private var where:String;
+			
+			
+			//GET CONTROLLER INSTANCE//
+			private static var instance:Controller;
+			public static function getInstance():Controller
+			{
+				if (Controller.instance)
+				{
+					return Controller.instance;
+				}
+				else
+				{
+					Controller.instance = new Controller();
+					return Controller.instance;
+				}
+			}		
+			
+			
+			//READ CONFIG FILE//
+			public function getData():void
+			{
+				FlexGlobals.topLevelApplication.currentState = "unloaded";
+				SetConfig();
+			}
+			
+			private function SetConfig():void
+			{
+				
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, configLoaded);
+				loader.addEventListener(IOErrorEvent.IO_ERROR, configError);
+				loader.load(new URLRequest(GetConfigFile()));
+			}
+			
+			private function GetConfigFile():String
+			{
+				model.config = "iMaps";
+				//change file value for debugging
+				var file:String = "config.xml";
+				var queryStringFromUrl:String = ExternalInterface.call("window.location.search.substring", 1);
+				if (queryStringFromUrl)
+				{
+					var params:Array = queryStringFromUrl.split("&");
+					var length:uint = params.length;
+					for (var i:uint = 0, index:int = -1; i < length;i++)
+					{
+						var kvPair:String = params[i];
+						if ((index = kvPair.indexOf("=")) > 0)
+						{
+							var key:String = kvPair.substring(0, index);
+							var value:String = kvPair.substring(index+1);
+							
+							if (key == "config")
+							{
+								file = value.toLowerCase()+".xml";
+								model.config = value.toLowerCase();
+								break;
+							}
+						}
+					}
+				}	
+				var path:String = ExternalInterface.call("window.location.href.toString")
+				var pathArr:Array = path.split("/");
+				var url:String = "";
+				for (var s:int = 0;s<pathArr.length-1;s++)
+				{
+					url += pathArr[s]+"/";		
+				}				
+				return url+file;
+			}			
+			
+			private function configLoaded(event:Event):void
+			{
+				var xml:XML = new XML(event.currentTarget.data);
+				model.configuration = new com.raleigh.classes.Config();
+				model.configuration.title = xml.@title;
+				ExternalInterface.call("eval(window.document.title = '"+xml.@title+"')");
+				model.configuration.showPoi = (xml.map.@showPOI.toLowerCase() == 'true')?true:false;
+				if (xml.@icon){
+					model.configuration.icon = xml.@icon;					
+				}
+				model.configuration.SetPoiLayer(xml.map.poilayer);
+				model.configuration.excludedLayers = xml.map.maplayers.@excludedLayers.split(",");
+				model.configuration.useCategories = (xml.map.maplayers.@categories.toLowerCase() == 'true')?true:false;
+				model.configuration.SetBaseLayers(xml.map.baselayers.baselayer);
+				model.configuration.SetImageLayers(xml.map.imagelayers);
+				model.configuration.SetMapLayers(xml.map.maplayers.maplayer);
+				model.configuration.SetBookmarks(xml.bookmarks.bookmark);
+				model.configuration.SetMenuItems(xml.menu.menuitems);
+				model.configuration.SetFeedback(xml.feedback);
+				model.configuration.SetPanelColors(xml.style.panelcolors);
+				model.configuration.SetTitleColors(xml.style.titlecolors);
+				model.configuration.SetPanelTools(xml.rightpanel.paneltools.paneltool, parseFloat(xml.rightpanel.@width));
+				model.configuration.SetToolbarTools(xml.toolbar.toolbartools.toolbartool);
+				model.configuration.SetPropertyLayers(xml.property.propertylayer);
+				model.configuration.SetScripts(xml.scripts.script);
+				model.configuration.SetInitialExtent(xml.map.@initExtent);
+				model.configuration.SetGeometryUrl(xml.map.geometry.@url);
+				FlexGlobals.topLevelApplication.currentState = "loaded";
+				GetStreets();
+			}
+			
+			private function GetStreets():void
+			{
+				if (model.configuration.scripts)
+				{
+					if (model.configuration.scripts.propStreetsURL)
+					{
+						getPropertyStreetNames(model.configuration.scripts.propStreetsURL);
+						
+					}
+					if (model.configuration.scripts.geocodeStreetsURL)
+					{
+						getGeocodeStreetNames(model.configuration.scripts.geocodeStreetsURL);						
+					}
+					
+				}
+			}
+			
+			private function configError(event:IOErrorEvent):void
+			{
+				Alert.show("Invalid config file, application will not load.",
+					"Configuration Error", Alert.OK, null, alertClickHandler);
+			}
+			
+			private function alertClickHandler(event:CloseEvent):void
+			{
+				navigateToURL(new URLRequest("http://imaps.co.wake.nc.us/imaps/"),"_self");
+			}			
+			
+
+			private function getPropertyStreetNames(urlStr:String):void
+			{
+				var url:URLRequest = new URLRequest(urlStr);
+				var loader:URLLoader = new URLLoader();
+				loader.dataFormat = URLLoaderDataFormat.TEXT;
+				loader.addEventListener(Event.COMPLETE, onJSONLoad);
+				loader.addEventListener(IOErrorEvent.IO_ERROR, onJSONError);
+				loader.load(url);
+				function onJSONLoad(event:Event):void
+				{
+					loader.removeEventListener(Event.COMPLETE, onJSONLoad);
+					loader.removeEventListener(IOErrorEvent.IO_ERROR, onJSONError);
+					var array:Array = com.esri.ags.utils.JSON.decode(loader.data.toString()) as  Array;
+					model.propertyStreets = new ArrayCollection(array);
+					loader = null;
+				}				
+				function onJSONError(event:IOErrorEvent):void
+				{
+					loader.removeEventListener(Event.COMPLETE, onJSONLoad);
+					loader.removeEventListener(IOErrorEvent.IO_ERROR, onJSONError);					
+					Alert.show(event.text);
+					loader = null;
+				}
+			}
+			
+			private function getGeocodeStreetNames(urlStr:String):void
+			{
+				var url:URLRequest = new URLRequest(urlStr);
+				var loader:URLLoader = new URLLoader();
+				loader.dataFormat = URLLoaderDataFormat.TEXT;
+				loader.addEventListener(Event.COMPLETE, onJSONLoad);
+				loader.addEventListener(IOErrorEvent.IO_ERROR, onJSONError);
+				loader.load(url);
+				function onJSONLoad(event:Event):void
+				{
+					loader.removeEventListener(Event.COMPLETE, onJSONLoad);
+					loader.removeEventListener(IOErrorEvent.IO_ERROR, onJSONError);
+					var array:Array = com.esri.ags.utils.JSON.decode(loader.data.toString()) as  Array;
+					model.geocodeStreets = new ArrayCollection(array);
+					loader = null;
+				}				
+				function onJSONError(event:IOErrorEvent):void
+				{
+					loader.removeEventListener(Event.COMPLETE, onJSONLoad);
+					loader.removeEventListener(IOErrorEvent.IO_ERROR, onJSONError);					
+					Alert.show(event.text);
+					loader = null;
+				}
+			}			
+			
+
+
+			//code to restrict application to be open multiple times//
+/* 			protected function checkOpened(title:String):void
+			{
+				var c:SingleInstanceChecker = new SingleInstanceChecker(title);
+				if (!c.isSingle())
+				{
+					Alert.show(title+" is already open");
+				}
+			}		 */	
+
+			
+
+			
+			
+			//CHECKS FOR URL PARAMETERS//
+			public function checkDeepLinks():void
+			{
+
+				var file:String = "";
+				var queryStringFromUrl:String = ExternalInterface.call("window.location.search.substring", 1);
+				var url:String =  String(ExternalInterface.call(" function(){return document.location.href.toString();}"));
+				
+				if (url.indexOf("#") > -1){
+					queryStringFromUrl = url.split("index.html#")[1];
+					var pattern:RegExp = /pin/gi;
+					queryStringFromUrl = queryStringFromUrl.replace(pattern,"pins");
+				}
+				
+				//uncomment next line for debugging//
+				//queryStringFromUrl = "center=2105950,740542,3&layers=name:Zoning;alpha:0.95|name:Raleigh Overlay Districts";
+				//queryStringFromUrl = "pins=1703680600";
+				if (queryStringFromUrl != "")
+				{
+					var params:Array = queryStringFromUrl.split("&");
+					var length:uint = params.length;
+					for (var i:uint = 0, index:int = -1; i < length;i++)
+					{
+						var kvPair:String = params[i];
+						if ((index = kvPair.indexOf("=")) > 0)
+						{
+							var key:String = kvPair.substring(0, index);
+							var value:String = kvPair.substring(index+1);
+							processDeepLink(key, value);								
+						}
+						
+					}
+				}
+			}
+			
+			private function processDeepLink(key:String, value:String):void
+			{
+
+				switch (key)
+				{
+					case "center":
+						model.center = value.split(",");
+						break;
+					case "pins":
+						model.pins = value.split(",");
+						if(!model.propertySearch)
+						{
+							for (var i:int = 0;i < model.rightPanel.accordion.numElements;i++)
+							{
+								if (model.rightPanel.accordion.getElementAt(i) is PropertySearch)
+								{
+									model.rightPanel.accordion.getElementAt(i);
+									model.rightPanel.accordion.selectedIndex = i;
+									break;
+								}
+							}
+						}
+						break;
+					case "panel":
+						model.panel = value;
+						model.rightPanel.switchAccordionPanel(value.replace(new RegExp("%20","g")," "));
+						break;
+					case "layers":
+						var layersAc :ArrayCollection = new ArrayCollection();
+						var layers:Array = value.split("|");
+						var minScale:int = 0;
+						for each (var str:String in layers)
+						{
+							str = str.replace(new RegExp("%20","g")," ");
+							var params:Array = str.split(";");
+							var o:Object = {};
+							for each (var param:String in params)
+							{
+								var a:Array = param.split(":");
+								switch (a[0])
+								{
+									case "name":
+										o[a[0]] = a[1];
+										break;
+									case "alpha":
+										o[a[0]] = Number(a[1]);
+										break;
+									case "visLayers":
+										o[a[0]] = String(a[1]).split(",");
+										break;
+								}
+							}
+							layersAc.addItem(o);
+						}
+						
+				
+
+						for each (var layer:Layer in model.map.layers)
+						{
+							for each (var item:Object in layersAc)
+							{
+								if (layer.name.toLowerCase() == item.name.toLowerCase())
+								{
+									layer.visible = true;
+									if (item.visLayers && layer is ArcGISDynamicMapServiceLayer)
+									{
+										ArcGISDynamicMapServiceLayer(layer).visibleLayers =  new ArrayCollection(item.visLayers);
+									}
+									if (item.alpha)
+									{
+										layer.alpha = item.alpha;
+									}
+									break;
+								}
+							}
+
+							if (layer.minScale > minScale)
+							{
+								minScale = layer.minScale;
+							}
+							
+						} 
+						
+						break;
+				case "place":
+						for (var j:int = 0;j < model.rightPanel.accordion.numElements;j++)
+						{
+							if (model.rightPanel.accordion.getElementAt(j) is LocationSearch)
+							{
+								model.rightPanel.accordion.getElementAt(j);
+								model.rightPanel.accordion.selectedIndex = j;
+								break;
+							}
+						}
+						model.place = value.replace(new RegExp("%20","g")," ");
+						break;
+				}
+				if (minScale > 0)
+				{
+					model.map.scale = minScale;
+				}
+			}
+
+
+
+			//CONTROL TOOLBARS//
+
+			
+			public function resetButtonBars(name:String):void{
+				var arr:Array = model.toolbars;
+				for each (var buttonBar:ButtonBar in arr){
+					if (buttonBar){
+						if (buttonBar.name != name){
+							buttonBar.requireSelection = false;
+							buttonBar.selectedIndex = -1;
+						}else{
+							//buttonBar.requireSelection = true;
+						}						
+					}
+
+				}
+			}
+
+			public function resetMapToolbar():void
+			{
+				if (model.toolBar)
+				{
+					for (var i:int=0;i<model.toolBar.hgroup.numElements;i++)
+					{
+						if (model.toolBar.hgroup.getElementAt(i) is ToggleButton)
+						{
+							ToggleButton(model.toolBar.hgroup.getElementAt(i)).selected = false;
+						}
+					}
+				} 
+			}		
+
+
+			//CONTROL PROGRESS BARS//
+			public function showProgress(msg:String):void{
+				removeProgress();
+				progBar = new ProgressBarPanel();//new ProgressBar();
+				//progBar.indeterminate = true;
+				progBar.message = msg;
+				PopUpManager.addPopUp(progBar, model.mainView, false);
+				PopUpManager.centerPopUp(progBar);				
+			}
+			public function removeProgress():void{
+				PopUpManager.removePopUp(progBar);
+			}
+
+			//ADD POINT PIN TO MAP//
+			[Embed(source='../assets/iphone_Pin_shadow.png')]private var pin:Class;
+			
+			public function addPointToMap(pt:MapPoint, scale:int):void
+			{
+				var gl:GraphicsLayer = GraphicsLayer(model.map.getLayer("pinGL"));
+				if (!gl)
+				{
+					gl = new GraphicsLayer();
+					gl.id = "pinGL";
+					model.map.addLayer(gl);
+				}
+				gl.clear();
+				var g:Graphic = new Graphic(pt,new PictureMarkerSymbol(pin,60,40,0,20));
+				model.map.centerAt(pt);
+				model.map.scale = scale;
+				//Model.instance.lastExtent = map.extent;		
+				var ptTo:MapPoint = new MapPoint(pt.x, model.map.extent.ymax);
+				var pt0:Point = model.map.toScreen(ptTo);
+				var pt1:Point = model.map.toScreen(pt);
+				var drop:mx.effects.Move = new Move();
+				drop.yFrom = pt0.y-model.map.height/2;
+				drop.yTo = pt1.y-model.map.height/2;
+				drop.duration = 2000;
+				drop.easingFunction = mx.effects.easing.Bounce.easeOut;
+				gl.addEventListener(GraphicEvent.GRAPHIC_ADD, graphicAddHandler,false,0,true);
+				gl.add(g);
+				//firstSearchComplete();
+				//sendServiceQuery(pt);
+				function graphicAddHandler(event:GraphicEvent):void
+				{
+					drop.play([event.target]);
+				}
+			}		
+
+			//SET CURSORS//
+			[Embed(source="../assets/cursors/zoomin_cursor.png")]
+			public var zoomInCursor:Class;
+			[Embed(source="../assets/cursors/zoomout_cursor.png")]
+			public var zoomOutCursor:Class;
+			[Embed(source="../assets/cursors/identify_cursor.png")]
+			public var identifyCursor:Class;			
+			[Embed(source="../assets/cursors/streetview_cursor.png")]
+			public var streetviewCursor:Class;			
+			public function setCursors():void
+			{
+				
+				switch (model.currentTool)
+				{
+					case "Pan":
+						model.map.useHandCursor = true;
+						break;
+					case "Zoom In":
+						model.map.cursorManager.setCursor(zoomInCursor);
+						break;
+					case "Zoom Out":					
+						model.map.cursorManager.setCursor(zoomOutCursor);
+						break;
+					case "Identify":
+						model.map.cursorManager.setCursor(identifyCursor);
+						break;
+					case "Streetview":
+						model.map.cursorManager.setCursor(streetviewCursor);
+						break;	
+					default:
+						model.map.cursorManager.removeAllCursors();
+				}
+			}
+			
+			public function GetSettings():void
+			{
+				model.settingsSO = SharedObject.getLocal(model.SETTINGS+"_"+model.config);
+			}
+				
+
+			protected function config_faultHandler(event:FaultEvent):void
+			{
+				// TODO Auto-generated method stub
+			}		
+			
+		
+
+
+			
+			private function setApplicationStyle():void
+			{
+/* 				if (this.configuration.style.theme.enabled == "true")
+				{
+					var topLevelStyleManager:IStyleManager2 = FlexGlobals.topLevelApplication.styleManager;				
+					var cssStyleDeclarationGlobal:CSSStyleDeclaration = topLevelStyleManager.getStyleDeclaration("global");
+					var theme:Theme = configuration.style.theme;
+					var textColor:uint = uint(theme.textColor);
+					var backgroundColor:uint = uint(theme.backgroundColor);
+					var rolloverColor:uint = uint(theme.rolloverColor);
+					var selectionColor:uint = uint(theme.selectionColor);
+					var titleColor:uint = uint(theme.titleColor);
+					var applicationBackgroundColor:uint = uint(theme.applicationBackgroundColor);
+					var styleAlpha:Number = parseFloat(theme.styleAlpha);
+					cssStyleDeclarationGlobal.setStyle("chromeColor", backgroundColor);
+					cssStyleDeclarationGlobal.setStyle("color", textColor);
+					cssStyleDeclarationGlobal.setStyle("contentBackgroundColor", backgroundColor);
+					cssStyleDeclarationGlobal.setStyle("contentBackgroundAlpha", styleAlpha);
+					cssStyleDeclarationGlobal.setStyle("symbolColor", textColor);
+					cssStyleDeclarationGlobal.setStyle("rollOverColor", "haloBlue");
+					cssStyleDeclarationGlobal.setStyle("selectionColor", "haloBlue");
+					cssStyleDeclarationGlobal.setStyle("focusColor", titleColor);
+					cssStyleDeclarationGlobal.setStyle("accentColor", textColor);
+					cssStyleDeclarationGlobal.setStyle("textSelectedColor", textColor);
+					cssStyleDeclarationGlobal.setStyle("textRollOverColor", textColor);
+					topLevelStyleManager.setStyleDeclaration("global", cssStyleDeclarationGlobal, false);
+					
+					var cssStyleDeclarationModule:CSSStyleDeclaration = new CSSStyleDeclaration();
+					cssStyleDeclarationModule.setStyle("chromeColor", backgroundColor);
+					cssStyleDeclarationModule.setStyle("color", textColor);
+					cssStyleDeclarationModule.setStyle("contentBackgroundColor", backgroundColor);
+					cssStyleDeclarationModule.setStyle("contentBackgroundAlpha", styleAlpha);
+					cssStyleDeclarationModule.setStyle("symbolColor", textColor);
+					cssStyleDeclarationModule.setStyle("rollOverColor", rolloverColor);
+					cssStyleDeclarationModule.setStyle("selectionColor", selectionColor);
+					cssStyleDeclarationModule.setStyle("focusColor", titleColor);
+					cssStyleDeclarationModule.setStyle("accentColor", textColor);
+					cssStyleDeclarationModule.setStyle("textSelectedColor", textColor);
+					cssStyleDeclarationModule.setStyle("textRollOverColor", textColor);
+					topLevelStyleManager.setStyleDeclaration("mx.modules.Module", cssStyleDeclarationModule, false);
+					
+					//Style Application
+					var cssStyleDeclarationApplication:CSSStyleDeclaration = topLevelStyleManager.getStyleDeclaration("spark.components.Application");
+					if (cssStyleDeclarationApplication)
+					{
+						cssStyleDeclarationApplication.setStyle("backgroundColor", applicationBackgroundColor);
+						cssStyleDeclarationApplication.setStyle("backgroundAlpha", styleAlpha);
+						topLevelStyleManager.setStyleDeclaration("spark.components.Application", cssStyleDeclarationApplication, false);
+					}
+					
+					var cssStyleDeclarationApplicationWindowed:CSSStyleDeclaration = topLevelStyleManager.getStyleDeclaration("spark.components.WindowedApplication");
+					if (cssStyleDeclarationApplicationWindowed)
+					{
+						cssStyleDeclarationApplicationWindowed.setStyle("backgroundColor", applicationBackgroundColor);
+						cssStyleDeclarationApplicationWindowed.setStyle("backgroundAlpha", styleAlpha);
+						topLevelStyleManager.setStyleDeclaration("spark.components.WindowedApplication", cssStyleDeclarationApplicationWindowed, false);
+					}	 
+					
+					//Style Tooltip
+					var cssStyleDeclarationTooltip:CSSStyleDeclaration = topLevelStyleManager.getStyleDeclaration("mx.controls.ToolTip");
+					cssStyleDeclarationTooltip.setStyle("color", textColor);
+					cssStyleDeclarationTooltip.setStyle("backgroundColor", backgroundColor);
+					topLevelStyleManager.setStyleDeclaration("mx.controls.ToolTip", cssStyleDeclarationTooltip, false);		
+					
+					//Style TitleWindow
+					var cssStyleDeclarationTitleWindow:CSSStyleDeclaration = new CSSStyleDeclaration();
+					cssStyleDeclarationTitleWindow.setStyle("color", textColor);
+					cssStyleDeclarationTitleWindow.setStyle("backgroundColor", backgroundColor);
+					topLevelStyleManager.setStyleDeclaration("com.raleigh.components.toolbar.ToolWindow", cssStyleDeclarationTitleWindow, false);
+					
+					//Style DataGrid
+					var cssStyleDeclarationDataGrid:CSSStyleDeclaration = new CSSStyleDeclaration();
+					
+					//cssStyleDeclarationDataGrid.setStyle("alternatingItemColors", [ 0xFFFFFF, 0xFFFFFF ]);
+					cssStyleDeclarationDataGrid.setStyle("contentBackgroundColor", 0xFFFFFF);
+					cssStyleDeclarationDataGrid.setStyle("color", 0x000000);
+					cssStyleDeclarationDataGrid.setStyle("backgroundAlpha", .8);
+					topLevelStyleManager.setStyleDeclaration("mx.controls.DataGrid", cssStyleDeclarationDataGrid, false);
+					//Style CheckBox
+					var cssStyleDeclarationCheckBox:CSSStyleDeclaration = new CSSStyleDeclaration();
+					cssStyleDeclarationCheckBox.setStyle("iconColor", 0x000000);
+					topLevelStyleManager.setStyleDeclaration("spark.components.CheckBox", cssStyleDeclarationCheckBox, false);
+					
+					var cssStyleDeclaritionRightPanel:CSSStyleDeclaration = new CSSStyleDeclaration();
+					cssStyleDeclaritionRightPanel.setStyle("color", 0x000000);
+					cssStyleDeclaritionRightPanel.setStyle("contentBackgroundColor", 0xFFFFFF);			
+					cssStyleDeclaritionRightPanel.setStyle("backgroundColor", 0xFFFFFF);					
+					cssStyleDeclaritionRightPanel.setStyle("backgroundAlpha", 1);				
+					topLevelStyleManager.setStyleDeclaration("com.raleigh.components.paneltools.BasePanelTool", cssStyleDeclaritionRightPanel, false);						
+				}
+				
+				 */
+			}			
+			
+		]]>
+	</fx:Script>
+
+</mx:UIComponent>

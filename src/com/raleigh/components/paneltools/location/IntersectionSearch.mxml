@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:utils="com.raleigh.components.utils.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  width="100%" height="100%">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.FeatureSet;
+			import com.esri.ags.tasks.supportClasses.AddressCandidate;
+			import com.raleigh.components.utils.AutoCompleteChangeEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.ListEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.Fault;
+			
+			import spark.events.IndexChangeEvent;
+
+		
+			private function intersectionResult1(event:FeatureSet, token:Object = null):void
+			{
+				if (event.features.length > 0)
+				{
+					q.geometry = event.features[0].geometry;
+					q.returnGeometry = false;
+					q.where = "CARTONAME <> '"+intersectInput.text+"' AND (CARTONAME NOT LIKE '% TO %' OR CARTONAME NOT LIKE '% RAMP%')";
+					qt.execute(q, new AsyncResponder(intersectionResult2, onFault, null));					
+				}
+
+			}
+			
+			private function intersectionResult2(event:FeatureSet, token:Object = null):void
+			{			
+				intDDL.dataProvider = new ArrayCollection(event.attributes);
+				intDDL.enabled = true;
+			}
+
+			protected function intDDL_changeHandler(event:IndexChangeEvent):void
+			{
+				searchByIntersection(intersectInput.text, intDDL.selectedItem.CARTONAME);
+			}
+
+			
+			
+			private var numList:ArrayCollection  = new ArrayCollection(["ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE"]);
+			private function searchByIntersection(primary:String, secondary:String):void
+			{
+				var primarySplit:Array = primary.split(" ");
+				var secondarySplit:Array = secondary.split(" ");
+				
+				if (numList.contains(primarySplit[0]))
+				{
+					primary = primarySplit[0]+primarySplit[1];
+					for (var i:int = 2;i < primarySplit.length;i++)
+					{
+						primary += " "+primarySplit[i];
+					}
+				}
+				if (numList.contains(secondarySplit[0]))
+				{
+					secondary = secondarySplit[0]+secondarySplit[1];		
+					for (i = 2;i < secondarySplit.length;i++)
+					{
+						secondary += " "+secondarySplit[i];
+					}
+				}
+				
+				if (primary != "" && secondary != "")
+				{
+					locator.addressToLocations({"Single Line Input":primary+" & "+secondary},['*'],new AsyncResponder(intersectionLocationHandler, onFault));						
+				}
+			}					
+
+			
+			
+			
+			private function intersectionLocationHandler(candidates:Array, token:Object = null):void
+			{
+				if (candidates.length > 0)
+				{
+					var candidate:AddressCandidate = candidates[0];
+					model.controller.addPointToMap(candidate.location, 9600);
+				}
+
+			}
+			
+			private function onFault(fault:Fault, token:Object = null):void
+			{
+				Alert.show(fault.faultString);
+			}
+
+	
+			
+			
+			
+			
+
+
+			protected function dataGrid_changeHandler(event:ListEvent):void
+			{
+				controller.addPointToMap(event.itemRenderer.data.location, 9600);
+			}
+			
+			protected function intersectInput_selectionchangedHandler(event:AutoCompleteChangeEvent):void
+			{
+				q.geometry = null;
+				q.returnGeometry = true;
+				q.where = "CARTONAME = '"+intersectInput.text+"'";
+				qt.execute(q, new AsyncResponder(intersectionResult1, onFault, null));
+				intDDL.enabled = false;
+			}
+			
+		]]>
+	</fx:Script>	
+	<fx:Declarations>
+		<esri:QueryTask id="qt"
+						url="{model.locationSearch.config.dissolvedStreets.@url}"
+						useAMF="true"
+						showBusyCursor="false"/>
+		<esri:Query id="q" outFields="['CARTONAME']"/>
+		<esri:Locator id="locator"
+					  url="{model.locationSearch.config.wakelocator.@url}"/>
+	</fx:Declarations>
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+
+	<utils:AutoComplete id="intersectInput" width="100%"
+						dataProvider="{model.geocodeStreets}" displayField="N"
+						filterFields="{['N', 'A1', 'A2']}" minChars="3"
+						selectionchanged="intersectInput_selectionchangedHandler(event)"
+						prompt="W HARGETT ST"/>
+
+	<s:DropDownList id="intDDL" width="100%" change="intDDL_changeHandler(event)" enabled="false"
+					labelField="CARTONAME" prompt="Select Intersecting Street..."/>
+	<mx:DataGrid id="dataGrid" width="100%" height="100%" change="dataGrid_changeHandler(event)"
+				 dataProvider="{locator.addressToLocationsLastResult}" variableRowHeight="true"
+				 wordWrap="true">
+		<mx:columns>
+			<mx:DataGridColumn dataField="address" headerText="Address"/>
+			<mx:DataGridColumn dataField="location.x" headerText="X"/>
+			<mx:DataGridColumn dataField="location.y" headerText="Y"/>
+		</mx:columns>
+	</mx:DataGrid>		
+</paneltools:BasePanelTool>

@@ -1,0 +1,590 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009" 
+						  xmlns:s="library://ns.adobe.com/flex/spark" 
+						  xmlns:mx="library://ns.adobe.com/flex/mx" xmlns:paneltools="com.raleigh.components.paneltools.*" 
+						  width="100%" height="100%"
+						  label="Raleigh Development Plan Search" 
+						  xmlns:services="services.*" 
+						  xmlns:esri="http://www.esri.com/2008/ags" 
+						  xmlns:components="com.raleigh.components.*"
+						  addedToStage="init()" 
+						  currentState="List" 
+						  xmlns:developmentplans="com.raleigh.components.paneltools.developmentplans.*" 
+						  xmlns:utils="com.raleigh.components.utils.*">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.events.FeatureLayerEvent;
+			import com.esri.ags.events.QueryEvent;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.symbols.PictureMarkerSymbol;
+			import com.esri.ags.symbols.SimpleFillSymbol;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.esri.ags.tasks.supportClasses.Query;
+			import com.esri.ags.utils.JSON;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.containers.Accordion;
+			import mx.controls.Alert;
+			import mx.core.IVisualElement;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			import spark.events.GridEvent;
+			
+			[Embed(source='assets/sp.png')]private var spClass:Class;
+			[Embed(source='assets/s.png')]private var sClass:Class;
+			[Embed(source='assets/su.png')]private var suClass:Class;
+			[Embed(source='assets/gh.png')]private var ghClass:Class;
+			[Embed(source='assets/mh.png')]private var mhClass:Class;
+			[Embed(source='assets/mp.png')]private var mpClass:Class;
+			[Embed(source='assets/ms.png')]private var msClass:Class;
+			[Embed(source='assets/pa.png')]private var paClass:Class;
+			[Embed(source='assets/sc.png')]private var scClass:Class;			
+			
+
+			[Bindable]
+			public var config:XML;
+			private var loader:URLLoader;
+			
+			private function xmlLoaded(event:Event):void
+			{
+				config = new XML(event.currentTarget.data);
+				loader.removeEventListener(Event.COMPLETE, xmlLoaded);
+			}		
+			
+			protected function init():void
+			{
+				model.developmentPlanSearch = this;
+				map.addLayer(gl2);
+				map.addLayer(gl);
+				model.rightPanel.accordion.addEventListener(FlexEvent.VALUE_COMMIT, accordionValueCommitHandler,false,0,true);
+				
+				var configPath:String = getQualifiedClassName(this).substr(0,flash.utils.getQualifiedClassName(this).indexOf('::')).replace(/\./g,'/')+'/config.xml';
+				loader = new URLLoader();
+				loader.addEventListener(Event.COMPLETE, xmlLoaded);
+				loader.load(new URLRequest(configPath));				
+			}			
+			
+			protected function searchButton_clickHandler(event:MouseEvent):void
+			{
+				var query:Query = new Query();
+				query.where = setWhere();
+				featureLayer.queryFeatures(query);
+				searchButton.enabled = false;
+				controller.showProgress("Searching for Development Plans");
+			}
+			
+			protected function setWhere():String
+			{
+				var where:String = "";
+				if (typesDdl.selectedIndex !=0 && statusDdl.selectedIndex != 0)
+				{
+					where = "RALEIGH.IRIS_DEVPLANS_VIEW.CASE_YEAR = '"+yearsDdl.selectedItem.CASE_YEAR+"' AND "+
+						"RALEIGH.IRIS_DEVPLANS_VIEW.CASE_LETTER = '"+typesDdl.selectedItem.type+"' AND "+
+						"RALEIGH.IRIS_DEVPLANS_VIEW.STATUS = '"+statusDdl.selectedItem.value+"'";					
+				}
+				else if (statusDdl.selectedIndex != 0)
+				{
+					where = "RALEIGH.IRIS_DEVPLANS_VIEW.CASE_YEAR = '"+yearsDdl.selectedItem.CASE_YEAR+"' AND "+
+						"RALEIGH.IRIS_DEVPLANS_VIEW.STATUS = '"+statusDdl.selectedItem.value+"'"+
+						" AND RALEIGH.IRIS_DEVPLANS_VIEW.CASE_LETTER NOT IN ('IR', 'R')";						
+				}
+				else if (/* yearsDdl.selectedIndex != 0 &&  */typesDdl.selectedIndex != 0)
+				{
+					where = "RALEIGH.IRIS_DEVPLANS_VIEW.CASE_YEAR = '"+yearsDdl.selectedItem.CASE_YEAR+"' AND "+
+						"RALEIGH.IRIS_DEVPLANS_VIEW.CASE_LETTER = '"+typesDdl.selectedItem.type+"'";
+				}
+				else if (/* yearsDdl.selectedIndex != 0 &&  */typesDdl.selectedIndex == 0)
+				{
+					where = "RALEIGH.IRIS_DEVPLANS_VIEW.CASE_YEAR = '"+yearsDdl.selectedItem.CASE_YEAR+"'"+
+					" AND RALEIGH.IRIS_DEVPLANS_VIEW.CASE_LETTER NOT IN ('IR', 'R')";				
+				}
+/* 				else if (yearsDdl.selectedIndex == 0 && typesDdl.selectedIndex != 0)
+				{
+					where = "CASE_TYPE = '"+typesDdl.selectedItem.type+"'";					
+				}
+				else
+				{
+					where = "CASE_YEAR IS NOT NULL";
+				} */
+				return where;
+			}
+
+
+			protected function featureLayer_queryFeaturesCompleteHandler(event:FeatureLayerEvent):void
+			{
+				controller.removeProgress();
+				searchButton.enabled = true;
+				gl.clear();
+				gl2.clear();
+				dataGrid.dataProvider = new ArrayCollection();
+				var extent:Extent = Graphic(event.featureSet.features[0]).geometry.extent;
+				for each (var feature:Graphic in event.featureSet.features)
+				{
+					var item:Object = {
+						name: feature.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_NAME'],
+							number:feature.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_NUMBER'],
+							year:feature.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.CASE_YEAR'],
+							status:decodeStatus(feature.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.STATUS']),
+							geometry:feature.geometry
+					};
+					ArrayCollection(dataGrid.dataProvider).addItem(item);
+					var g:Graphic = new Graphic(feature.geometry.extent.center,setMarker(feature.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.CASE_LETTER'],24),item);
+					g.toolTip = feature.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_NAME'];
+					g.useHandCursor = true;
+					g.buttonMode = true;
+					g.addEventListener(MouseEvent.CLICK, graphicClickHandler,false,0,true);					
+					gl.add(g);
+					extent = extent.union(feature.geometry.extent);
+				}
+				zoomToFeature(extent);
+				ArrayCollection(dataGrid.dataProvider).sort = new Sort();
+				ArrayCollection(dataGrid.dataProvider).sort.fields = [new SortField("year",false, true),new SortField("number")];
+				ArrayCollection(dataGrid.dataProvider).refresh();
+				this.currentState = "List";
+			}
+			
+			private function decodeStatus(status:String):String
+			{
+				var ret:String = "";
+				for each (var item:Object in ArrayList(statusDdl.dataProvider).source)
+				{
+					if (item.value == status)
+					{
+						ret = item.desc;
+					}
+				}
+				return ret;
+			}
+			
+			protected function graphicClickHandler(event:MouseEvent):void
+			{
+				var g:Graphic = event.currentTarget as Graphic;
+				
+				dataGrid.selectedIndex = ArrayCollection(dataGrid.dataProvider).getItemIndex(g.attributes);
+				map.centerAt(g.geometry as MapPoint);
+				map.level = 10;
+				q.where = "RALEIGH.DEVELOPMENT_PLANS.FILE_NUM = '" + g.attributes.number + "'";
+				qt.execute(q);
+				
+			}
+			
+			protected function setMarker(type:String, size:int):PictureMarkerSymbol
+			{
+				var pms:PictureMarkerSymbol = new PictureMarkerSymbol();
+				pms.height = size;
+				pms.width = size;
+				switch (type)
+				{
+					case "GH":
+						pms.source = ghClass;
+						break;
+					case "MH":
+						pms.source = mhClass;
+						break;
+					case "MP":
+						pms.source = mpClass;
+						break;
+					case "MS":
+						pms.source = msClass;
+						break;
+					case "PA":
+						pms.source = paClass;
+						break;
+					case "S":
+						pms.source = sClass;
+						break;
+					case "SC":
+						pms.source = scClass;
+						break;
+					case "SP":
+						pms.source = spClass;
+						break;
+					case "SU":
+						pms.source = suClass;
+						break;					
+				}
+				return pms;
+			}
+			
+
+
+			
+			protected function accordionValueCommitHandler(event:FlexEvent):void
+			{
+				if (gl && gl2)
+				{
+					var isVisible:Boolean = event.currentTarget.selectedIndex == Accordion(event.currentTarget).getElementIndex(this as IVisualElement);
+					gl.visible = isVisible;
+					gl2.visible = isVisible;
+				}
+			}
+
+
+/* 			protected function dataGrid_changeHandler():void
+			{
+				if (dataGrid.selectedItem)
+				{
+					gl2.clear();
+					gl2.add(new Graphic(dataGrid.selectedItem.geometry));
+					map.extent = dataGrid.selectedItem.geometry.extent;
+					getDevPlanDetails(dataGrid.selectedItem.number);					
+				}
+
+			} */
+
+			
+
+
+			protected function GetDevPlanDetailsResult_resultHandler(event:ResultEvent):void
+			{
+				if(event.result.length > 0)
+				{
+					this.currentState = "Details";
+
+				}
+				else
+				{
+					Alert.show("Details not available");
+				}
+			}
+
+			
+			protected function yearsDdl_creationCompleteHandler(event:FlexEvent):void
+			{
+				getCaseYear();
+			}
+			
+
+
+
+
+
+			protected function dataGrid_gridClickHandler(event:GridEvent):void
+			{
+				if(event.rowIndex != -1 && event.itemRenderer.data.year > 2003)
+				{
+					if (event.columnIndex < dataGrid.columns.length -1)
+					{
+						zoomToFeature(event.itemRenderer.data.geometry.extent);
+						//getDevPlanDetails(event.itemRenderer.data.number);
+						q.where = "RALEIGH.DEVELOPMENT_PLANS.FILE_NUM = '" + event.itemRenderer.data.number + "'";
+						qt.execute(q);
+					}
+					else
+					{
+						var num:String = event.itemRenderer.data.number;
+						var year:String = event.itemRenderer.data.year;
+						var url:String = getURL(num,parseInt(year));
+						navigateToURL(new URLRequest(url),"_blank");
+					}					
+				}
+			}
+			
+
+			
+			private function getURL(fileNum:String, caseYear:int):String
+			{
+				var url:String = "";
+				var arr:Array = fileNum.split("-");
+				var type:String = arr[0];
+				var id:String = arr[1];
+				var year:String = arr[2];
+				if (id.length == 1)
+				{
+					id = "00"+id;
+				}
+				else if (id.length == 2)
+				{
+					id = "0"+id;
+				}
+				year = year.substr(2,2);
+				var fileName:String = type+"-"+id+"-"+year+".pdf";
+				var folder:String = getFolderName(type);
+				if (caseYear >= 2010)
+				{
+					url = "http://www.raleighnc.gov/content/PlanDev/Documents/DevServ/DevPlans/Reviews/"+caseYear+"/"+folder+"/"+fileName;
+				}		
+				else
+				{
+					url = "http://www.raleighnc.gov/content/PlanDev/Documents/DevServ/DevPlans/Reviews/"+caseYear+"/"+folder+"/"+fileName;
+				}	
+				return url;
+			}
+			
+			private function getFolderName(type:String):String
+			{
+				var folder:String="";
+				switch(type){
+					case "GH":
+						folder = "GroupHousing";
+						break;									
+					case "MP":
+						folder = "MasterPlan";
+						break;													
+					case "S":
+						folder = "Subdivision";
+						break;							
+					case "SP":
+						folder = "SitePlan";
+						break;					
+					case "SU":
+						folder = "SpecialUse";
+						break;															
+				}		
+				return folder;
+			}
+			
+			
+			private function zoomToFeature(extent:Extent):void
+			{
+				map.extent = extent;
+				if (map.extent.height < extent.height || map.extent.width < extent.width)
+				{
+					map.level -= 1;
+				}
+			}
+			
+			protected function dataGrid_keyUpHandler(event:KeyboardEvent):void
+			{
+				
+				
+				if (dataGrid.dataProviderLength > 0 && (event.keyCode == Keyboard.UP || event.keyCode == Keyboard.DOWN))
+				{
+					zoomToFeature(event.currentTarget.selectedItem.geometry.extent);
+				}					
+				
+				
+			}
+			
+			protected function GetCaseYearsResult_resultHandler(event:ResultEvent):void
+			{
+				typesDdl.selectedIndex = 0;
+			}
+			
+			protected function featureLayer_faultHandler(event:FaultEvent):void
+			{
+				controller.removeProgress();
+				searchButton.enabled = true;
+			}
+			
+			public function clearResults():void
+			{
+				dataGrid.dataProvider = null;
+				currentState = "List";
+			}
+	
+			protected function getCaseYear():void
+			{
+				//GetSubdivisionNamesResult.token = propertyService.GetSubdivisionNames();
+				var params:Object = {};
+				params.returnDistinctValues = true;
+				params.outFields = "CASE_YEAR";
+				params.returnGeometry = false;
+				params.where = "1=1";
+				params.f = "json";
+				params.orderByFields = "CASE_YEAR DESC";
+				distinctYearService.send(params);
+			}
+			
+			protected function distinctYearService_resultHandler(event:ResultEvent):void
+			{
+				var json:Object = JSON.decode(event.result as String);
+				yearsDdl.dataProvider = new ArrayCollection();
+				for each (var obj:Object in json.features) {
+					yearsDdl.dataProvider.addItem(obj.attributes);
+				}
+			}
+			
+			protected function qt_executeCompleteHandler(event:QueryEvent):void
+			{
+				if (event.featureSet.features.length > 0) {
+					content = new DevPlanDetailsContent();
+					content.details = new Object();
+					var item:Graphic = event.featureSet.features[0];
+					details.planNum = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_NUMBER'];
+					details.planName = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_NAME'];
+					details.planType = getCaseType(item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.CASE_LETTER']);
+					details.street = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.MAJOR_STREET'];
+					details.acreage = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.ACREAGE'];
+					details.lots = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.LOTS_REQ'];
+					details.units = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.UNITS_REQ'];
+					details.sqft = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.SQ_FT_REQ'];
+					details.zoning = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.ZONING'];
+					details.planDist = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_DIST'];
+					details.cac = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.CAC'];
+					details.owner = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.OWNER'];
+					details.ownerPhone = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.OWNER_PHONE'];
+					details.engineer = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.ENGINEER'];
+					details.engineerPhone = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.ENGINEER_PHONE'];
+					details.submitDate = new Date(item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.SUBMITTAL_DATE']);
+					details.approvalDate = new Date(item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.APPROVAL_DATE']);
+					details.status = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.STATUS'];
+					details.approvedBy = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.APPROVED_BY'];
+					details.employee = item.attributes['RALEIGH.IRIS_DEVPLANS_VIEW.PLANNER'];	
+					this.currentState = "Details";
+				}
+
+				else
+				{
+					Alert.show("Details not available");
+				}
+			}
+			
+			private function getCaseType(type:String):String
+			{
+				var value:String="";
+				switch(type){
+					case "GH":
+						value = "Group Housing";
+						break;									
+					case "MP":
+						value = "Master Plan";
+						break;													
+					case "S":
+						value = "Subdivision";
+						break;							
+					case "SP":
+						value = "Site Plan";
+						break;					
+					case "SU":
+						value = "Special Use";
+						break;		
+					case "PA":
+						value = "Plan Approval";
+						break;	
+					case "SC":
+						value = "Shopping Center";
+						break;	
+					case "MS":
+						value = "Minor Subdivision";
+						break;	
+				}		
+				return value;
+			}
+			
+		]]>
+	</fx:Script>
+	<paneltools:states>
+		<s:State name="List"/>
+		<s:State name="Details"/>
+	</paneltools:states>
+	<fx:Declarations>
+		<fx:Object id="details"/>
+		<fx:Boolean id="isActive"/>
+		<esri:Query id="q" outFields="{['*']}" returnGeometry="false"/>
+		<esri:QueryTask id="qt" url="{config.featurelayer.@url}" executeComplete="qt_executeCompleteHandler(event)"/>
+		<esri:FeatureLayer id="featureLayer" url="{config.featurelayer.@url}"
+						   queryFeaturesComplete="featureLayer_queryFeaturesCompleteHandler(event)"
+						   fault="featureLayer_faultHandler(event)"
+						   useAMF="true" 
+						   outFields="{['RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_NUMBER', 'RALEIGH.IRIS_DEVPLANS_VIEW.PLAN_NAME', 'RALEIGH.IRIS_DEVPLANS_VIEW.CASE_LETTER', 'RALEIGH.IRIS_DEVPLANS_VIEW.CASE_YEAR', 'RALEIGH.IRIS_DEVPLANS_VIEW.STATUS']}"/>
+		<esri:GraphicsLayer id="gl"/>
+		<esri:GraphicsLayer id="gl2">
+			<esri:symbol>
+				<esri:SimpleFillSymbol style="null">
+					<esri:SimpleLineSymbol style="solid" alpha="1" color="{new uint(config.colors.@formback)}" width="5"/>
+				</esri:SimpleFillSymbol>
+			</esri:symbol>
+		</esri:GraphicsLayer>	
+		<!--<s:CallResponder id="GetCaseYearsResult" result="GetCaseYearsResult_resultHandler(event)"/>-->
+		<s:HTTPService id="distinctYearService" url="http://maps.raleighnc.gov/arcgis/rest/services/Services/ServicesIMaps/MapServer/30/query"
+					   resultFormat="text" method="GET" result="distinctYearService_resultHandler(event)"/>
+	</fx:Declarations>
+	
+	
+	
+	<paneltools:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</paneltools:layout>
+	
+	<s:DropDownList id="yearsDdl" 
+					prompt="Select Year..." 
+					creationComplete="yearsDdl_creationCompleteHandler(event)"
+					labelField="CASE_YEAR">
+	</s:DropDownList>
+	
+	<s:DropDownList id="typesDdl"
+					labelField="desc"
+					width="200"
+					enabled="{(yearsDdl.selectedIndex > -1)?true:false}"
+					selectedIndex="0">
+		<s:ArrayList>
+			<fx:Object desc="All Types" type="ALL"/>
+			<fx:Object desc="Group Housing" type="GH"/>
+			<fx:Object desc="Master Plan" type="MP"/>
+			<fx:Object desc="Minor Subdivision" type="MS"/>
+			<fx:Object desc="Plan Approval" type="PA"/>
+			<fx:Object desc="Subdivision" type="S"/>
+			<fx:Object desc="Shopping Center" type="SC"/>
+			<fx:Object desc="Site Plan" type="SP"/>
+			<fx:Object desc="Special Use" type="SU"/>				
+		</s:ArrayList>
+	</s:DropDownList>
+	<s:DropDownList id="statusDdl"
+					labelField="desc"
+					width="200"
+					enabled="{(yearsDdl.selectedIndex > -1)?true:false}"
+					selectedIndex="0">
+		<s:ArrayList>
+			<fx:Object desc="All Statuses" value="ALL"/>
+			<fx:Object desc="Approved" value="A"/>
+			<fx:Object desc="Denied" value="D"/>
+			<fx:Object desc="Pending Appeals" value="P"/>
+			<fx:Object desc="Sunset" value="S"/>
+			<fx:Object desc="Withdrawn" value="W"/>
+			<fx:Object desc="Review in Progress" value="N"/>			
+		</s:ArrayList>
+	</s:DropDownList>
+	<utils:ImageButton id="searchButton" click="searchButton_clickHandler(event)"
+					   enabled="{(yearsDdl.selectedIndex > -1)?true:false}"
+					   width="24" height="24"
+					   icon="@Embed(source='../../assets/searchIcon.png')"/>
+	<s:DataGrid id="dataGrid"
+				width="100%" height="100%"
+				variableRowHeight="true"
+				gridClick="dataGrid_gridClickHandler(event)"
+				keyUp="dataGrid_keyUpHandler(event)"
+				includeIn="List"
+				fontSize="10">
+		<s:columns>
+			<s:ArrayList>
+				<s:GridColumn dataField="number" headerText="File #" maxWidth="70"/>
+				<s:GridColumn dataField="name" headerText="Name" maxWidth="140"/>
+				<s:GridColumn dataField="status" headerText="Status" maxWidth="60"/>
+				<s:GridColumn headerText="PDF" width="40" maxWidth="40">
+					<s:itemRenderer>
+						<fx:Component>
+							<s:GridItemRenderer useHandCursor="true" buttonMode="true">
+								<s:layout>
+									<s:VerticalLayout verticalAlign="middle" horizontalAlign="left"/>
+								</s:layout>
+								<s:BitmapImage width="16" height="16" source="@Embed(source='assets/PDF.png')"
+											   verticalAlign="middle" horizontalAlign="left"
+											   visible="{(data.year > 2003)?true:false}"/>
+							</s:GridItemRenderer>
+						</fx:Component>
+					</s:itemRenderer>
+				</s:GridColumn>
+			</s:ArrayList>			
+		</s:columns>
+
+	</s:DataGrid>
+<!--	<mx:DataGrid id="dataGrid" 
+				 width="100%" height="100%" 
+				 variableRowHeight="true" wordWrap="true"
+				 change="dataGrid_changeHandler()" valueCommit="dataGrid_changeHandler()" includeIn="List">
+		<mx:columns>
+			<mx:DataGridColumn headerText="File #" dataField="number"/>
+			<mx:DataGridColumn headerText="Name" dataField="name"/>
+			<mx:DataGridColumn headerText="PDF"/>
+		</mx:columns>
+	</mx:DataGrid>-->
+	<developmentplans:DevPlanDetailsContent id="content" details="{details}"
+		includeIn="Details" width="100%" height="100%"/>
+</paneltools:BasePanelTool>

@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  xmlns:esri="http://www.esri.com/2008/ags"
+					  xmlns:components="com.raleigh.components.*"
+					  xmlns:utils="com.raleigh.components.utils.*"
+					  width="300" height="250"
+					  addedToStage="skinnablecontainer1_addedToStageHandler(event)" color="0x000000"
+					  currentState="Single">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.components.supportClasses.InfoWindow;
+			import com.esri.ags.geometry.Extent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.geometry.Polygon;
+			import com.esri.ags.geometry.Polyline;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.GraphicsLayer;
+			import com.esri.ags.layers.supportClasses.Field;
+			import com.esri.ags.layers.supportClasses.LayerDetails;
+			import com.esri.ags.symbols.Symbol;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.collections.Sort;
+			import mx.collections.SortField;
+			import mx.events.CollectionEvent;
+			import mx.events.FlexEvent;
+			import mx.rpc.AsyncResponder;
+			import mx.utils.ObjectUtil;
+			
+			import spark.events.IndexChangeEvent;
+
+			private var model:Model = Model.getInstance();
+			
+			[Bindable]
+			public var dataProvider:ArrayCollection;
+			[Bindable]
+			public var index:int = 0;
+			
+			[Bindable] 
+			private var dgProvider:ArrayCollection;
+			public var gl:GraphicsLayer;
+
+			protected function comboBox_valueCommitHandler(event:FlexEvent):void
+			{
+				dgProvider = populateDataGrid(comboBox.selectedIndex);
+				addIdentifiedGraphic(comboBox.selectedItem.feature);
+			}
+
+
+			protected function comboBox_changeHandler(event:IndexChangeEvent):void
+			{
+				dgProvider = populateDataGrid(event.newIndex);
+				addIdentifiedGraphic(comboBox.selectedItem.feature);
+			}
+			
+			private function addIdentifiedGraphic(g:Graphic):void
+			{
+				gl = GraphicsLayer(model.map.getLayer("IdentifyGraphicsLayer"));
+				g.symbol = setGraphicSymbol(g);
+				if(gl)
+				{
+					gl.clear();
+					gl.add(g);					
+				}
+
+			}
+			
+			private function setGraphicSymbol(g:Graphic):Symbol
+			{
+				var symbol:Symbol;
+				if (g.geometry is MapPoint)
+				{
+					symbol = sms;
+				}
+				else if (g.geometry is Polyline)
+				{
+					symbol = sls;					
+				}
+				else if (g.geometry is Polygon)
+				{
+					symbol = sfs;					
+				}
+				return symbol;
+			}
+			
+			
+			private function getDetailsHandler(details:LayerDetails, item:Object):void
+			{
+				var attributes:Object = item.feature.attributes;
+				model.map.infoWindow.label = attributes[item.display];
+
+				for each (var field:Field in details.fields)
+				{
+					if (field.name.toUpperCase() != "SHAPE")
+					{
+						var value:String = attributes[field.alias];
+						if (value != "" && value != "Null" && value != null)
+						{
+							ac.addItem({Field:field.alias, Value:value});
+						}
+					}
+				}
+				
+				
+			
+			}
+			
+			private var ac:ArrayCollection;
+			
+			protected function populateDataGrid(index:int):ArrayCollection{
+				ac = new ArrayCollection();
+				if (index > -1){
+					var item:Object = dataProvider.getItemAt(index);
+					
+					
+					var layer:ArcGISDynamicMapServiceLayer = new ArcGISDynamicMapServiceLayer(item.url);
+					layer.getDetails(item.id, new AsyncResponder(getDetailsHandler, null, item));	
+				}
+
+				return ac;
+			}
+
+
+			protected function button1_clickHandler(event:MouseEvent):void
+			{
+				if (comboBox.selectedItem.feature.geometry.extent)
+				{
+					var extent:Extent = Graphic(comboBox.selectedItem.feature).geometry.extent;
+					model.map.extent = extent;
+					if (extent.height > model.map.extent.height ||
+						extent.width > model.map.extent.width )
+					{
+						model.map.level -= 1;
+					}					
+				}
+				else
+				{
+					model.map.centerAt(comboBox.selectedItem.feature.geometry);
+				}
+
+			}
+
+
+			protected function prevButton_clickHandler(event:MouseEvent):void
+			{
+				if (comboBox.selectedIndex == 0)
+				{
+					comboBox.selectedIndex = comboBox.dataProvider.length - 1;
+				}
+				else
+				{
+					comboBox.selectedIndex -= 1;
+				}
+			}
+
+
+			protected function nextButton_clickHandler(event:MouseEvent):void
+			{
+				if (comboBox.selectedIndex == comboBox.dataProvider.length - 1)
+				{
+					comboBox.selectedIndex = 0;
+				}
+				else
+				{
+					comboBox.selectedIndex += 1;
+				}
+			}
+
+
+			protected function skinnablecontainer1_addedToStageHandler(event:Event):void
+			{
+				index = 0;
+				if (dataProvider.length == 1)
+				{
+					this.currentState = "Single";
+				}
+				else if (dataProvider.length > 1)
+				{
+					this.currentState = "Multiple";
+
+				}
+				
+				
+			}
+
+		]]>
+	</fx:Script>
+	
+	<s:states>
+		<s:State name="Single"/>
+		<s:State name="Multiple"/>
+	</s:states>
+	
+	<fx:Declarations>
+		<esri:SimpleFillSymbol id="sfs" outline="{sls}" style="null"/>
+		<esri:SimpleLineSymbol id="sls" width="3" color="0x009DFF" style="solid"/>
+		<esri:SimpleMarkerSymbol id="sms" alpha=".75" color="0x009DDF" size="10"/>
+	</fx:Declarations>
+	
+	<s:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</s:layout>
+	
+	<s:HGroup width="100%"
+			  height.Single="0">
+		<s:DropDownList id="comboBox" width="100%" change="comboBox_changeHandler(event)"
+						dataProvider="{dataProvider}" labelField="name" selectedIndex="{index}"
+						toolTip="Change Layer" valueCommit="comboBox_valueCommitHandler(event)"
+						visible.Single="false"/>
+		<utils:ImageButton id="prevButton" width="24" height="24"
+						   click="prevButton_clickHandler(event)"
+						   icon="@Embed(source='../../assets/back.png')" toolTip="Previous Feature"
+						   visible.Single="false"/>
+		<utils:ImageButton id="nextButton" width="24" height="24"
+						   click="nextButton_clickHandler(event)"
+						   icon="@Embed(source='../../assets/next.png')" toolTip="Next Feature"
+						   visible.Single="false"/>		
+	</s:HGroup>
+
+	<mx:DataGrid id="dataGrid" width="100%" height="100%" dataProvider="{dgProvider}" fontSize="10"
+				 variableRowHeight="true" wordWrap="true"/>
+	<s:Button visible="{comboBox.dataProvider.length &gt; 0}" label="Zoom To"
+			  click="button1_clickHandler(event)"/>
+</s:SkinnableContainer>

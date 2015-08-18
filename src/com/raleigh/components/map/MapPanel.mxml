@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:SkinnableContainer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  xmlns:esri="http://www.esri.com/2008/ags"
+					  xmlns:components="com.raleigh.components.*"
+					  xmlns:toolbar="com.raleigh.components.toolbar.*"
+					  xmlns:map="com.raleigh.components.map.*"
+					  width="100%" height="100%" backgroundColor="0xFFFFFF"
+					  creationComplete="group1_creationCompleteHandler(event)"
+					  initialize="group1_initializeHandler(event)"
+					  resize="group1_resizeHandler(event)">
+	<fx:Metadata>
+		[Event(type="com.raleigh.components.map.LayersLoadedEvent", name="layersloaded")]
+	</fx:Metadata>
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.events.FeatureLayerEvent;
+			import com.esri.ags.events.GraphicEvent;
+			import com.esri.ags.events.LayerEvent;
+			import com.esri.ags.events.MapEvent;
+			import com.esri.ags.geometry.MapPoint;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.ArcGISImageServiceLayer;
+			import com.esri.ags.layers.ArcGISTiledMapServiceLayer;
+			import com.esri.ags.layers.FeatureLayer;
+			import com.esri.ags.layers.Layer;
+			import com.esri.ags.symbols.SimpleFillSymbol;
+			import com.esri.ags.symbols.SimpleLineSymbol;
+			import com.raleigh.classes.Baselayer;
+			import com.raleigh.classes.Baselayers;
+			import com.raleigh.classes.Imagelayer;
+			import com.raleigh.classes.Imagelayers;
+			import com.raleigh.classes.Maplayer;
+			import com.raleigh.classes.Maplayers;
+			import com.raleigh.classes.Propertylayer;
+			import com.raleigh.components.poi.PoiFeatureLayer;
+			import com.raleigh.control.Controller;
+			import com.raleigh.model.Model;
+			import com.raleigh.scripts.RaleighFields;
+			
+			import mx.collections.ArrayCollection;
+			import mx.events.FlexEvent;
+			import mx.events.ResizeEvent;
+			
+			import spark.filters.DropShadowFilter;
+			import spark.filters.GlowFilter;
+			
+	
+			[Bindable]
+			private var model:Model = Model.getInstance();
+			private var controller:Controller = Controller.getInstance();
+			
+			
+			private var layersAC:ArrayCollection;
+			
+			import flash.filters.GlowFilter;
+			import flash.filters.DropShadowFilter;
+			
+			
+			
+			protected function group1_initializeHandler(event:FlexEvent):void
+			{
+				layersAC = new ArrayCollection();
+				model.layerSO = SharedObject.getLocal(model.LAYERS+"_"+model.config);
+				if (model.layerSO.size > 0){
+					layersAC = getLayerObject();
+				}
+				checkMapToggleOverlap();
+				removeEventListener(FlexEvent.INITIALIZE, group1_initializeHandler);
+			}
+
+
+			protected function group1_resizeHandler(event:ResizeEvent):void
+			{
+				checkMapToggleOverlap();
+			}			
+			protected function checkMapToggleOverlap():void
+			{
+				if(mapToggle.x < toolbar.x+toolbar.width)
+				{
+					mapToggle.top = 40;
+				}
+				else
+				{
+					mapToggle.top=10;
+				}
+			}
+			
+			private function getLayerObject():ArrayCollection
+			{
+				return model.layerSO.data[model.LAYERS+"_"+model.config];
+			}
+			
+			private function checkSharedObject(name:String):Object{
+				var obj:Object;
+				for each (var item:Object in layersAC){
+					if (item.name == name){
+						obj = item;
+						break;
+					}else{
+						obj = null;
+					}
+				}
+				return obj;
+			}		
+			private var lyrCnt:int = 0;
+			private var lyrTot:int = 0;
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				var configArray:Array = [model.configuration.baseLayers, model.configuration.imageLayers, model.configuration.mapLayers];
+				lyrTot =model.configuration.baseLayers.length+
+					model.configuration.imageLayers.length+
+					model.configuration.mapLayers.length;
+				for each (var configLayers:Object in configArray)
+				{
+		
+					var layers:Object;
+					if (configLayers is Baselayers)
+					{
+						layers = model.configuration.baseLayers;
+					}
+					else if (configLayers is Imagelayers)
+					{
+						layers = model.configuration.imageLayers;
+					}
+					else if (configLayers is Maplayers)
+					{
+						layers = model.configuration.mapLayers;
+					}
+					
+					for each (var layer:Object in layers)
+					{
+						model.configLayers.push(layer);
+						var lyr:Layer;
+						switch (layer.type){
+							case "tiled":
+								lyr = getTiledLayer(layer);
+
+								//map.addLayer(lyr);
+								break;
+							case "dynamic":
+								lyr = getDynamicLayer(layer);
+								//map.addLayer(lry);
+								break;
+							case "image":
+								lyr = getImageLayer(layer);
+								//map.addLayer(getImageLayer(layer));
+								break;
+							case "feature":
+								lyr = getFeatureLayer(layer);
+								//map.addLayer(getFeatureLayer(layer));
+								break;
+						}				
+						if (lyr)
+						{
+							lyr.addEventListener(LayerEvent.LOAD, layerLoadHandler);
+							lyr.addEventListener(LayerEvent.LOAD_ERROR, layerErrorHandler);
+							
+							map.addLayer(lyr);
+							if (layer is Baselayer)
+							{
+								model.baseLayers.push(lyr);
+							}
+							else if (layer is Imagelayer)
+							{
+								model.imageLayers.push(lyr);
+							}
+							else if (layer is Maplayer)
+							{
+								model.mapLayers.push(lyr);
+							}
+						}
+					}
+				}
+
+				//model.layersLoaded = true;
+				addPropertyFeatureLayers();
+				var poiFl:PoiFeatureLayer = new PoiFeatureLayer();
+				poiFl.visible = model.configuration.poiLayer.visible;
+				if (model.configuration.showPoi)
+				{
+					map.addLayer(poiFl);
+				}
+				
+				removeEventListener(FlexEvent.CREATION_COMPLETE, group1_creationCompleteHandler);
+				
+			}
+			
+			private function layerLoadHandler(event:LayerEvent):void
+			{
+				lyrCnt+=1;
+				if (lyrCnt == lyrTot)
+				{
+					callLater(dispatchLayersLoaded);					
+				}
+				event.currentTarget.removeEventListener(LayerEvent.LOAD, layerLoadHandler);
+
+			}
+			
+			private function layerErrorHandler(event:LayerEvent):void
+			{
+				lyrCnt+=1;
+				if (lyrCnt == lyrTot)
+				{
+					callLater(dispatchLayersLoaded);					
+				}
+				event.currentTarget.removeEventListener(LayerEvent.LOAD, layerErrorHandler);
+			}
+			
+			private function dispatchLayersLoaded():void
+			{
+				model.layersLoaded = true;
+				dispatchEvent(new LayersLoadedEvent(LayersLoadedEvent.LAYERS_LOADED, false, false));
+			}
+			
+	
+			
+			private function addPropertyFeatureLayers():void{
+				if (model.configuration)
+				{
+					if (model.configuration.propertyLayers)
+					{
+						for each (var pLayer:Propertylayer in model.configuration.propertyLayers)
+						{
+							switch (pLayer.id)
+							{
+								case "wakeParcels":
+									ralFLayer.url = pLayer.url;
+									ralSelFLayer.url = pLayer.url;
+									break;
+								case "durhamParcels":
+									durFLayer.url = pLayer.url;
+									durSelFLayer.url = pLayer.url;							
+									break;
+							}
+						}
+						model.propertyFLayers = [ralFLayer, durFLayer];
+						model.propertyFLayersSingle = [ralSelFLayer, durSelFLayer];
+						for each (var fLayer:FeatureLayer in model.propertyFLayers){
+							map.addLayer(fLayer);
+						}
+						for each (var fLayerSingle:FeatureLayer in model.propertyFLayersSingle){
+							map.addLayer(fLayerSingle);
+						}		
+						
+					}					
+				}
+			}
+
+			private function getTiledLayer(layer:Object):ArcGISTiledMapServiceLayer{
+				var tLayer:ArcGISTiledMapServiceLayer = new ArcGISTiledMapServiceLayer(layer.url);
+				tLayer.name = layer.name;
+				tLayer.id = layer.id;
+				tLayer.visible = getBoolean(layer.visible);
+				tLayer.minScale = Number(layer.minscale);
+				tLayer.alpha = Number(layer.alpha);
+				return tLayer;
+			}
+			
+			private function getDynamicLayer(layer:Object):ArcGISDynamicMapServiceLayer{
+				var dLayer:ArcGISDynamicMapServiceLayer = new ArcGISDynamicMapServiceLayer(layer.url);
+				dLayer.name = layer.name;
+				dLayer.id = layer.id;
+				dLayer.minScale = Number(layer.minscale);
+				var obj:Object = checkSharedObject(layer.name);
+				if (obj){
+					dLayer.visible = obj.visible;
+					dLayer.alpha = Number(obj.alpha);
+					dLayer.visibleLayers = obj.visibleLayers;
+				}else{
+					dLayer.visible = getBoolean(layer.visible);
+					dLayer.alpha = Number(layer.alpha);			
+			
+
+				}
+				return dLayer;
+			}
+			
+			private function getImageLayer(layer:Object):ArcGISImageServiceLayer{
+				var iLayer:ArcGISImageServiceLayer = new ArcGISImageServiceLayer(layer.url);
+				iLayer.name = layer.name;
+				iLayer.id = layer.id;
+				iLayer.visible = getBoolean(layer.visible);
+				iLayer.minScale = Number(layer.minscale);
+				iLayer.alpha = Number(layer.alpha);
+				iLayer.imageFormat = "jpgpng";
+				model.imageServices.push(iLayer);
+				return iLayer;
+			}		
+			
+			private function getFeatureLayer(layer:Object):FeatureLayer{
+				var fLayer:FeatureLayer = new FeatureLayer(layer.url);
+				fLayer.name = layer.name;
+				fLayer.id = layer.id;
+				fLayer.minScale = Number(layer.minscale);
+				fLayer.visible = getBoolean(layer.visible);
+				return fLayer;
+			}
+			
+
+			private function getBoolean(str:String):Boolean{
+				switch (str){
+					case "true":
+						return true;
+						break;
+					case "false":
+						return false;
+						break;
+					default:
+						return false;
+				}
+			}
+			
+
+
+			private function getRaleighFields():Array{
+				var arr:Array = new Array();
+				for each (var field:Object in new RaleighFields()){
+					arr.push(field.name);
+				}
+				return arr;
+			}
+			
+
+
+
+
+			protected function fLayer_selectionCompleteHandler(event:FeatureLayerEvent):void
+			{
+				for each (var fLayer:FeatureLayer in model.propertyFLayersSingle){
+					fLayer.clearSelection();
+				}
+			}
+
+
+			protected function fLayer_graphicAddHandler(event:GraphicEvent):void
+			{
+				event.graphic.toolTip = event.graphic.attributes.OWNER + "\n" + event.graphic.attributes.SITE_ADDRESS + "\n" + event.graphic.attributes.PIN_NUM;
+			}
+
+
+			protected function map_loadHandler(event:MapEvent):void
+			{
+			
+				if (model.center.length > 0)
+				{
+					callLater(centerMap,[model.center]);
+				}
+				if (model.settingsSO && model.center.length < 1)
+				{
+					if (model.settingsSO.size > 0)
+					{
+						if (model.settingsSO.data[model.SETTINGS+"_"+model.config].extent)
+						{
+							map.extent = model.settingsSO.data[model.SETTINGS+"_"+model.config].extent;
+						}
+					}
+				}
+				
+				if (!model.configuration.initialExtent.contains(map.extent.center))
+				{
+					map.extent = model.configuration.initialExtent;
+				}
+
+				map.removeEventListener(MapEvent.LOAD, map_loadHandler);
+			}
+
+			private function centerMap(center:Array):void
+			{
+				var pt:MapPoint = new MapPoint(center[0], center[1], map.spatialReference);
+				map.centerAt(pt);		
+				if (center.length == 3)
+				{
+					map.level = parseInt(center[2]);					
+				}
+				
+			}
+
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<esri:NavigationTool id="navTool" map="{map}"/>
+		<esri:FeatureLayer id="ralFLayer" graphicAdd="fLayer_graphicAddHandler(event)"
+						   minScale="200000" mode="selection"
+						   outFields="{['PIN_NUM','OWNER', 'REID', 'SITE_ADDRESS', 'ADDR1', 'ADDR2', 'ADDR3']}"
+						   selectionComplete="fLayer_selectionCompleteHandler(event)"
+						   symbol="{parcelFLayerSym}" useAMF="true"
+						   />
+		<esri:FeatureLayer id="ralSelFLayer" graphicAdd="fLayer_graphicAddHandler(event)"
+						   minScale="200000" mode="selection" outFields="{getRaleighFields()}"
+						   selectionColor="red" symbol="{parcelSelFLayerSym}"/>
+		<esri:FeatureLayer id="durFLayer" graphicAdd="fLayer_graphicAddHandler(event)"
+						   minScale="200000" mode="selection"
+						   outFields="{['PIN_NUM','OWNER', 'REID', 'SITE_ADDRESS', 'ADDR1', 'ADDR2', 'ADDR3']}"
+						   selectionComplete="fLayer_selectionCompleteHandler(event)"
+						   symbol="{parcelFLayerSym}"/>
+		<esri:FeatureLayer id="durSelFLayer" graphicAdd="fLayer_graphicAddHandler(event)"
+						   minScale="200000" mode="selection" outFields="{getRaleighFields()}"
+						   selectionColor="red" symbol="{parcelSelFLayerSym}"/>		
+		<esri:SimpleFillSymbol id="parcelFLayerSym" alpha="1" style="null">
+			<esri:outline>
+				<esri:SimpleLineSymbol width="3" alpha="1" color="0xFFF000" style="solid"/>
+			</esri:outline>
+		</esri:SimpleFillSymbol>
+		<esri:SimpleFillSymbol id="parcelSelFLayerSym" alpha="1" style="null">
+			<esri:outline>
+				<esri:SimpleLineSymbol width="3" alpha="1" color="0xFFF000" style="solid"/>
+			</esri:outline>
+		</esri:SimpleFillSymbol>
+	</fx:Declarations>
+	
+	<esri:Map id="map" load="map_loadHandler(event)" logoVisible="false"
+			  rollOut="map.cursorManager.removeAllCursors()" rollOver="controller.setCursors()"
+			  panEnd="System.gc()" 
+			  extent="{model.configuration.initialExtent}"
+			  scaleBarVisible="true">
+		<esri:lods>
+			<esri:LOD level="3" resolution="266.666666666667" scale="307200"/>
+			<esri:LOD level="4" resolution="133.333333333333" scale="153600"/>
+			<esri:LOD level="5" resolution="66.6666666666667" scale="76800"/>
+			<esri:LOD level="6" resolution="33.3333333333333" scale="38400"/>
+			<esri:LOD level="7" resolution="16.6666666666667" scale="19200"/>
+			<esri:LOD level="8" resolution="8.33333333333333" scale="9600"/>
+			<esri:LOD level="9" resolution="4.16666666666667" scale="4800"/>
+			<esri:LOD level="10" resolution="2.08333333333333" scale="2400"/>
+			<esri:LOD level="11" resolution="1.04166666666667" scale="1200"/>
+			<esri:LOD level="12" resolution="0.520833333333333" scale="600"/>		
+		</esri:lods>
+	</esri:Map>
+
+	<toolbar:MapToolbar id="toolbar" left="10" top="5"/>
+	<map:MapToggle id="mapToggle" right="30" top="10"/>
+	<map:Overview right="0" bottom="0"/>	
+	<s:Image alpha="0.80" source="{model.configuration.icon}"
+			 bottom="10" left="10"
+			 filters="{[new spark.filters.DropShadowFilter(),new spark.filters.GlowFilter(0xFFFFFF,1,4,4,4)]}"
+			 visible="{model.configuration.icon != null}"/>
+</s:SkinnableContainer>

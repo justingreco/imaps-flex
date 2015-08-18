@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:components="com.raleigh.components.*"
+						  xmlns:septic="com.raleigh.components.paneltools.property.septic.*"
+						  xmlns:wellresults="com.raleigh.components.paneltools.property.wellresults.*"
+						  xmlns:property="com.raleigh.components.paneltools.property.*"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  width="100%" height="100%" currentState="Normal">
+	
+	<fx:Script>
+		<![CDATA[			
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+
+			public function setState():void
+			{
+				if (wellSamplesAC && septicAC)
+				{
+					if (wellSamplesAC.length > 0 && model.showSeptic)//septicAC.length > 0)
+					{
+						this.currentState = "SepticWell";
+					}
+					else if (model.showSeptic)//septicAC.length > 0)
+					{
+						this.currentState = "Septic";
+					}
+					else if (wellSamplesAC.length > 0)
+					{
+						this.currentState = "Well";
+					}
+					else
+					{
+						this.currentState = "Normal";
+					}					
+				}
+
+			}
+
+			
+
+
+
+			protected function dataGrid_creationCompleteHandler(event:FlexEvent):void
+			{
+				addExportContextMenuItem();
+				
+			}
+			
+			protected function addExportContextMenuItem():void
+			{
+				dataGrid.contextMenu = new ContextMenu();
+				dataGrid.contextMenu.hideBuiltInItems();	
+				var cmi:ContextMenuItem = new ContextMenuItem("Export Table");
+				cmi.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, exportTableSelect,false,0,true);
+				dataGrid.contextMenu.customItems.push(cmi);			
+				var cmi1:ContextMenuItem = new ContextMenuItem("Copy Fields and Values");
+				cmi1.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, copyFieldsValuesSelect,false,0,true);
+				var cmi2:ContextMenuItem = new ContextMenuItem("Copy Values Only");
+				cmi2.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, copyValuesSelect,false,0,true);					
+				var cmi3:ContextMenuItem = new ContextMenuItem("Copy Fields Only" );	
+				cmi3.addEventListener(ContextMenuEvent.MENU_ITEM_SELECT, copyFieldsSelect,false,0,true);							
+				
+				dataGrid.contextMenu.customItems.push(cmi1);
+				dataGrid.contextMenu.customItems.push(cmi2);		
+				dataGrid.contextMenu.customItems.push(cmi3);				
+			}
+
+
+			
+			protected function copyFieldsValuesSelect(event:ContextMenuEvent):void
+			{
+				var copyString:String = "";
+				var items:Array = [];
+				if (dataGrid.selectedItems.length > 0)
+				{
+					items= dataGrid.selectedItems.reverse();					
+				}
+				else
+				{
+					items = dataGrid.dataProvider.source;
+				}
+				
+				for (var i:int = 0;i < items.length;i++)
+				{
+					var item:Object = items[i];
+					if (i != items.length-1)
+					{
+						copyString += item.field + "\r\n";
+						copyString += item.value + "\r\n";								
+					}
+					else
+					{
+						copyString += item.field + "\r\n";
+						copyString += item.value;								
+					}
+			
+				}
+				System.setClipboard(copyString);				
+			}
+			
+			protected function copyValuesSelect(event:ContextMenuEvent):void
+			{
+				var copyString:String = "";
+				var items:Array = [];
+				if (dataGrid.selectedItems.length > 0)
+				{
+					items= dataGrid.selectedItems.reverse();					
+				}
+				else
+				{
+					items = dataGrid.dataProvider.source;
+				}
+				
+				for (var i:int = 0;i < items.length;i++)
+				{
+					var item:Object = items[i];
+					if (i != items.length-1)
+					{
+						copyString += item.value + "\r\n";
+					}
+					else
+					{
+						copyString += item.value;
+					}					
+				}
+				System.setClipboard(copyString);
+			}
+
+			protected function copyFieldsSelect(event:ContextMenuEvent):void
+			{
+				var copyString:String = "";
+				var items:Array = [];
+				if (dataGrid.selectedItems.length > 0)
+				{
+					items= dataGrid.selectedItems.reverse();					
+				}
+				else
+				{
+					items = dataGrid.dataProvider.source;
+				}
+				
+				for (var i:int = 0;i < items.length;i++)
+				{
+					var item:Object = items[i];
+					if (i != items.length-1)
+					{
+						copyString += item.field + "\r\n";						
+					}
+					else
+					{
+						copyString += item.field;
+					}
+
+				}
+				System.setClipboard(copyString);				
+			}
+			
+			
+			protected function exportTableSelect(event:ContextMenuEvent):void
+			{
+				if (model.configuration.scripts.exportGridURL)
+				{
+					
+					var headers:Array = [];
+					var fields:Array = [];
+					for each (var column:DataGridColumn in dataGrid.columns)
+					{
+						headers.push(column.headerText);
+						fields.push(column.dataField);
+					}
+					
+					var exportString:String = headers.toString()+"\r\n";
+					
+					for each (var item:Object in dataGrid.dataProvider)
+					{
+						var values:Array = [];
+						for each (var field:String in fields)
+						{
+							if (String(item[field]).indexOf(",") > -1)
+							{
+								values.push('"'+item[field]+'"');
+							}
+							else if (String(item[field]).indexOf("0") == 0)
+							{
+								values.push('"=""'+item[field]+'"""');							
+							}
+							else
+							{
+								values.push(String(item[field]));
+							}
+							
+						}
+						exportString += values.toString()+"\r\n";
+					}				
+					var urlVars:URLVariables = new URLVariables();
+					urlVars.htmltable = exportString;
+					urlVars.filename = "iMaps_PropertyInfo_"+model.selectedProperty.attributes.PIN_NUM+".csv";
+					var req:URLRequest = new URLRequest(model.configuration.scripts.exportGridURL);
+					req.data = urlVars;
+					req.method = URLRequestMethod.POST;
+					navigateToURL(req,"_blank");				
+				}
+				else
+				{
+					Alert.show("Export script not set in config file");					
+				}
+
+			}		
+
+		]]>
+	</fx:Script>
+	<paneltools:states>
+		<s:State name="Normal"/>
+		<s:State name="Septic"/>
+		<s:State name="Well"/>
+		<s:State name="SepticWell"/>
+	</paneltools:states>
+	<fx:Declarations>
+		<s:ArrayCollection id="septicAC" collectionChange="setState()"
+						   source="{model.propertySearch.SepticResult.lastResult.SepticPermits.toArray()}"/>
+		<s:ArrayCollection id="wellSamplesAC" collectionChange="setState()"
+						   source="{model.propertySearch.WellsResult.lastResult.WellResults.toArray()}"/>	
+
+	</fx:Declarations>
+	<paneltools:layout>
+		<s:VerticalLayout horizontalAlign="center"/>
+	</paneltools:layout>
+	<mx:DataGrid id="dataGrid" width="100%" height="100%" allowMultipleSelection="true"
+				 creationComplete="dataGrid_creationCompleteHandler(event)"
+				 dataProvider="{model.propertyInfo}" variableRowHeight="true"
+				 wordWrap="true" toolTip="Right Click to Copy/Export">
+		<mx:columns>
+			<mx:DataGridColumn width="100" dataField="field" headerText="Field"/>
+			<mx:DataGridColumn dataField="value" headerText="Value"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+	<property:PropertyToggle/>
+
+	<s:HGroup width="100%" horizontalAlign="center"
+			  height.Normal="0">
+		<septic:SepticButton includeIn="Septic,SepticWell" label="Septic Permits"/>
+		<wellresults:WellResultsButton includeIn="SepticWell,Well" label="Water Analysis"/>
+	</s:HGroup>
+</paneltools:BasePanelTool>

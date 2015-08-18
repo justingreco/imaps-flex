@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:MXTreeItemRenderer xmlns:fx="http://ns.adobe.com/mxml/2009"
+					  xmlns:s="library://ns.adobe.com/flex/spark"
+					  xmlns:mx="library://ns.adobe.com/flex/mx"
+					  initialize="initializeHandler(event)">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Map;
+			import com.esri.ags.events.ZoomEvent;
+			import com.esri.ags.layers.ArcGISDynamicMapServiceLayer;
+			import com.esri.ags.layers.Layer;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Tree;
+			import mx.controls.treeClasses.TreeListData;
+			import mx.events.FlexEvent;
+			private var model:Model = Model.getInstance();
+			
+			private var map:Map = model.map;
+			
+			override public function set data(value:Object):void
+			{
+				super.data = value;
+				if (data)
+				{
+					checkBox.selected = convertToBoolean(data.@visible);
+					checkBox.enabled = checkEnabled(data.@minscale, data.@maxscale);
+					hSlider.value = parseFloat(data.@alpha);
+					hSlider.percentWidth = 100;
+					hSlider.enabled = checkEnabled(data.@minscale, data.@maxscale);
+					
+				}
+				
+			}
+			
+			override protected function createChildren():void
+			{
+				super.createChildren();
+				map.addEventListener(ZoomEvent.ZOOM_UPDATE, zoomUpdate,false,0,true);									
+			}
+			
+			override protected function updateDisplayList(unscaledWidth:Number, unscaledHeight:Number):void
+			{
+				super.updateDisplayList(unscaledWidth, unscaledHeight);
+				legendImg.visible = true;
+				if (data)
+				{
+					var tld:TreeListData = TreeListData(super.listData);
+
+					if (this.parentDocument.hasCategories)
+					{
+						if (tld.depth == 1)
+						{
+							checkBox.visible = false;
+							checkBox.width = 0;
+							hSlider.visible = false;
+							legendImg.visible = false;
+							labelField.setStyle("fontWeight", "bold");
+							if (labelField.isTruncated){
+								labelField.toolTip = labelField.text;
+							}
+							else
+							{
+								labelField.toolTip = "";
+							}
+							//labelField.x = 2;
+						}
+						else if (tld.depth == 2)
+						{
+							checkBox.visible = true;
+							checkBox.width = 13;
+							hSlider.visible = true;
+							legendImg.visible = true;
+							labelField.setStyle("fontWeight", "normal");
+							if (labelField.isTruncated){
+								labelField.toolTip = labelField.text;
+							}
+							else
+							{
+								labelField.toolTip = "";
+							}							
+							if (tld.item.@type == "poi")
+							{
+								hSlider.visible = false;
+							}
+						}
+						else
+						{
+							checkBox.visible = true;
+							checkBox.width = 13;
+							hSlider.visible = false;
+							hSlider.width = 0;
+							legendImg.visible = true;
+							labelField.setStyle("fontWeight", "normal");	
+							if (labelField.isTruncated){
+								labelField.toolTip = labelField.text;
+							}
+							else
+							{
+								labelField.toolTip = "";
+							}							
+
+							if (tld.item.@type == "poi" || tld.item.@legend == "false")
+							{
+								legendImg.visible = false;
+							}	
+							else if (tld.item.@type != "dynamic")
+							{
+								checkBox.visible = false;
+							}
+							
+						}						
+					}
+					else
+					{
+						if (tld.depth == 1)
+						{
+							hSlider.visible = true;
+							legendImg.visible = true;
+							if (labelField.isTruncated){
+								labelField.toolTip = labelField.text;
+							}
+							if (tld.item.@type == "poi")
+							{
+								hSlider.visible = false;
+							}
+						}
+						else
+						{
+							hSlider.visible = false;
+							hSlider.width = 0;
+							legendImg.visible = true;
+							if (labelField.isTruncated){
+								labelField.toolTip = labelField.text;
+							}
+							else
+							{
+								labelField.toolTip = "";
+							}							
+							if (tld.item.@type == "poi")
+							{
+								legendImg.visible = false;
+							}	
+							else if (tld.item.@type != "dynamic")
+							{
+								checkBox.visible = false;
+							}
+							
+						}						
+					}
+
+				}
+				
+
+			}
+			
+			private function zoomUpdate(event:ZoomEvent):void
+			{
+				if (data){
+					if (checkBox){
+						checkBox.enabled = checkEnabled(data.@minscale, data.@maxscale);
+					}
+					if (hSlider){
+						hSlider.enabled = checkEnabled(data.@minscale, data.@maxscale);						
+					}					
+				}
+			}
+			
+			private function checkEnabled(minscale:int, maxScale:int):Boolean
+			{
+				var retVal:Boolean = false;
+					if (minscale >= map.scale || minscale == 0)
+					{
+						retVal = true;
+						this.toolTip = "";
+					}else{
+						this.toolTip = "Layer not visible at this scale\nZoom in to 1:"+minscale;
+					}
+				return retVal;
+			}
+
+			private function convertToBoolean(value:String):Boolean
+			{
+				var retVal:Boolean = false;
+				if (value == "true")
+				{
+					retVal = true;
+				}
+				return retVal;
+			}
+
+
+			protected function checkBox_changeHandler(event:Event):void
+			{
+				if (data)
+				{
+					var tld:TreeListData = TreeListData(this.listData);
+					var node:XML = XML(tld.item);
+					node.@visible = event.currentTarget.selected;
+
+					if (this.parentDocument.hasCategories)
+					{
+						switch (tld.depth)
+						{
+							case 2:
+								if (tld.item.@type == "poi")
+								{
+									model.poiLayer.visible = event.currentTarget.selected;
+								}	
+								else
+								{
+									toggleService(tld.item.@name, event.currentTarget.selected);								
+								}
+								
+								break;
+							case 3:
+								if (tld.item.@type == "poi")
+								{
+									togglePoiIcon(tld.item.@name, event.currentTarget.selected);								
+								}
+								else
+								{
+									toggleLayer(tld.item.@service, parseInt(tld.item.@layerid), event.currentTarget.selected);								
+								}
+								
+								break;
+						}						
+					}
+					else
+					{
+						switch (tld.depth)
+						{
+							case 1:
+								if (tld.item.@type == "poi")
+								{
+									model.poiLayer.visible = event.currentTarget.selected;
+								}	
+								else
+								{
+									toggleService(tld.item.@name, event.currentTarget.selected);								
+								}
+								
+								break;
+							case 2:
+								if (tld.item.@type == "poi")
+								{
+									togglePoiIcon(tld.item.@name, event.currentTarget.selected);								
+								}
+								else
+								{
+									toggleLayer(tld.item.@service, parseInt(tld.item.@layerid), event.currentTarget.selected);								
+								}
+								
+								break;
+						}						
+					}
+
+				}
+			}
+			
+			private function toggleService(name:String, visible:Boolean):void
+			{
+				for each (var layer:Layer in map.layers)
+				{
+					if (layer.name == name)
+					{
+						layer.visible = visible;
+					}
+				}				
+			}
+			
+			private function toggleLayer(name:String, lid:int, visible:Boolean):void
+			{
+				for each (var layer:Object in map.layers)
+				{
+					if (layer.name == name)
+					{
+						if (layer is ArcGISDynamicMapServiceLayer)
+						{
+							var visibleLayers:ArrayCollection = ArrayCollection(layer.visibleLayers);
+							if (visible)
+							{
+								if (!visibleLayers.contains(lid))
+								{
+									visibleLayers.addItem(lid);									
+								}
+
+							}
+							else
+							{
+								if (visibleLayers.getItemIndex(lid) > -1)
+								{
+									visibleLayers.removeItemAt(visibleLayers.getItemIndex(lid));									
+								}
+							}
+						}
+					}
+				}						
+			}
+
+			private function togglePoiIcon(name:String, visible:Boolean):void
+			{
+				for each (var icon:Object in model.poiIcons)
+				{
+					if (icon.name == name)
+					{
+						icon.visible = visible;
+						break;
+					}
+				}
+				if (visible)
+				{
+					if (model.visIcons.indexOf("'"+name+"'") == -1)
+					{
+						model.visIcons.push("'"+name+"'");
+					}
+				}
+				else
+				{
+					if (model.visIcons.indexOf("'"+name+"'") > -1)
+					{					
+						model.visIcons.splice(model.visIcons.indexOf("'"+name+"'"),1);
+					}
+					
+				}
+				if (model.poiLayer)
+				{
+					map.centerAt(map.extent.center);
+				}
+			}
+
+			protected function hSlider_changeHandler(event:Event):void
+			{
+				var tld:TreeListData = TreeListData(this.listData);
+				var node:XML = XML(tld.item);
+				node.@alpha = event.currentTarget.value;
+				for each (var layer:Layer in map.layers)
+				{
+					if (layer.name == node.@name)
+					{
+						layer.alpha = event.currentTarget.value; 
+					}
+				}
+			}
+
+
+
+			protected function hSlider_mouseWheelHandler(event:MouseEvent):void
+			{
+				hSlider.value += event.delta;
+			}
+
+
+			protected function legendImg_clickHandler(event:MouseEvent):void
+			{
+				this.parentDocument.viewstack.selectedIndex = 1;
+
+				
+				if (this.treeListData.hasChildren == true)
+				{
+					this.parentDocument.legendURL = data.@url;
+					this.parentDocument.legendHasChildren = true;
+				}
+				else
+				{
+					this.parentDocument.legendURL = data.@url
+					this.parentDocument.lid = data.@layerid;	
+					this.parentDocument.legendHasChildren = false;					
+				}
+				
+				
+				//var layer:Layer = map.getLayer(data.@id);
+				//this.parentDocument.legendLayers = [data.@url+"/legend"];
+
+			}
+
+
+			protected function initializeHandler(event:FlexEvent):void
+			{
+
+				this.disclosureGroup.useHandCursor = true;
+				this.disclosureGroup.buttonMode = true;
+				this.disclosureGroup.toolTip = "Expand Layer";
+			}
+			
+			override protected function disclosureGroup_clickHandler(event:MouseEvent):void{
+				if(Tree(this.automationOwner).isItemOpen(this.listData)){
+					this.disclosureGroup.toolTip = "Collapse Layer";					
+				}else{
+					this.disclosureGroup.toolTip = "Expand Layer";
+				}
+			}
+
+		]]>
+	</fx:Script>
+
+	<s:states>
+<!--		<s:State name="normal" />            
+		<s:State name="hovered" />
+		<s:State name="selected" />-->
+	</s:states>
+	<s:HGroup left="0" right="0" top="0" bottom="0" verticalAlign="middle">
+		<s:Rect id="indentationSpacer" width="{treeListData.indent}" alpha="0" percentHeight="100">
+			<s:fill>
+				<s:SolidColor color="0xFFFFFF"/>
+			</s:fill>
+		</s:Rect>
+		<s:Group id="disclosureGroup">
+			<s:BitmapImage visible="{treeListData.hasChildren}"
+						   source="{treeListData.disclosureIcon}"/>
+		</s:Group>
+<!--		<s:BitmapImage source="{treeListData.icon}" />-->
+
+		<mx:CheckBox id="checkBox" buttonMode="true" change="checkBox_changeHandler(event)"
+					 useHandCursor="true" valueCommit="checkBox_changeHandler(event)"/>
+		<s:Label id="labelField" maxWidth="180" maxDisplayedLines="1" paddingTop="2"
+				 text="{treeListData.label}"/>
+		<s:HSlider id="hSlider" width="100%" maxWidth="100" change="hSlider_changeHandler(event)"
+				   liveDragging="true" maximum="1" minimum="0"
+				   mouseWheel="hSlider_mouseWheelHandler(event)"
+				   skinClass="spark.skins.spark.HSliderSkin" snapInterval="0"
+				   toolTip="Edit Transparency"/>
+		<mx:Image id="legendImg" width="20" height="20" buttonMode="true"
+				  click="legendImg_clickHandler(event)" mouseChildren="false"
+				  source="@Embed('assets/i_layers.png')" toolTip="View Legend" useHandCursor="true"/>	
+	</s:HGroup>
+	
+</s:MXTreeItemRenderer>

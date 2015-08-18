@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					width="494" height="384"
+					title="Journal Details">
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+	<fx:Script>
+		<![CDATA[
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.events.ResultEvent;
+			import mx.states.State;
+
+
+			
+			protected function btnClose_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+						
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true" rounding="none" precision="5"/>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+	</fx:Declarations>
+	<s:HGroup width="436" paddingBottom="0" paddingLeft="15" paddingRight="15" paddingTop="0">
+		<mx:Form width="413" height="86">
+			<mx:FormItem label="SWU Account:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" text="{model.stormwater.currentAccount.SWU_ACCOUNT_ID}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Property  Address:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal"
+						 text="{model.stormwater.currentAccount.SITE_ADDRESS}"/>				
+			</mx:FormItem>
+		</mx:Form>
+	</s:HGroup>
+	<s:HGroup width="436" height="176" paddingBottom="0" paddingLeft="20" paddingRight="15"
+			  paddingTop="0">
+		<mx:Form width="413" height="163">
+			<mx:FormItem label="   Journal ID:" fontWeight="bold" paddingTop="0">
+				<s:Label fontWeight="normal"
+						 text="{model.stormwater.journal.JOURNAL_ID}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="   Journal Code:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal"
+						 text="{model.stormwater.journal.ENTRY_TYPE_CODE_DESC}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Journal Entry:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal" maxDisplayedLines="2" maxWidth="250"
+						 text="{model.stormwater.journal.JOURNAL_ENTRY}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Created By:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal"
+						 text="{model.stormwater.journal.INSERTION_USER_ID}"/>				
+			</mx:FormItem>
+			<mx:FormItem label="Created on:" fontWeight="bold" paddingTop="5">
+				<s:Label fontWeight="normal"
+						 text="{model.stormwater.journal.INSERTION_DATE}"/>				
+			</mx:FormItem>
+		</mx:Form>	
+	</s:HGroup>
+	<s:HGroup width="436" height="32"  paddingBottom="15" paddingLeft="10" paddingRight="10"
+			  paddingTop="5">
+		<s:Button id="btnClose" label="Cancel" click="btnClose_clickHandler(event)"/>
+	</s:HGroup>
+</toolbar:ToolWindow>

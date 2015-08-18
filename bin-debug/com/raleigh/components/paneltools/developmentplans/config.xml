@@ -1,0 +1,5 @@
+<config>
+	<featurelayer url="http://maps.raleighnc.gov/ArcGIS/rest/services/Planning/RalDevPlans/MapServer/0"/>
+	<colors formback="0x73C2FB" formtext="0x000000"/>
+	<pdfurl url=""/>
+</config>

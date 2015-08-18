@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paneltools:BasePanelTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						  xmlns:s="library://ns.adobe.com/flex/spark"
+						  xmlns:mx="library://ns.adobe.com/flex/mx"
+						  xmlns:paneltools="com.raleigh.components.paneltools.*"
+						  xmlns:utils="com.raleigh.components.utils.*"
+						  xmlns:components="com.raleigh.components.*"
+						  xmlns:esri="http://www.esri.com/2008/ags"
+						  xmlns:services="services.*"
+						  xmlns:subdivisonsearch="services.subdivisonsearch.*"
+						  width="100%" height="100%" creationComplete="init()">
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.Graphic;
+			import com.esri.ags.geometry.Extent;
+			import com.raleigh.components.utils.AutoCompleteChangeEvent;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			protected function init():void
+			{
+				map.addLayer(subDivGl);
+			}
+			
+			protected function subDivName_creationCompleteHandler(event:FlexEvent):void
+			{
+				if (GetSubdivisionNamesResult.lastResult == null)
+				{
+					getSubdivisionNames();
+				}
+			}
+
+			protected function subDivName_selectionchangedHandler(event:AutoCompleteChangeEvent):void
+			{
+				search();
+			}
+			
+			protected function search():void
+			{
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length == 0)
+				{
+					query.where = "NAME = '"+subDivName.text.toUpperCase()+"'";
+					queryTask.execute(query);					
+				}
+
+			}
+
+
+			protected function datagrid_changeHandler():void
+			{
+				if (dataGrid.selectedIndex > -1)
+				{
+					subDivGl.clear();
+					subDivGl.add(dataGrid.selectedItem as Graphic);
+					var extent:Extent = dataGrid.selectedItem.geometry.extent
+					map.extent = extent;
+					if (map.extent.height < extent.height ||
+						map.extent.width < extent.width)
+					{
+						map.level -= 1;
+					}					
+				}
+
+			}
+
+			
+			protected function getSubdivisionNames():void
+			{
+				//GetSubdivisionNamesResult.token = propertyService.GetSubdivisionNames();
+//				var params:Object = {};
+//				params.returnDistinctValues = true;
+//				params.outFields = "NAME";
+//				params.returnGeometry = false;
+//				params.where = "1=1";
+//				params.f = "json";
+//				params.orderByFields = "NAME";
+//				subdivisionService.send(params);
+				distinctSubdivisions("","json");
+			}
+			
+
+			
+			protected function subdivisionService_resultHandler(event:ResultEvent):void
+			{
+				// TODO Auto-generated method stub
+				var dp:ArrayCollection = new ArrayCollection();
+				for each (var name:String in event.result.Names) {
+					dp.addItem({name: name});
+				}
+				subDivName.dataProvider = dp;
+			}
+			
+			
+			protected function distinctSubdivisions(text:String, f:String):void
+			{
+				DistinctSubdivisionsResult.token = subdivisonSearch.DistinctSubdivisions(text, f);
+			}
+			
+		]]>
+	</fx:Script>
+	<paneltools:layout>
+		<s:VerticalLayout/>
+	</paneltools:layout>
+	<fx:Declarations>
+		<fx:XML id="config" source="config.xml"/>
+		<esri:QueryTask id="queryTask" url="{config.subdivisions.@url}"
+						useAMF="true"
+						executeComplete="dataGrid.selectedIndex = 0;"
+						showBusyCursor="false"/>
+		
+		<esri:Query id="query"
+					outFields="['NAME', 'ACCESS_RD', 'LOTS']"
+					returnGeometry="true"/>
+		<esri:GraphicsLayer id="subDivGl" name="Subdivision Search Graphics Layer">
+			<esri:symbol>
+				<esri:SimpleFillSymbol style="null">
+					<esri:SimpleLineSymbol color="{uint(config.subdivisions.@color)}" width="{parseInt(config.subdivisions.@weight)}"/>
+				</esri:SimpleFillSymbol>
+			</esri:symbol>
+		</esri:GraphicsLayer>
+		<fx:Array id="validators">
+			<mx:Validator id="validator" source="{subDivName.input}" required="true" property="text"/>
+		</fx:Array>
+		<s:CallResponder id="GetSubdivisionNamesResult"/>
+		<!--<services:PropertyService id="propertyService"
+								  fault="Alert.show(event.fault.faultString + '\n' + event.fault.faultDetail)"
+								  showBusyCursor="true"/>-->
+		<s:HTTPService id="subdivisionService" url="http://maps.raleighnc.gov/arcgis/rest/services/Planning/Subdivisions/MapServer/0/query"
+					   resultFormat="text" method="GET" >
+			
+		</s:HTTPService>
+		<s:CallResponder id="DistinctSubdivisionsResult"/>
+		<subdivisonsearch:SubdivisonSearch id="subdivisonSearch"
+										   fault="Alert.show(event.fault.faultString + '\n' + event.fault.faultDetail)"
+										   showBusyCursor="true"
+										   result="subdivisionService_resultHandler(event)"/>
+	</fx:Declarations>
+	<s:HGroup width="100%">
+		<utils:AutoComplete id="subDivName"
+							minChars="3"
+							displayField="name"
+							creationComplete="subDivName_creationCompleteHandler(event)"
+							width="100%"
+							enabled="{DistinctSubdivisionsResult.lastResult.Names.length>0}"
+							selectionchanged="subDivName_selectionchangedHandler(event)"/>		
+		<utils:ImageButton id="searchBtn" label="Search" click="search()"
+								icon="@Embed(source='../../assets/searchIcon.png')"
+								height="24" width="24"/>
+		<utils:ImageButton id="clearBtn" label="Clear" click="{subDivName.text = ''}"
+								icon="@Embed(source='../../assets/clear.png')"
+								height="24" width="24"/>
+	</s:HGroup>
+	<mx:DataGrid id="dataGrid" 
+				width="100%" height="100%" 
+				 dataProvider="{queryTask.executeLastResult.features}"
+				 change="datagrid_changeHandler()"
+				 valueCommit="datagrid_changeHandler()"
+				 wordWrap="true" variableRowHeight="true">
+		<mx:columns>
+			<mx:DataGridColumn headerText="Name" dataField="attributes.NAME"/>
+			<mx:DataGridColumn headerText="Access Road" dataField="attributes.ACCESS_RD"/>
+			<mx:DataGridColumn headerText="Lots" dataField="attributes.LOTS"/>
+		</mx:columns>
+	</mx:DataGrid>
+	
+
+</paneltools:BasePanelTool>

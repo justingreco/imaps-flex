@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:BaseToolbarTool xmlns:fx="http://ns.adobe.com/mxml/2009"
+						 xmlns:s="library://ns.adobe.com/flex/spark"
+						 xmlns:mx="library://ns.adobe.com/flex/mx"
+						 xmlns:components="com.raleigh.components.*"
+						 xmlns:zoomslider="com.raleigh.components.zoomslider.*"
+						 xmlns:utils="com.raleigh.components.utils.*"
+						 xmlns:toolbar="com.raleigh.components.toolbar.*"
+						 minWidth="300" maxHeight="200"
+						 creationComplete="group1_creationCompleteHandler(event)">
+	
+	<toolbar:layout>
+		<s:VerticalLayout paddingBottom="5" paddingLeft="5" paddingRight="5" paddingTop="5"/>
+	</toolbar:layout>
+
+	<fx:Script>
+		<![CDATA[
+			import mx.events.FlexEvent;
+			import mx.events.ValidationResultEvent;
+
+			
+			private const BOOKMARKS:String = "bookmarks";
+			private var so:SharedObject;
+			private var fileReference:FileReference;
+			protected function group1_creationCompleteHandler(event:FlexEvent):void
+			{
+				fileReference = new FileReference();
+				bookmarkAC = new ArrayCollection();
+				so = SharedObject.getLocal(BOOKMARKS+"_"+model.config);
+				if (so.size > 0){
+					bookmarkAC = getBookmarks();
+					if (bookmarkAC.length == 0){
+						bookmarkAC = loadBookmarks();
+					}
+				}else{
+					bookmarkAC = loadBookmarks();
+				}
+				updateBookmarks();
+			}
+			
+			protected function getBookmarks():ArrayCollection{
+				if (so.data[BOOKMARKS+"_"+model.config])
+				{
+					return so.data[BOOKMARKS+"_"+model.config];
+				}
+				else
+				{
+					return new ArrayCollection();
+				}
+			}
+			
+			protected function loadBookmarks():ArrayCollection
+			{
+				var ac:ArrayCollection = new ArrayCollection();
+				if (bookmarkXML != null)
+				{
+					var list:XMLList = bookmarkXML.bookmark;
+					for (var i:Number = 0; i < list.length();i++)
+					{
+						var name:String = list[i].@name;
+						var extent:String = list[i];
+						var extArray:Array = extent.split(" ");
+						var bookmark:Object = 
+							{
+								name:name,
+								extent:
+								Math.round(extArray[0])+" "+
+									Math.round(extArray[1])+" "+
+									Math.round(extArray[2])+" "+
+									Math.round(extArray[3])};
+						bookmarkAC.addItem(bookmark);
+					}
+				}
+				else
+				{
+					ac = model.configuration.bookmarks;
+				}
+				return ac;					
+			
+			}
+
+
+			protected function addButton_clickHandler(event:MouseEvent):void
+			{
+				titleValidator.validate();
+			}
+
+
+			protected function titleValidator_validHandler(event:ValidationResultEvent):void
+			{
+				bookmarkAC.addItem({name:title.text, 
+					extent:
+					Math.round(model.map.extent.xmin)+" "+
+					Math.round(model.map.extent.ymin)+" "+
+					Math.round(model.map.extent.xmax)+" "+
+					Math.round(model.map.extent.ymax)});
+				updateBookmarks();
+			}			
+			public function updateBookmarks():void
+			{
+				so.data[BOOKMARKS] = bookmarkAC;
+				so.flush();
+			}
+
+
+			protected function saveButton_clickHandler(event:MouseEvent):void
+			{
+				var xml:XML = new XML(<bookmarks></bookmarks>);
+				for each (var item:Object in bookmarkAC)
+				{
+					var xml2:XML = new XML(<bookmark name={item.name}>{item.extent}</bookmark>);
+					xml.appendChild(xml2);
+				}
+				var xmlSaveStr:String = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" + xml.toXMLString();
+			 	fileReference.save(xmlSaveStr, "iMaps_Bookmarks.xml");
+			}
+
+
+			protected function loadButton_clickHandler(event:MouseEvent):void
+			{
+				fileReference.addEventListener(Event.SELECT, fileSelectHandler,false,0,true);
+				fileReference.addEventListener(Event.COMPLETE, fileCompleteHandler,false,0,true);
+				var fileTypes:FileFilter = new FileFilter("XML (*.xml)", "*.xml");
+				var allTypes:Array = new Array(fileTypes);
+				fileReference.browse(allTypes);
+			}
+			
+			private function fileSelectHandler(e:Event):void{
+				fileReference.load();					
+			}				
+			private function fileCompleteHandler(e:Event):void{
+				var content:ByteArray = fileReference.data as ByteArray;
+				bookmarkXML = new XML(content);
+				bookmarkAC = new ArrayCollection();
+				loadBookmarks();
+				fileReference.removeEventListener(Event.SELECT, fileSelectHandler); 
+				fileReference.removeEventListener(Event.COMPLETE, fileCompleteHandler);	
+			} 
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:ArrayCollection id="bookmarkAC"/>
+		<fx:XML id="bookmarkXML"/>		
+		<mx:Validator id="titleValidator" property="text" required="true" source="{title}"
+					  trigger="{addButton}" valid="titleValidator_validHandler(event)"/>
+	</fx:Declarations>
+
+	<s:HGroup width="100%" verticalAlign="middle">
+		<s:Label text="Title:"/>
+		<s:TextInput id="title" width="100%" maxChars="30"/>
+		<utils:ImageButton id="addButton" width="22" height="22"
+						   click="addButton_clickHandler(event)"
+						   icon="@Embed(source='assets/w_add_green.png')" toolTip="Add Bookmark"/>
+		<utils:ImageButton id="loadButton" width="22" height="22"
+						   click="loadButton_clickHandler(event)"
+						   icon="@Embed(source='assets/i_folder.png')" toolTip="Load Bookmarks"/>								
+		<utils:ImageButton id="saveButton" width="22" height="22"
+						   click="saveButton_clickHandler(event)"
+						   icon="@Embed(source='assets/save.png')" toolTip="Save Bookmarks"/>			
+	</s:HGroup>
+	<s:Scroller width="100%" height="100%">
+		<s:DataGroup width="100%" height="100%" dataProvider="{bookmarkAC}"
+					 itemRenderer="com.raleigh.components.toolbar.bookmarks.BookmarkItemRenderer">
+			<s:layout>
+				<s:VerticalLayout gap="5"/>
+			</s:layout>
+		</s:DataGroup>
+	</s:Scroller>
+</toolbar:BaseToolbarTool>

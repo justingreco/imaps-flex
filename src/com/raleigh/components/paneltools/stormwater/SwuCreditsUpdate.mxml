@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toolbar:ToolWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+					xmlns:s="library://ns.adobe.com/flex/spark"
+					xmlns:mx="library://ns.adobe.com/flex/mx"
+					xmlns:services="services.*"
+					xmlns:toolbar="com.raleigh.components.toolbar.*"
+					xmlns:stormwater="com.raleigh.components.paneltools.stormwater.*"
+					creationComplete="toolbar1_creationCompleteHandler(event)" 
+					title="Update Credits">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.esri.ags.utils.JSON;
+			import com.raleigh.components.paneltools.property.SearchPanel;
+			import com.raleigh.model.Model;
+			
+			import mx.collections.ArrayCollection;
+			import mx.controls.Alert;
+			import mx.events.FlexEvent;
+			import mx.managers.PopUpManager;
+			import mx.rpc.AsyncResponder;
+			import mx.rpc.AsyncToken;
+			import mx.rpc.events.ResultEvent;
+			import mx.validators.Validator;
+
+			
+			protected function onsiteDDL_creationCompleteHandler(event:FlexEvent):void
+			{
+				var token:AsyncToken = model.stormwater.searchPanel.swuService.send({
+					'function': 'getonsitecredits',
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});
+				var responder:AsyncResponder = new AsyncResponder(onSiteCreditsRetrieved,null);
+				token.addResponder(responder);
+				
+			}
+			
+			protected function upstreamDDL_creationCompleteHandler(event:FlexEvent):void
+			{
+				var token:AsyncToken = model.stormwater.searchPanel.swuService.send({
+					'function': 'getupstreamcredits',
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema
+				});
+				var responder:AsyncResponder = new AsyncResponder(upstreamCreditsRetrieved,null);
+				token.addResponder(responder);
+			}
+			
+			protected function upstreamCreditsRetrieved(event:ResultEvent, token:AsyncToken):void
+			{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, upstreamCreditsRetrieved);
+				if (event.result.length > 0){	
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.upstreamControlsCredit = data[0];
+						
+						upstreamDDL.dataProvider = new ArrayCollection(data);
+						this.upstreamDDL.selectedIndex = this.upstreamDDL.dataProvider.getItemIndex(model.stormwater.upstreamControlsCredit);
+					}
+				};				
+			}
+			
+			protected function onSiteCreditsRetrieved(event:ResultEvent,token:AsyncToken):void
+			{
+				model.stormwater.searchPanel.swuService.removeEventListener(ResultEvent.RESULT, onSiteCreditsRetrieved);
+				if (event.result.length > 0){	
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.onsiteControlsCredit = data[0];
+						
+						onsiteDDL.dataProvider = new ArrayCollection(data);
+						this.onsiteDDL.selectedIndex = this.onsiteDDL.dataProvider.getItemIndex(model.stormwater.onsiteControlsCredit);
+					}
+				};					
+			}			
+			
+
+			
+			protected function toolbar1_creationCompleteHandler(event:FlexEvent):void
+			{
+				var dateFormat:String = "MM/DD/YYYY";
+				this.creditInceptDate.selectedDate = DateField.stringToDate(model.stormwater.credits.INCEPTION_DATE, dateFormat);
+				this.creditApprvlDate.selectedDate = DateField.stringToDate(model.stormwater.credits.CREDIT_APPROVAL_DATE, dateFormat);
+				this.creditExpireDate.selectedDate = DateField.stringToDate(model.stormwater.credits.CREDIT_EXPIRE_DATE, dateFormat) ;
+				this.cntrldSurface.text = model.stormwater.credits.CONTROLLED_SURFACE.toString();
+				this.creditApprvlUser.text=model.stormwater.credits.CREDIT_APPROVAL_USER;
+				this.cntrldArea.text=model.stormwater.credits.CONTROLED_ACREAGE.toString();
+				this.npdesPercentage.text= model.stormwater.credits.NPDES_PERCENTAGE.toString();
+				this.creditComment.text=model.stormwater.credits.CREDIT_COMMENT.toString();
+			}			
+			
+
+			
+	
+			
+			protected function btnCancel_clickHandler(event:MouseEvent):void
+			{
+				this.close();
+			}
+			
+			protected function btnUpdate_clickHandler(event:MouseEvent):void
+			{
+				var alertHdr:String  = "There is an error in the following field(s): \n";
+				var alertTxt:String  = "";				
+				var alertFlg:Boolean  = false;
+				if (validateInputs())
+				{	
+					if (Number(npdesPercentage.text)>50)
+					{alertTxt =  alertTxt + "NPDES Percentage entered exceeds max allowed... \n"
+						alertFlg=true;	
+					}
+					if (onsiteDDL.selectedItem.ONSITE_CREDIT_CODE=="US4"||onsiteDDL.selectedItem.ONSITE_CREDIT_CODE=="US5"||onsiteDDL.selectedItem.ONSITE_CREDIT_CODE=="US6")
+					{
+						if (Number(cntrldArea.text)<10||Number(cntrldArea.text)>100)                  
+						{
+							alertTxt =  alertTxt + "Controlled Acreage must be greater than 10 and less than 101 for selected Upstream Control Credit... \n" 
+							alertFlg=true;	
+						}
+					}
+					
+					if (upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE=="US1"||upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE=="US2"||upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE=="US3")
+					{
+						if (Number(cntrldArea.text)<1||Number(cntrldArea.text)>10)					
+						{	alertTxt = alertTxt + "Controlled Acreage must be greater than 0 and less than 11 for selected Upstream Control Credit... \n" 
+							alertFlg=true;	
+						}
+					}
+					if (upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE=="US7"||upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE=="US8"||upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE=="US9")
+					{
+						if (Number(cntrldArea.text)<101)
+						{alertTxt = alertTxt + "Controlled Acreage must be greater than 100 for selected Upstream Control Credit... \n" 
+							alertFlg=true;	
+						}
+					}
+				}
+				
+				if (alertFlg){
+					Alert.show(alertHdr + alertTxt);
+				} 
+				else {
+					UpDateCredits();
+				}
+			}
+			
+			private function validateInputs():Boolean
+			{
+				var ret:Boolean = true;
+				var errors:Array = Validator.validateAll(validators);
+				if (errors.length > 0)
+				{
+					ret = false;
+				}
+				return ret;			
+			}
+			
+			protected function UpDateCredits():void
+			{
+				var date:Date  = new Date();
+				swuCreditService.addEventListener(ResultEvent.RESULT, creditUpdated);
+				var updates:Object = {
+					swu_account_id:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+					controled_acreage:this.cntrldArea.text,
+					controlled_surface:cntrldSurface.text,
+					inception_date:creditInceptDate.text,
+					credit_expire_date:creditExpireDate.text,
+					credit_approval_date:creditApprvlDate.text,
+					credit_approval_user:creditApprvlUser.text,
+					credit_comment:creditComment.text,
+					onsite_credit_code:onsiteDDL.selectedItem.ONSITE_CREDIT_CODE,
+					upstream_credit_code:upstreamDDL.selectedItem.UPSTREAM_CREDIT_CODE,
+					npdes_percentage:npdesPercentage.text					
+				};
+				swuCreditService.send({
+					'function':'updatecredits',
+					connstr:JSON.encode(model.stormwater.connstr),
+					dbschema:model.stormwater.dbSchema,
+					updates:JSON.encode(updates)});
+				this.close();
+			}
+			
+			protected function creditUpdated(event:ResultEvent):void{
+				swuCreditService.removeEventListener(ResultEvent.RESULT, creditUpdated);
+				if (event.result == 1){
+					Alert.show("Updating record now...");	
+					swuCreditService.addEventListener(ResultEvent.RESULT, creditsRetrieved);
+					swuCreditService.send({
+						'function':'getcredits',
+						acctid:model.stormwater.currentAccount.SWU_ACCOUNT_ID,
+						dbschema:model.stormwater.dbSchema,
+						connstr:JSON.encode(model.stormwater.connstr)
+						
+					});
+					this.close();
+				}
+			}
+			
+			protected function creditsRetrieved(event:ResultEvent):void{
+				swuCreditService.removeEventListener(ResultEvent.RESULT, creditsRetrieved);
+				model.stormwater.foundNoCredit=true;
+				if (event.result.length > 0){
+					var data:Array = JSON.decode(event.result.toString());
+					if (data.length > 0){
+						model.stormwater.credits = data[0];
+						if (model.stormwater.creditInsertPrivs){
+							model.stormwater.foundNoCredit = false;
+						}
+					}
+					else{
+						model.stormwater.credits = null;
+					}							
+				}				
+			}
+			
+
+			
+		]]>
+	</fx:Script>
+	<toolbar:layout>
+		<s:VerticalLayout/>
+	</toolbar:layout>
+	
+	<fx:Declarations>
+		<fx:Array id="validators">
+			<mx:DateValidator id="creditExpireDateValidate" required="true" property="text" source="{creditExpireDate}"/>
+			<mx:DateValidator id="creditInceptDateValidate" required="true" property="text" source="{creditInceptDate}"/>
+			<mx:DateValidator id="creditApprvlDateValidate" required="true" property="text" source="{creditApprvlDate}"/>
+			<mx:StringValidator id="creditApprvlUserValidate"  property="text" required="true" source="{creditApprvlUser}"/>	
+			<mx:StringValidator id="cntrldAreaValidate" property="text" required="true" source="{cntrldArea}"/>	
+		</fx:Array>
+		<mx:DateFormatter id="dateFormatter" formatString="MM/DD/YYYY"/>
+		<mx:NumberFormatter id="numFormatter" useThousandsSeparator="true"/>
+
+		
+		<fx:XML id="config" source="config.xml"/>
+		<s:HTTPService id="swuCreditService" url="{config.creditservice.@url}"/>
+	</fx:Declarations>
+	<s:Form width="100%">
+		<s:FormItem width="100%" label="Controlled Area">
+			<s:TextInput id="cntrldArea" restrict="0-9"/>
+		</s:FormItem>
+		<s:FormItem width="100%" label="Controlled Surface">
+			<s:TextInput id="cntrldSurface" restrict="0-9"/>
+			<s:Label fontSize="10" fontWeight="bold" text="(optional) Sq Ft" verticalAlign="middle"/>
+		</s:FormItem>		
+		<s:FormItem width="100%" label="OnSite Credits">
+			<s:DropDownList id="onsiteDDL" width="156"
+							creationComplete="onsiteDDL_creationCompleteHandler(event)"
+							labelField="ONSITE_CREDIT_CODE_DESCR" prompt="Select an Onsite Credit">
+			</s:DropDownList>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Upstream Credits">
+			<s:DropDownList id="upstreamDDL" width="156"
+							labelField="UPSTREAM_CREDIT_CODE_DESCR" prompt="Select an Upstream Credit"
+							creationComplete="upstreamDDL_creationCompleteHandler(event)">
+			</s:DropDownList>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="NPDES MS4 Permts">
+			<s:TextInput id="npdesPercentage" restrict="0-9"/>
+			<s:Label fontSize="10" fontWeight="bold" text="(Percentage not to exceed 50%)"
+					 verticalAlign="middle"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Credit Inception Date">
+			<mx:DateField id="creditInceptDate"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Credit Expiration Date">
+			<mx:DateField id="creditExpireDate"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Credit Approval Date">
+			<mx:DateField id="creditApprvlDate"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Credit Approval User">
+			<s:TextInput id="creditApprvlUser" restrict="A-Z"/>
+		</s:FormItem>	
+		<s:FormItem width="100%" label="Comment">
+			<s:TextInput id="creditComment" restrict="A-Z 0-9"/>
+		</s:FormItem>	
+	</s:Form>
+	<s:HGroup paddingBottom="5" paddingLeft="10" paddingRight="10" paddingTop="5">
+		<s:Button id="btnClose" label="Cancel" click="btnCancel_clickHandler(event)"/>
+		<s:Label width="254" text=""/>
+		<s:Button id="btnUpdate" label="Update" 
+				  visible="{Boolean(model.stormwater.creditUpdatePrivs)}"
+				  enabled="{Boolean(model.stormwater.creditUpdatePrivs)}"
+				  click="btnUpdate_clickHandler(event)"/>
+	</s:HGroup>
+</toolbar:ToolWindow>
+
